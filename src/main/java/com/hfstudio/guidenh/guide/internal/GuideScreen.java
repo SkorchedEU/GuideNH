@@ -32,6 +32,7 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import com.hfstudio.guidenh.client.command.GuideNhClientBridgeController;
+import com.hfstudio.guidenh.client.hotkey.OpenGuideHotkey;
 import com.hfstudio.guidenh.config.ModConfig;
 import com.hfstudio.guidenh.guide.GuidePage;
 import com.hfstudio.guidenh.guide.GuidePageIcon;
@@ -48,16 +49,19 @@ import com.hfstudio.guidenh.guide.document.block.LytParagraph;
 import com.hfstudio.guidenh.guide.document.block.LytSlot;
 import com.hfstudio.guidenh.guide.document.block.LytVisitor;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowContent;
+import com.hfstudio.guidenh.guide.document.flow.LytFlowText;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.DocumentDragTarget;
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.InteractiveElement;
 import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
+import com.hfstudio.guidenh.guide.indices.ItemMultiIndex;
 import com.hfstudio.guidenh.guide.internal.item.RegionWandItem;
 import com.hfstudio.guidenh.guide.internal.markdown.CodeBlockClipboardService;
 import com.hfstudio.guidenh.guide.internal.screen.GuideIconButton;
 import com.hfstudio.guidenh.guide.internal.screen.GuideNavBar;
+import com.hfstudio.guidenh.guide.internal.search.GuideItemLinksPage;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchPage;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchResultDocumentBuilder;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchSnippetFormatter;
@@ -65,6 +69,7 @@ import com.hfstudio.guidenh.guide.internal.tooltip.GuideItemTooltipLines;
 import com.hfstudio.guidenh.guide.internal.tooltip.GuideItemTooltipRenderSupport;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.layout.MinecraftFontMetrics;
+import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.render.VanillaRenderContext;
 import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockDisplayResolver;
@@ -154,6 +159,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     private LytDocument searchDocument;
     @Nullable
     private String cachedSearchQuery;
+
+    // Tracks the item stack whose tooltip was rendered last frame, for the G-key disambiguation hotkey.
+    @Nullable
+    private ItemStack hoveredItemStack;
     private String currentPageTitle = "";
     private LytParagraph pageTitle;
     @Nullable
@@ -336,7 +345,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     }
 
     private boolean hasBottomBar() {
-        return currentPage != null && !isSearchPage();
+        return currentPage != null && !isSearchPage() && !isItemLinksPage();
     }
 
     private void rebuildToolbar() {
@@ -422,6 +431,11 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             currentPage = null;
             document = null;
             rebuildSearchDocumentIfNeeded(true);
+        } else if (isItemLinksPage()) {
+            currentPage = null;
+            searchField = null;
+            ItemStack stack = GuideItemLinksPage.stackFromAnchor(currentAnchor);
+            document = buildItemLinksDocument(stack);
         } else {
             searchField = null;
             try {
@@ -496,6 +510,14 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             return;
         }
 
+        if (isItemLinksPage()) {
+            ItemStack stack = GuideItemLinksPage.stackFromAnchor(currentAnchor);
+            String itemName = stack != null ? stack.getDisplayName() : currentAnchor.anchor();
+            currentPageTitle = GuidebookText.ItemLinksTitle.text(itemName);
+            pageTitle.appendText(currentPageTitle);
+            return;
+        }
+
         LytHeading extracted = currentPage != null ? currentPage.titleHeading() : null;
 
         if (extracted != null) {
@@ -548,6 +570,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        hoveredItemStack = null;
         drawTiledBackground();
         recomputePanelBounds();
         ensureSearchField();
@@ -898,6 +921,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
 
     private void renderGuideTooltip(GuideTooltip tooltip, int mouseX, int mouseY) {
         if (tooltip instanceof ItemTooltip it) {
+            hoveredItemStack = it.getStack();
             renderItemTooltip(it, mouseX, mouseY);
             return;
         }
@@ -1082,7 +1106,8 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     }
 
     private boolean isCenteredSearchStateDocument(@Nullable LytDocument activeDocument) {
-        return isSearchPage() && GuideSearchResultDocumentBuilder.isCenteredStateDocument(activeDocument);
+        return (isSearchPage() || isItemLinksPage())
+            && GuideSearchResultDocumentBuilder.isCenteredStateDocument(activeDocument);
     }
 
     private void drawCenteredSearchStateMessage(LytDocument activeDocument) {
@@ -1130,7 +1155,9 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     }
 
     private boolean canSearchCurrentView() {
-        return isSearchPage() || currentAnchor == null || !guide.isPageFailed(currentAnchor.pageId());
+        return isSearchPage() || isItemLinksPage()
+            || currentAnchor == null
+            || !guide.isPageFailed(currentAnchor.pageId());
     }
 
     private void drawTiledBackground() {
@@ -1648,6 +1675,11 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             clampScroll();
             return;
         }
+        int guideHotkey = OpenGuideHotkey.OPEN_GUIDE_KEY.getKeyCode();
+        if (guideHotkey > 0 && keyCode == guideHotkey && hoveredItemStack != null) {
+            openItemLinksPage(hoveredItemStack);
+            return;
+        }
         super.keyTyped(typedChar, keyCode);
     }
 
@@ -1772,6 +1804,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         return GuideSearchPage.isSearchAnchor(currentAnchor);
     }
 
+    private boolean isItemLinksPage() {
+        return GuideItemLinksPage.isItemLinksAnchor(currentAnchor);
+    }
+
     private void ensureSearchField() {
         if (!isSearchPage()) {
             searchField = null;
@@ -1845,6 +1881,73 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         searchDocument = buildSearchDocument(query);
         layoutDocument = null;
         lastLayoutWidth = -1;
+    }
+
+    private void openItemLinksPage(ItemStack stack) {
+        var pages = guide.getIndex(ItemMultiIndex.class)
+            .findAllByStack(stack);
+        if (pages.isEmpty()) {
+            return;
+        }
+        if (pages.size() == 1) {
+            navigateTo(pages.get(0));
+        } else {
+            navigateTo(GuideItemLinksPage.anchorForStack(stack));
+        }
+    }
+
+    private LytDocument buildItemLinksDocument(@Nullable ItemStack stack) {
+        if (stack == null) {
+            return GuideSearchResultDocumentBuilder.buildDocument(
+                null,
+                new ArrayList<>(),
+                GuidebookText.ItemLinksEmpty.text(),
+                GuidebookText.ItemLinksEmpty.text());
+        }
+        var anchors = guide.getIndex(ItemMultiIndex.class)
+            .findAllByStack(stack);
+        if (anchors.isEmpty()) {
+            var doc = new LytDocument();
+            doc.append(GuideSearchResultDocumentBuilder.buildCenteredMessage(GuidebookText.ItemLinksEmpty.text()));
+            return doc;
+        }
+        var navTree = guide.getNavigationTree();
+        var results = new ArrayList<GuideSearchResultDocumentBuilder.SearchPageResult>(anchors.size());
+        for (var anchor : anchors) {
+            NavigationNode node = navTree.getNodeById(anchor.pageId());
+            String title = node != null && !node.title()
+                .isEmpty() ? node.title()
+                    : anchor.pageId()
+                        .toString();
+            GuidePageIcon icon = node != null ? node.icon() : null;
+            int textColumnWidth = getSearchTextColumnWidth(icon != null);
+            int pathWidth = getSearchPathWidth(textColumnWidth);
+            results.add(
+                new GuideSearchResultDocumentBuilder.SearchPageResult(
+                    anchor,
+                    icon,
+                    clipRightForWidth(title, getSearchTitleWidth(textColumnWidth, pathWidth)),
+                    clipSearchPath(resolveSearchResultPath(anchor.pageId()), pathWidth),
+                    new LytFlowText()));
+        }
+        results.sort((a, b) -> {
+            NavigationNode na = navTree.getNodeById(
+                a.anchor()
+                    .pageId());
+            NavigationNode nb = navTree.getNodeById(
+                b.anchor()
+                    .pageId());
+            int posA = na != null ? na.position() : Integer.MAX_VALUE;
+            int posB = nb != null ? nb.position() : Integer.MAX_VALUE;
+            if (posA != posB) return Integer.compare(posA, posB);
+            return a.title()
+                .compareToIgnoreCase(b.title());
+        });
+        var doc = new LytDocument();
+        for (var result : results) {
+            doc.append(GuideSearchResultDocumentBuilder.buildResultRow(result));
+        }
+        return doc;
     }
 
     private LytDocument buildSearchDocument(String query) {

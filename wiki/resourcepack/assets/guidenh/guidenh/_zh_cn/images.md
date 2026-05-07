@@ -159,3 +159,21 @@ navigation:
 </Row>
 
 <ItemImage id="minecraft:compass" />
+
+## ItemLink
+
+基本链接（仅文字，开启 tooltip）：
+
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" />
+
+左侧显示图标：
+
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" showIcon="left" />
+
+右侧显示图标，关闭 tooltip：
+
+<ItemLink id="minecraft:diamond" showIcon="right" showTooltip="false" />
+
+矿辞查询：
+
+<ItemLink ore="stickWood" />

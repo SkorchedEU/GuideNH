@@ -26,7 +26,7 @@ This page lists the built-in runtime tags registered by `DefaultExtensions`.
 | `<PlayerName>` | inserts current player username | none |
 | `<KeyBind>` | inserts keybinding display name | `id` |
 | `<ItemImage>` | inline item icon | `id` or `ore`, `scale`, `noTooltip`, `showTooltip`, `showIcon`, `label`, `format`, `yOffset` |
-| `<ItemLink>` | item tooltip + optional navigation link | `id` or `ore` |
+| `<ItemLink>` | item tooltip + optional navigation link | `id` or `ore`, `showTooltip`, `noTooltip`, `showIcon` |
 | `<CommandLink>` | clickable chat command link | `command`, `title`, `close` |
 | `<QuestLink>` | BetterQuesting quest link with state-aware styling (compat tag, only registered when BetterQuesting is loaded) | `id`, `text` |
 
@@ -275,8 +275,19 @@ Example:
 
 Creates a text link using the item's display name and item tooltip. If `item_ids` points to a guide page, clicking navigates to it. `ore` can be used to resolve the display stack from the first ore dictionary match instead of a fixed registry id.
 
+| Attribute | Default | Meaning |
+| --- | --- | --- |
+| `id` | — | item registry id, e.g. `minecraft:compass` or `minecraft:wool:1` |
+| `ore` | — | ore-dictionary name; uses the first matching item stack |
+| `showTooltip` | `true` | set to `false` to suppress the hover tooltip; `noTooltip` is a legacy alias |
+| `showIcon` | *(none)* | `left` or `right` (or any truthy value → right) — renders the item icon beside the link text; omit to show text only |
+
+Examples:
+
 ````md
-<ItemLink id="minecraft:compass" />
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" />
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" showIcon="left" />
+<ItemLink id="minecraft:diamond" showIcon="right" showTooltip="false" />
 <ItemLink ore="stickWood" />
 ````
 

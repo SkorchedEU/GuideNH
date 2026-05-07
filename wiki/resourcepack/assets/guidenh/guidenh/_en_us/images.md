@@ -162,3 +162,21 @@ Icon shown, no tooltip:
 </Row>
 
 <ItemImage id="minecraft:compass" />
+
+## ItemLink
+
+Basic link (text only, tooltip enabled):
+
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" />
+
+Icon to the left of the link text:
+
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" showIcon="left" />
+
+Icon to the right, tooltip suppressed:
+
+<ItemLink id="minecraft:diamond" showIcon="right" showTooltip="false" />
+
+Ore-dictionary lookup:
+
+<ItemLink ore="stickWood" />

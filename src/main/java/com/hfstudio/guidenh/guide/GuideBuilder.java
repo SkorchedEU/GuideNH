@@ -20,6 +20,7 @@ import com.hfstudio.guidenh.guide.extensions.ExtensionCollection;
 import com.hfstudio.guidenh.guide.extensions.ExtensionPoint;
 import com.hfstudio.guidenh.guide.indices.CategoryIndex;
 import com.hfstudio.guidenh.guide.indices.ItemIndex;
+import com.hfstudio.guidenh.guide.indices.ItemMultiIndex;
 import com.hfstudio.guidenh.guide.indices.OreIndex;
 import com.hfstudio.guidenh.guide.indices.PageIndex;
 import com.hfstudio.guidenh.guide.internal.GuideRegistry;
@@ -68,6 +69,7 @@ public class GuideBuilder {
 
         // Add default indices
         index(new ItemIndex());
+        index(new ItemMultiIndex());
         index(new OreIndex());
         index(new CategoryIndex());
 

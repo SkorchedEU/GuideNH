@@ -28,7 +28,7 @@
 | `<PlayerName>` | 插入当前玩家用户名 | 无 |
 | `<KeyBind>` | 插入按键绑定显示名 | `id` |
 | `<ItemImage>` | 行内物品图标 | `id` 或 `ore`，`scale`，`noTooltip`，`showTooltip`，`showIcon`，`label`，`format`，`yOffset` |
-| `<ItemLink>` | 物品 tooltip + 可选导航链接 | `id` 或 `ore` |
+| `<ItemLink>` | 物品 tooltip + 可选导航链接 | `id` 或 `ore`，`showTooltip`，`noTooltip`，`showIcon` |
 | `<CommandLink>` | 可点击的聊天命令链接 | `command`, `title`, `close` |
 | `<QuestLink>` | BetterQuesting 任务链接，按任务状态自动调整样式（兼容标签，仅当 BetterQuesting 已加载时注册） | `id`, `text` |
 
@@ -251,8 +251,19 @@ More visible text.
 
 使用物品显示名创建文本链接，并附带物品 tooltip。若 `item_ids` 把该物品映射到了某一页面，点击后还会导航过去。也可以用 `ore` 通过矿辞的第一个匹配结果来决定显示的物品。
 
+| 属性 | 默认值 | 含义 |
+| --- | --- | --- |
+| `id` | — | 物品注册 ID，如 `minecraft:compass` 或 `minecraft:wool:1` |
+| `ore` | — | 矿辞名称，使用第一个匹配的物品堆叠 |
+| `showTooltip` | `true` | 设为 `false` 时悬停不显示 tooltip；`noTooltip` 是旧版兼容别名 |
+| `showIcon` | *（无）* | `left` 或 `right`（或任意真值 → 右侧）— 在链接文字的左侧或右侧显示物品图标；省略则仅显示文字 |
+
+示例：
+
 ````md
-<ItemLink id="minecraft:compass" />
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" />
+<ItemLink id="appliedenergistics2:tile.BlockSkyChest" showIcon="left" />
+<ItemLink id="minecraft:diamond" showIcon="right" showTooltip="false" />
 <ItemLink ore="stickWood" />
 ````
 
