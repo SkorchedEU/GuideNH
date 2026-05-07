@@ -19,8 +19,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.PageCollection;
+import com.hfstudio.guidenh.guide.compiler.FrontmatterNavigation;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.util.NavigationUtil;
+
+import cpw.mods.fml.common.Loader;
 
 public class NavigationTree {
 
@@ -63,14 +66,15 @@ public class NavigationTree {
             if (navigationEntry == null) {
                 continue;
             }
+            if (!areModRequirementsMet(navigationEntry)) {
+                continue;
+            }
 
             // Create an entry for this page to collect any children it might have
             pagesWithChildren.compute(
                 page.getId(),
-                (identifier, previousPair) -> {
-                    return previousPair != null ? Pair.of(page, previousPair.getRight())
-                        : Pair.of(page, new ArrayList<>());
-                });
+                (identifier, previousPair) -> previousPair != null ? Pair.of(page, previousPair.getRight())
+                    : Pair.of(page, new ArrayList<>()));
 
             // Add this page to the collected children of the parent page (if any)
             var parentId = navigationEntry.parent();
@@ -178,5 +182,26 @@ public class NavigationTree {
 
     public static final Comparator<NavigationNode> NODE_COMPARATOR = Comparator.comparingInt(NavigationNode::position)
         .thenComparing(NavigationNode::title);
+
+    /**
+     * Returns true when all mods listed in the navigation entry's {@code requiredMods} are currently
+     * loaded, or when no requirements are declared. Returns false when at least one required mod is
+     * absent, meaning the page should be excluded from the navigation tree and all page indices.
+     */
+    public static boolean areModRequirementsMet(@Nullable FrontmatterNavigation nav) {
+        if (nav == null) {
+            return true;
+        }
+        var required = nav.requiredMods();
+        if (required == null || required.isEmpty()) {
+            return true;
+        }
+        for (var modId : required) {
+            if (!Loader.isModLoaded(modId)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
 }

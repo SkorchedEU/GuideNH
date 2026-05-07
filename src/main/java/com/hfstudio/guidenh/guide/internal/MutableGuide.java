@@ -138,7 +138,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             return null;
         }
 
-        GuidePage compiledPage = null;
+        GuidePage compiledPage;
         try {
             synchronized (compiledPages) {
                 compiledPage = compiledPages.get(parsedPage);
@@ -186,7 +186,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         return loadAssetInternal(id);
     }
 
-    private @Nullable byte[] loadAssetInternal(ResourceLocation id) {
+    private byte @Nullable [] loadAssetInternal(ResourceLocation id) {
         // Also load images from the development sources folder, if it exists and contains the asset namespace
         if (developmentSourceFolder != null && id.getResourceDomain()
             .equals(developmentSourceNamespace)) {
@@ -389,6 +389,10 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         var allPages = new ArrayList<ParsedGuidePage>(pages.size() + developmentPages.size());
         allPages.addAll(pages.values());
         allPages.addAll(developmentPages.values());
+        allPages.removeIf(
+            p -> !NavigationTree.areModRequirementsMet(
+                p.getFrontmatter()
+                    .navigationEntry()));
         for (var index : indices.values()) {
             if (index.supportsUpdate()) {
                 index.update(allPages, changes);
@@ -434,6 +438,10 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
 
     public void rebuildIndices() {
         var allPages = new ArrayList<>(getPages());
+        allPages.removeIf(
+            p -> !NavigationTree.areModRequirementsMet(
+                p.getFrontmatter()
+                    .navigationEntry()));
         for (var index : indices.values()) {
             index.rebuild(allPages);
         }

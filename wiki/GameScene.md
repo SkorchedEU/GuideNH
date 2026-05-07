@@ -49,6 +49,8 @@ GuideNH currently registers these scene child tags:
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
 - `<RemoveBlocks>`
+- `<ReplaceBlock>`
+- `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - annotation tags such as `<BoxAnnotation>` and `<LineAnnotation>`
@@ -177,6 +179,72 @@ Example:
 <ImportStructure src="/assets/example_structure.snbt" />
 <RemoveBlocks id="minecraft:stone" />
 <RemoveBlocks id="minecraft:stone:3" />
+````
+
+## `<ReplaceBlock>`
+
+Replaces already-placed blocks that match a source block id (and optionally a partial tile entity NBT
+pattern) with a new block. The search can be global (all filled blocks) or restricted to a
+bounding box.
+
+| Attribute | Required | Meaning |
+| --- | --- | --- |
+| `from` | yes | source block to match, using `modid:block[:meta]` |
+| `from_nbt` | no | partial SNBT compound; a block matches only when its tile entity NBT contains all listed keys |
+| `to` | yes | replacement block, using `modid:block[:meta]` |
+| `to_nbt` | no | SNBT TileEntity compound to apply to the replacement |
+| `x` | no | bounding box start X; if any of `x/y/z/dx/dy/dz` is present, the box mode is activated |
+| `y` | no | bounding box start Y |
+| `z` | no | bounding box start Z |
+| `dx` | no | bounding box width (default `1`) |
+| `dy` | no | bounding box height (default `1`) |
+| `dz` | no | bounding box depth (default `1`) |
+
+Notes:
+
+- when none of `x/y/z/dx/dy/dz` are provided, all filled blocks are scanned globally
+- `from_nbt` is a **partial** match: only the keys listed in the pattern must match; extra keys in
+  the actual tile entity are ignored
+- the replacement is performed via the same block placement pipeline as `<Block>`, so GregTech MetaTile
+  and BartWorks tile entities are handled correctly
+
+Example:
+
+````md
+<ImportStructure src="/assets/example_structure.snbt" />
+<ReplaceBlock from="minecraft:stone" to="minecraft:glass" />
+<ReplaceBlock from="minecraft:stone:1" to="minecraft:stone:2" x="0" y="0" z="0" dx="5" dy="3" dz="5" />
+````
+
+## `<PlaceBlock>`
+
+Fills an axis-aligned box with a single block type, overwriting whatever was there before.
+Unlike `<Block>` (which targets a single position), `<PlaceBlock>` supports multi-block regions via
+`dx`/`dy`/`dz`.
+
+| Attribute | Required | Meaning |
+| --- | --- | --- |
+| `id` | yes | block id, using `modid:block[:meta]` |
+| `nbt` | no | SNBT TileEntity compound applied to every placed block |
+| `x` | no | region start X, default `0` |
+| `y` | no | region start Y, default `0` |
+| `z` | no | region start Z, default `0` |
+| `dx` | no | region width, default `1` |
+| `dy` | no | region height, default `1` |
+| `dz` | no | region depth, default `1` |
+
+Notes:
+
+- all blocks in the box are unconditionally placed (no prior-block check)
+- the NBT compound is copied for each individual placement
+- the same block placement pipeline as `<Block>` is used, so GregTech MetaTile and BartWorks tile entities
+  are fully supported
+
+Example:
+
+````md
+<PlaceBlock id="minecraft:stone" x="0" y="0" z="0" dx="5" dy="1" dz="5" />
+<PlaceBlock id="minecraft:glass" y="1" dx="3" dz="3" />
 ````
 
 ## `<BlockAnnotationTemplate>`

@@ -27,6 +27,30 @@ navigation:
   <RemoveBlocks id="minecraft:glowstone" />
 </GameScene>
 
+## ReplaceBlock
+
+`<ReplaceBlock from="..." to="..." />` 将已放置的匹配方块替换为新方块。未指定范围时全局扫描，
+提供 `x/y/z/dx/dy/dz` 中任意一项即启用包围盒模式：
+
+<GameScene width="384" height="256" zoom={4} interactive={true}>
+  <ImportStructure src="/assets/example_structure.snbt" />
+  <ReplaceBlock from="minecraft:stone" to="minecraft:glass" />
+  <ReplaceBlock from="minecraft:cobblestone" to="minecraft:brick_block" x="1" y="0" z="1" dx="3" dy="1" dz="3" />
+</GameScene>
+
+使用 `from_nbt` 可进一步将匹配范围缩小到 TileEntity NBT 中包含特定键的方块；使用 `to_nbt`
+可为替换后的方块指定 TileEntity 数据。
+
+## PlaceBlock
+
+`<PlaceBlock id="..." />` 无条件地用单一方块类型填充一个轴对齐的包围盒，覆盖原有方块。
+使用 `dx`/`dy`/`dz` 可一次填充多方块区域：
+
+<GameScene width="384" height="256" zoom={4} interactive={true}>
+  <PlaceBlock id="minecraft:stone" dx="5" dy="1" dz="5" />
+  <PlaceBlock id="minecraft:glass" y="1" dx="5" dz="5" />
+</GameScene>
+
 ## SNBT 文件格式
 
 `<ImportStructure src="..." />` 接受 SNBT（1.7.10 原生 `JsonToNBT`：`pos:[0,1,2]` 会被识别为 IntArray，不需要现代的 `[I; ...]` 前缀），也可读取 gzip / 未压缩的二进制 NBT。schema 为 `{size, palette, blocks}`，每个 `block` 可携带 `meta` 与 `nbt`（`nbt` 需含与原版一致的 TileEntity `id` 字段，例如 `"Chest"`）。`x/y/z` 属性可整体平移结构。

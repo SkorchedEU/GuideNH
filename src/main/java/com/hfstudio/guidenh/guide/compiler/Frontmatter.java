@@ -129,6 +129,35 @@ public record Frontmatter(@Nullable FrontmatterNavigation navigationEntry, Map<S
                 if (iconTextureEntries.isEmpty()) iconTextureEntries = null;
             }
 
+            // Parse required_mod (single mod id) and required_mods (list of mod ids).
+            // Either or both may be specified; duplicates are preserved as-is.
+            List<String> requiredMods = null;
+            String requiredModSingle = getString(navigationMap, "required_mod");
+            Object requiredModsObj = navigationMap.get("required_mods");
+            if (requiredModSingle != null || requiredModsObj != null) {
+                requiredMods = new ArrayList<>();
+                if (requiredModSingle != null && !requiredModSingle.trim()
+                    .isEmpty()) {
+                    requiredMods.add(requiredModSingle.trim());
+                }
+                if (requiredModsObj instanceof List<?>) {
+                    for (Object entry : (List<?>) requiredModsObj) {
+                        if (entry instanceof String) {
+                            String s = ((String) entry).trim();
+                            if (!s.isEmpty()) {
+                                requiredMods.add(s);
+                            }
+                        }
+                    }
+                } else if (requiredModsObj instanceof String) {
+                    String s = ((String) requiredModsObj).trim();
+                    if (!s.isEmpty()) {
+                        requiredMods.add(s);
+                    }
+                }
+                if (requiredMods.isEmpty()) requiredMods = null;
+            }
+
             navigation = new FrontmatterNavigation(
                 title,
                 parentId,
@@ -138,7 +167,8 @@ public record Frontmatter(@Nullable FrontmatterNavigation navigationEntry, Map<S
                 iconComponents,
                 iconTextureId,
                 iconEntries,
-                iconTextureEntries);
+                iconTextureEntries,
+                requiredMods);
         }
 
         return new Frontmatter(navigation, Collections.unmodifiableMap(new HashMap<>(data)));

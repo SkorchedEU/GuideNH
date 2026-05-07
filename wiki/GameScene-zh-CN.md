@@ -51,6 +51,8 @@ GuideNH 当前注册了以下场景子标签：
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
 - `<RemoveBlocks>`
+- `<ReplaceBlock>`
+- `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - 各类注解标签，例如 `<BoxAnnotation>` 和 `<LineAnnotation>`
@@ -179,6 +181,67 @@ GuideNH 当前注册了以下场景子标签：
 <ImportStructure src="/assets/example_structure.snbt" />
 <RemoveBlocks id="minecraft:stone" />
 <RemoveBlocks id="minecraft:stone:3" />
+````
+
+## `<ReplaceBlock>`
+
+将已放置且匹配来源方块 id（以及可选的 TileEntity NBT 部分匹配）的方块替换为新方块。
+搜索范围可以是全局（所有已填充方块），也可以限定于一个轴对齐的包围盒。
+
+| 属性 | 必需 | 含义 |
+| --- | --- | --- |
+| `from` | 是 | 要匹配的来源方块，使用 `modid:block[:meta]` 格式 |
+| `from_nbt` | 否 | 部分 SNBT 复合标签；仅当方块的 TileEntity NBT 包含所有列出的键时才匹配 |
+| `to` | 是 | 替换目标方块，使用 `modid:block[:meta]` 格式 |
+| `to_nbt` | 否 | 应用于替换方块的 SNBT TileEntity 复合标签 |
+| `x` | 否 | 包围盒起始 X；只要 `x/y/z/dx/dy/dz` 中任意一个存在，就启用包围盒模式 |
+| `y` | 否 | 包围盒起始 Y |
+| `z` | 否 | 包围盒起始 Z |
+| `dx` | 否 | 包围盒宽度（默认 `1`）|
+| `dy` | 否 | 包围盒高度（默认 `1`）|
+| `dz` | 否 | 包围盒深度（默认 `1`）|
+
+说明：
+
+- 若 `x/y/z/dx/dy/dz` 均未提供，则全局扫描所有已填充方块
+- `from_nbt` 为**部分**匹配：仅检查模式中列出的键，TileEntity 中额外的键将被忽略
+- 替换使用与 `<Block>` 相同的方块放置流程，支持 GregTech MetaTile 及 BartWorks 方块
+
+示例：
+
+````md
+<ImportStructure src="/assets/example_structure.snbt" />
+<ReplaceBlock from="minecraft:stone" to="minecraft:glass" />
+<ReplaceBlock from="minecraft:stone:1" to="minecraft:stone:2" x="0" y="0" z="0" dx="5" dy="3" dz="5" />
+````
+
+## `<PlaceBlock>`
+
+用单一方块类型填充一个轴对齐的包围盒，覆盖原有方块。
+与 `<Block>`（针对单个位置）不同，`<PlaceBlock>` 通过 `dx`/`dy`/`dz` 支持多方块区域。
+
+| 属性 | 必需 | 含义 |
+| --- | --- | --- |
+| `id` | 是 | 方块 id，使用 `modid:block[:meta]` 格式 |
+| `nbt` | 否 | 应用于每个放置方块的 SNBT TileEntity 复合标签 |
+| `x` | 否 | 区域起始 X，默认 `0` |
+| `y` | 否 | 区域起始 Y，默认 `0` |
+| `z` | 否 | 区域起始 Z，默认 `0` |
+| `dx` | 否 | 区域宽度，默认 `1` |
+| `dy` | 否 | 区域高度，默认 `1` |
+| `dz` | 否 | 区域深度，默认 `1` |
+
+说明：
+
+- 包围盒内所有方块均会被无条件放置（不检查原有方块）
+- NBT 复合标签在每次放置时独立复制
+- 使用与 `<Block>` 相同的方块放置流程，完整支持 GregTech MetaTile 及 BartWorks 方块
+
+示例：
+
+````md
+<PlaceBlock id="minecraft:stone" x="0" y="0" z="0" dx="5" dy="1" dz="5" />
+<PlaceBlock id="minecraft:glass" y="1" dx="3" dz="3" />
 ````
 
 ## `<BlockAnnotationTemplate>`

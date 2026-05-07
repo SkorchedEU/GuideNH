@@ -60,7 +60,9 @@ import com.hfstudio.guidenh.guide.scene.element.ImportPonderElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.ImportStructureElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.ImportStructureLibElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.IsometricCameraElementCompiler;
+import com.hfstudio.guidenh.guide.scene.element.PlaceBlockElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.RemoveBlocksElementCompiler;
+import com.hfstudio.guidenh.guide.scene.element.ReplaceBlockElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.SceneElementTagCompiler;
 
 public class DefaultExtensions {
@@ -147,7 +149,9 @@ public class DefaultExtensions {
             new LineAnnotationElementCompiler(),
             new DiamondAnnotationElementCompiler(),
             new BlockAnnotationTemplateElementCompiler(),
-            new RemoveBlocksElementCompiler());
+            new RemoveBlocksElementCompiler(),
+            new ReplaceBlockElementCompiler(),
+            new PlaceBlockElementCompiler());
     }
 
     @Desugar

@@ -24,6 +24,30 @@ navigation:
 | `icon` | Optional item icon |
 | `icon_texture` | Optional texture icon resolved from guide assets |
 | `icon_components` | Parsed but not currently used by built-in rendering |
+| `required_mod` | Optional single mod id; page is hidden when this mod is not loaded |
+| `required_mods` | Optional list of mod ids; page is hidden unless all listed mods are loaded |
+
+## Mod Requirements
+
+Use `required_mod` or `required_mods` to make a page conditional on one or more mods being loaded.
+When the requirement is not met the page is excluded from the navigation tree and all page indices
+(item, category, etc.) so it cannot be found through navigation or search.
+
+```yaml
+navigation:
+  title: Applied Energistics Integration
+  parent: index.md
+  required_mod: appliedenergistics2
+
+navigation:
+  title: Multi-Mod Feature
+  parent: index.md
+  required_mods:
+    - gregtech
+    - appliedenergistics2
+```
+
+Both keys may be combined; the page is only shown when every listed mod is present.
 
 ## Icon Sources
 

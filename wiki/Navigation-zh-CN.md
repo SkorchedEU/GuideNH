@@ -26,6 +26,30 @@ navigation:
 | `icon` | 可选，物品图标 |
 | `icon_texture` | 可选，从指南资源中解析的纹理图标 |
 | `icon_components` | 会被解析，但当前内置渲染尚未使用 |
+| `required_mod` | 可选，单个模组 id；该模组未加载时页面不可见 |
+| `required_mods` | 可选，模组 id 列表；列出的全部模组都加载时页面才可见 |
+
+## 模组需求
+
+使用 `required_mod` 或 `required_mods` 可以让页面依赖一个或多个模组的加载状态。
+当需求未满足时，页面会从导航树和所有页面索引（物品、分类等）中排除，
+因此无法通过导航或搜索找到该页面。
+
+```yaml
+navigation:
+  title: Applied Energistics 集成
+  parent: index.md
+  required_mod: appliedenergistics2
+
+navigation:
+  title: 多模组功能
+  parent: index.md
+  required_mods:
+    - gregtech
+    - appliedenergistics2
+```
+
+两个键可以同时使用；只有列出的所有模组都已加载，页面才会显示。
 
 ## 图标来源
 

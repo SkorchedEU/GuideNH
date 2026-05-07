@@ -27,6 +27,31 @@ Hover blocks in the StructureLib preview to inspect the extra structure text. Ho
   <RemoveBlocks id="minecraft:glowstone" />
 </GameScene>
 
+## ReplaceBlock
+
+`<ReplaceBlock from="..." to="..." />` replaces matching already-placed blocks with a new block. The
+search is global when no bounds are specified, or restricted to a box when any of `x/y/z/dx/dy/dz`
+are provided:
+
+<GameScene width="384" height="256" zoom={4} interactive={true}>
+  <ImportStructure src="/assets/example_structure.snbt" />
+  <ReplaceBlock from="minecraft:stone" to="minecraft:glass" />
+  <ReplaceBlock from="minecraft:cobblestone" to="minecraft:brick_block" x="1" y="0" z="1" dx="3" dy="1" dz="3" />
+</GameScene>
+
+Add `from_nbt` to narrow the match to blocks whose TileEntity NBT contains specific keys, and
+`to_nbt` to supply tile entity data for the replacement block.
+
+## PlaceBlock
+
+`<PlaceBlock id="..." />` fills an axis-aligned box unconditionally, overwriting whatever was
+already there. Use `dx`/`dy`/`dz` to fill multi-block regions:
+
+<GameScene width="384" height="256" zoom={4} interactive={true}>
+  <PlaceBlock id="minecraft:stone" dx="5" dy="1" dz="5" />
+  <PlaceBlock id="minecraft:glass" y="1" dx="5" dz="5" />
+</GameScene>
+
 ## SNBT File Format
 
 `<ImportStructure src="..." />` accepts SNBT (1.7.10's stock `JsonToNBT`: `pos:[0,1,2]` is recognized as IntArray automatically; the modern `[I; ...]` typed-array prefix is **not** supported and must be omitted). Gzipped or uncompressed binary NBT also work. Schema is `{size, palette, blocks}`; each block entry may carry `meta` and an optional `nbt` compound (the latter must include the vanilla TileEntity `id` field, e.g. `"Chest"`). Optional `x/y/z` attributes translate the whole structure.
