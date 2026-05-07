@@ -366,6 +366,18 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             return renderFallbackItemLabel(itemId, currentPageId, templates, inline, readFloat(element, "scale"));
         }
 
+        boolean noTooltip = ItemImageCompiler.parseBool(readOptional(element, "noTooltip"));
+        String showTooltipRaw = readOptional(element, "showTooltip");
+        boolean includeTooltip = showTooltipRaw != null ? ItemImageCompiler.parseBool(showTooltipRaw) : !noTooltip;
+
+        String showIconRaw = readOptional(element, "showIcon");
+        boolean showIcon = showIconRaw == null || ItemImageCompiler.parseBool(showIconRaw);
+
+        String labelRaw = readOptional(element, "label");
+        String labelPosition = ItemImageCompiler.resolveLabelPosition(labelRaw);
+
+        String formatRaw = readOptional(element, "format");
+
         return renderItemStack(
             item.registryId(),
             item.stack(),
@@ -373,12 +385,32 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             templates,
             inline,
             readFloat(element, "scale"),
-            !ItemImageCompiler.parseBool(readOptional(element, "noTooltip")));
+            includeTooltip,
+            showIcon,
+            labelPosition,
+            formatRaw);
     }
 
     private String renderItemStack(ResourceLocation registryId, ItemStack stack,
         @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates, boolean inline,
         @Nullable Float scale, boolean includeTooltip) {
+        return renderItemStack(
+            registryId,
+            stack,
+            currentPageId,
+            templates,
+            inline,
+            scale,
+            includeTooltip,
+            true,
+            null,
+            null);
+    }
+
+    private String renderItemStack(ResourceLocation registryId, ItemStack stack,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates, boolean inline,
+        @Nullable Float scale, boolean includeTooltip, boolean showIcon, @Nullable String labelPosition,
+        @Nullable String labelFormat) {
         if (registryId == null || stack == null) {
             return renderError("Missing item");
         }
@@ -407,6 +439,8 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
                 .append("em;");
         }
 
+        String labelText = labelPosition != null ? buildLabelHtml(stack, labelFormat) : null;
+
         StringBuilder html = new StringBuilder();
         if (!inline) {
             html.append("<div class=\"guide-block-item-row\">");
@@ -427,17 +461,120 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
                 .append("\"");
         }
         html.append(">");
-        // ItemImage / BlockImage render as icon-only; the display name is exposed via the tooltip overlay.
-        GuideSiteItemHtml.appendIcon(
-            html,
-            exportedItem,
-            inline ? "guide-inline-item-icon" : "guide-block-item-icon",
-            effectiveScale);
+        if (labelText != null && "left".equals(labelPosition)) {
+            html.append("<em class=\"guide-item-label\">")
+                .append(labelText)
+                .append("</em>");
+        }
+        if (showIcon) {
+            GuideSiteItemHtml.appendIcon(
+                html,
+                exportedItem,
+                inline ? "guide-inline-item-icon" : "guide-block-item-icon",
+                effectiveScale);
+        }
+        if (labelText != null && !"left".equals(labelPosition)) {
+            html.append("<em class=\"guide-item-label\">")
+                .append(labelText)
+                .append("</em>");
+        }
         html.append("</span>");
         if (!inline) {
             html.append("</div>");
         }
         return html.toString();
+    }
+
+    /**
+     * Builds the HTML label text for an item, applying the optional format pattern.
+     * Markdown-style wrapping markers are converted to HTML inline elements.
+     */
+    private String buildLabelHtml(ItemStack stack, @Nullable String format) {
+        if (format == null) {
+            return "<em>" + escapeHtml(stack.getDisplayName()) + "</em>";
+        }
+        String template = stripFormatMarkersHtml(format);
+        String text = template.contains("%s") ? String.format(template, stack.getDisplayName()) : template;
+        return applyFormatMarkersHtml(format, escapeHtml(text));
+    }
+
+    private String stripFormatMarkersHtml(String s) {
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            if (isHtmlWrapped(s, "~~")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "**")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "__")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "^^")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "::")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "++")) {
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "*")) {
+                s = s.substring(1, s.length() - 1);
+                changed = true;
+            } else if (isHtmlWrapped(s, "_")) {
+                s = s.substring(1, s.length() - 1);
+                changed = true;
+            }
+        }
+        return s;
+    }
+
+    private String applyFormatMarkersHtml(String format, String escapedText) {
+        String open = "";
+        String close = "";
+        String s = format;
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            if (isHtmlWrapped(s, "~~")) {
+                open = "<s>" + open;
+                close = close + "</s>";
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "**")) {
+                open = "<strong>" + open;
+                close = close + "</strong>";
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "__") || isHtmlWrapped(s, "++")) {
+                open = "<u>" + open;
+                close = close + "</u>";
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "^^")) {
+                open = "<span style=\"text-decoration:underline wavy\">" + open;
+                close = close + "</span>";
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "::")) {
+                open = "<span style=\"text-decoration:underline dotted\">" + open;
+                close = close + "</span>";
+                s = s.substring(2, s.length() - 2);
+                changed = true;
+            } else if (isHtmlWrapped(s, "*") || isHtmlWrapped(s, "_")) {
+                open = "<em>" + open;
+                close = close + "</em>";
+                s = s.substring(1, s.length() - 1);
+                changed = true;
+            }
+        }
+        return open + escapedText + close;
+    }
+
+    private static boolean isHtmlWrapped(String s, String marker) {
+        return s.length() > 2 * marker.length() && s.startsWith(marker) && s.endsWith(marker);
     }
 
     private String renderBlockImage(MdxJsxElementFields element, String defaultNamespace,
@@ -517,9 +654,22 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         GuideSiteExportedItem exportedItem = item != null && item.stack() != null
             ? GuideSiteItemSupport.export(item.registryId(), item.stack(), itemIconResolver, itemId)
             : GuideSiteItemSupport.unresolved(itemId);
-        String templateId = item != null && item.stack() != null
-            ? createTooltipTemplate(new ItemTooltip(item.stack()), templates, currentPageId)
-            : createTextTooltipTemplate(itemId, templates, currentPageId);
+
+        // showTooltip — default true for ItemLink
+        boolean noTooltip = ItemImageCompiler.parseBool(readOptional(element, "noTooltip"));
+        String showTooltipRaw = readOptional(element, "showTooltip");
+        boolean showTooltip = showTooltipRaw != null ? ItemImageCompiler.parseBool(showTooltipRaw) : !noTooltip;
+
+        // showIcon — null/falsy = no icon; "left", "right", or any truthy = icon at that side
+        String iconPosition = ItemImageCompiler.resolveLabelPosition(readOptional(element, "showIcon"));
+
+        String templateId = null;
+        if (showTooltip) {
+            templateId = item != null && item.stack() != null
+                ? createTooltipTemplate(new ItemTooltip(item.stack()), templates, currentPageId)
+                : createTextTooltipTemplate(itemId, templates, currentPageId);
+        }
+
         PageAnchor linksTo = null;
         try {
             if (item != null && item.stack() != null) {
@@ -531,21 +681,35 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             linksTo = findPageAnchorByItemId(itemId);
         }
 
+        String innerHtml = buildItemLinkContent(exportedItem, iconPosition);
         boolean samePageLink = linksTo != null && linksTo.anchor() == null
             && currentPageId != null
             && currentPageId.equals(linksTo.pageId());
         if (linksTo == null || samePageLink) {
-            return buildTaggedSpanHtml(
-                "guide-item-link guide-tooltip",
-                templateId,
-                buildItemSummaryContent(exportedItem, "guide-item-link-icon", "guide-item-link-text"));
+            return buildTaggedSpanHtml("guide-item-link guide-tooltip", templateId, innerHtml);
         }
 
         return buildTaggedAnchorHtml(
             "guide-item-link guide-tooltip",
             GuideSiteHrefResolver.resolvePageAnchor(currentPageId, linksTo),
             templateId,
-            buildItemSummaryContent(exportedItem, "guide-item-link-icon", "guide-item-link-text"));
+            innerHtml);
+    }
+
+    private String buildItemLinkContent(GuideSiteExportedItem item, @Nullable String iconPosition) {
+        StringBuilder html = new StringBuilder();
+        if ("left".equals(iconPosition)) {
+            GuideSiteItemHtml.appendIcon(html, item, "guide-item-link-icon");
+        }
+        String name = item.displayName()
+            .isEmpty() ? item.itemId() : item.displayName();
+        html.append("<span class=\"guide-item-link-text\">")
+            .append(escapeHtml(name))
+            .append("</span>");
+        if ("right".equals(iconPosition)) {
+            GuideSiteItemHtml.appendIcon(html, item, "guide-item-link-icon");
+        }
+        return html.toString();
     }
 
     private String renderSubPages(MdxJsxElementFields element, String defaultNamespace,

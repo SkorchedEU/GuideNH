@@ -102,6 +102,44 @@ Inline `<ItemImage>` icons are nudged upward by ~2 pixels (scaled by `scale`) so
 
 > Values are pixels at `scale=1` and are multiplied by the current scale at render time.
 
+## ItemImage Label
+
+Label to the right (default italic name):
+
+<ItemImage id="minecraft:diamond" label="right" />
+
+Label to the left:
+
+<ItemImage id="minecraft:iron_ingot" label="left" />
+
+Bold format with `%s` placeholder:
+
+<ItemImage id="minecraft:gold_ingot" label="right" format="**%s**" />
+
+Strikethrough format:
+
+<ItemImage id="minecraft:rotten_flesh" label="right" format="~~%s~~" />
+
+Underline (using `__`):
+
+<ItemImage id="minecraft:emerald" label="right" format="__%s__" />
+
+Wavy underline:
+
+<ItemImage id="minecraft:blaze_rod" label="right" format="^^%s^^" />
+
+Dotted underline:
+
+<ItemImage id="minecraft:ender_pearl" label="right" format="::Custom Label::" />
+
+Icon hidden, label only:
+
+<ItemImage id="minecraft:diamond" showIcon="false" label="right" />
+
+Icon shown, no tooltip:
+
+<ItemImage id="minecraft:emerald" label="right" showTooltip="false" />
+
 ## BlockImage Scale
 
 <Row>

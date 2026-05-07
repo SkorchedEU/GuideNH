@@ -3,8 +3,9 @@ package com.hfstudio.guidenh.guide.compiler.tags;
 import java.util.Collections;
 import java.util.Set;
 
-import com.hfstudio.guidenh.guide.compiler.GuideItemReferenceResolver;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
+import com.hfstudio.guidenh.guide.document.block.LytItemImage;
+import com.hfstudio.guidenh.guide.document.flow.LytFlowInlineBlock;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowLink;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowParent;
 import com.hfstudio.guidenh.guide.document.flow.LytTooltipSpan;
@@ -26,41 +27,65 @@ public class ItemLinkCompiler extends FlowTagCompiler {
         if (itemAndId == null) {
             return;
         }
-        String oreName = GuideItemReferenceResolver.trimToNull(MdxAttrs.getString(compiler, parent, el, "ore", null));
-        var id = itemAndId.getLeft();
         var stack = itemAndId.getRight();
+
+        // showTooltip — default true for ItemLink
+        boolean noTooltip = ItemImageCompiler.parseBool(el.getAttributeString("noTooltip", null));
+        String showTooltipRaw = el.getAttributeString("showTooltip", null);
+        boolean showTooltip = showTooltipRaw != null ? ItemImageCompiler.parseBool(showTooltipRaw) : !noTooltip;
+
+        // showIcon — null/falsy = no icon; "left", "right", or any truthy = icon at that side
+        String showIconRaw = el.getAttributeString("showIcon", null);
+        String iconPosition = ItemImageCompiler.resolveLabelPosition(showIconRaw);
 
         var itemAnchor = compiler.getIndex(ItemIndex.class)
             .findByStack(stack);
         final var linksTo = itemAnchor != null ? itemAnchor
             : compiler.getIndex(OreIndex.class)
                 .findByStack(stack);
-        // We'll error out for item-links to our own mod because we expect them to have a page
-        // while we don't have pages for Vanilla items or items from other mods.
-        if (linksTo == null && oreName == null
-            && id.getResourceDomain()
-                .equals(
-                    compiler.getPageId()
-                        .getResourceDomain())) {
-            parent.append(compiler.createErrorFlowContent("No page found for item " + id, el));
-            return;
+
+        // Build icon inline block if requested.
+        LytFlowInlineBlock iconBlock = null;
+        if (iconPosition != null) {
+            var img = new LytItemImage(stack);
+            img.setScale(1f);
+            img.setInline(true);
+            img.setShowTooltip(showTooltip);
+            iconBlock = new LytFlowInlineBlock();
+            iconBlock.setBlock(img);
         }
 
-        // If the item link is already on the page we're linking to, replace it with an underlined
-        // text that has a tooltip.
+        // If the item link is already on the page we're linking to, or no page exists,
+        // render as an underlined tooltip span instead of a clickable link.
         if (linksTo == null || linksTo.anchor() == null && compiler.getPageId()
             .equals(linksTo.pageId())) {
             var span = new LytTooltipSpan();
             span.modifyStyle(style -> style.italic(true));
             span.appendText(stack.getDisplayName());
-            span.setTooltip(new ItemTooltip(stack));
+            if (showTooltip) {
+                span.setTooltip(new ItemTooltip(stack));
+            }
+            if ("left".equals(iconPosition)) {
+                parent.append(iconBlock);
+            }
             parent.append(span);
+            if ("right".equals(iconPosition)) {
+                parent.append(iconBlock);
+            }
         } else {
             var link = new LytFlowLink();
             link.setPageLink(linksTo);
             link.appendText(stack.getDisplayName());
-            link.setTooltip(new ItemTooltip(stack));
+            if (showTooltip) {
+                link.setTooltip(new ItemTooltip(stack));
+            }
+            if ("left".equals(iconPosition)) {
+                parent.append(iconBlock);
+            }
             parent.append(link);
+            if ("right".equals(iconPosition)) {
+                parent.append(iconBlock);
+            }
         }
     }
 

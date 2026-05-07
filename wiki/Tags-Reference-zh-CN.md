@@ -27,7 +27,7 @@
 | `<Tooltip>` | 带 Markdown/标签子内容的富悬浮提示 | `label` |
 | `<PlayerName>` | 插入当前玩家用户名 | 无 |
 | `<KeyBind>` | 插入按键绑定显示名 | `id` |
-| `<ItemImage>` | 行内物品图标 | `id` 或 `ore`，`scale`，`noTooltip`，`yOffset` |
+| `<ItemImage>` | 行内物品图标 | `id` 或 `ore`，`scale`，`noTooltip`，`showTooltip`，`showIcon`，`label`，`format`，`yOffset` |
 | `<ItemLink>` | 物品 tooltip + 可选导航链接 | `id` 或 `ore` |
 | `<CommandLink>` | 可点击的聊天命令链接 | `command`, `title`, `close` |
 | `<QuestLink>` | BetterQuesting 任务链接，按任务状态自动调整样式（兼容标签，仅当 BetterQuesting 已加载时注册） | `id`, `text` |
@@ -221,13 +221,19 @@ More visible text.
 | `ore` | 矿辞名；默认取第一个匹配结果 |
 | `id` | 当未提供 `ore` 时使用的物品引用 |
 | `scale` | float，默认 `1` |
-| `noTooltip` | 传入真值字符串或空属性时禁用 tooltip |
+| `noTooltip` | 传入真值字符串或空属性时禁用 tooltip（旧写法，推荐改用 `showTooltip`） |
+| `showTooltip` | boolean，默认 `true`；`false` 时禁用鼠标悬停 tooltip |
+| `showIcon` | boolean，默认 `true`；`false` 时不渲染图标图形 |
+| `label` | `left` 或 `right`——在图标左侧或右侧以文字显示物品名称；省略时不显示文字 |
+| `format` | 标签文字的格式模式；支持 Markdown 风格的包裹标记（`**粗体**`、`*斜体*`、`~~删除线~~`、`__下划线__`、`^^波浪__`、`::点状::`），可包含 `%s` 占位符代替物品名；默认（不写本属性）以斜体渲染物品名 |
 | `yOffset` | scale 为 `1` 时的像素偏移覆盖值 |
 
 说明：
 
 - 同时提供 `ore` 和 `id` 时，优先使用 `ore`
 - 若安装了 GregTech，选中的矿辞结果会先经过 `GTOreDictUnificator.setStack(...)` 统一化
+- `label` 需要至少一个可见元素（图标或文字），若同时设置 `showIcon="false"` 且不写 `label`，则渲染为空
+- `format` 仅在设置了 `label` 时生效；若 `format` 中没有 `%s`，则以格式字面量作为标签文字
 
 示例：
 
@@ -235,6 +241,10 @@ More visible text.
 <ItemImage id="minecraft:diamond" scale="2" />
 <ItemImage ore="ingotIron" />
 <ItemImage id="minecraft:diamond_sword" noTooltip="true" />
+<ItemImage id="minecraft:diamond" label="right" />
+<ItemImage id="minecraft:iron_ingot" label="left" format="**%s**" />
+<ItemImage id="minecraft:book" showIcon="false" label="right" format="~~%s~~" />
+<ItemImage id="minecraft:emerald" label="right" showTooltip="false" />
 ````
 
 ### `<ItemLink>`

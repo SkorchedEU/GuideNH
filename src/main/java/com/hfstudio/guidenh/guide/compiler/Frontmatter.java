@@ -225,7 +225,7 @@ public record Frontmatter(@Nullable FrontmatterNavigation navigationEntry, Map<S
         if (entry instanceof String) {
             return parseIconEntryString((String) entry, pageId);
         }
-        if (entry instanceof Map<?, ?> entryMap) {
+        if (entry instanceof Map<?, ?>entryMap) {
             var idStr = getString(entryMap, "id");
             if (idStr == null) return null;
             var parsed = parseIconEntryString(idStr, pageId);

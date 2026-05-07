@@ -29,9 +29,9 @@ public final class YamlNbtConverter {
     }
 
     private static void putValue(NBTTagCompound tag, String key, Object value) {
-        if (value instanceof Map<?, ?> map) {
+        if (value instanceof Map<?, ?>map) {
             tag.setTag(key, toNbt(map));
-        } else if (value instanceof List<?> list) {
+        } else if (value instanceof List<?>list) {
             tag.setTag(key, toNbtList(list));
         } else if (value instanceof Boolean bool) {
             tag.setByte(key, (byte) (bool ? 1 : 0));
@@ -58,7 +58,7 @@ public final class YamlNbtConverter {
         for (Object item : list) {
             if (item == null) continue;
 
-            if (item instanceof Map<?, ?> map) {
+            if (item instanceof Map<?, ?>map) {
                 nbtList.appendTag(toNbt(map));
             } else if (item instanceof Boolean bool) {
                 nbtList.appendTag(new NBTTagByte((byte) (bool ? 1 : 0)));

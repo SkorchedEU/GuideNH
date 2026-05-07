@@ -4,6 +4,8 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.document.block.LytItemImage;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowInlineBlock;
@@ -23,10 +25,10 @@ public class ItemImageCompiler extends FlowTagCompiler {
         if (stack == null) return;
 
         float scale = MdxAttrs.getFloat(compiler, parent, el, "scale", 1f);
-        boolean noTooltip = parseBool(el.getAttributeString("noTooltip", null));
         var img = new LytItemImage(stack);
         img.setScale(scale);
         img.setInline(true);
+
         // Allow MDX authors to override the default inline vertical nudge on a per-element basis,
         // e.g. <ItemImage id="minecraft:diamond" yOffset="0" /> to disable the upward shift.
         String yOffRaw = el.getAttributeString("yOffset", null);
@@ -37,11 +39,47 @@ public class ItemImageCompiler extends FlowTagCompiler {
                 parent.appendError(compiler, "yOffset must be an integer (pixels at scale=1)", el);
             }
         }
-        if (noTooltip) img.setTooltipSuppressed(true);
+
+        // noTooltip (legacy) and showTooltip — noTooltip=true or showTooltip=false both suppress.
+        boolean noTooltip = parseBool(el.getAttributeString("noTooltip", null));
+        String showTooltipRaw = el.getAttributeString("showTooltip", null);
+        boolean showTooltip = showTooltipRaw != null ? parseBool(showTooltipRaw) : !noTooltip;
+        img.setShowTooltip(showTooltip);
+
+        // showIcon — whether to render the icon graphic (default true).
+        String showIconRaw = el.getAttributeString("showIcon", null);
+        if (showIconRaw != null) {
+            img.setShowIcon(parseBool(showIconRaw));
+        }
+
+        // label — "left" or "right" to display the item name next to the icon.
+        String labelRaw = el.getAttributeString("label", null);
+        img.setLabelPosition(resolveLabelPosition(labelRaw));
+
+        // format — Markdown-style format pattern for the label text.
+        String formatRaw = el.getAttributeString("format", null);
+        if (formatRaw != null && !formatRaw.isEmpty()) {
+            img.setLabelFormat(formatRaw);
+        }
 
         var inline = new LytFlowInlineBlock();
         inline.setBlock(img);
         parent.append(inline);
+    }
+
+    /**
+     * Normalises a raw {@code label} attribute value to {@code "left"}, {@code "right"}, or
+     * {@code null} (no label). Any truthy value that is not {@code "left"} is treated as
+     * {@code "right"} (icon on left, text on right).
+     */
+    @Nullable
+    public static String resolveLabelPosition(@Nullable String raw) {
+        if (raw == null || raw.isEmpty()) return null;
+        String v = raw.trim()
+            .toLowerCase(Locale.ROOT);
+        if (v.equals("false") || v.equals("0") || v.equals("no") || v.equals("none")) return null;
+        if (v.equals("left")) return "left";
+        return "right";
     }
 
     public static boolean parseBool(String raw) {

@@ -25,7 +25,7 @@ This page lists the built-in runtime tags registered by `DefaultExtensions`.
 | `<Tooltip>` | rich hover tooltip with markdown/tag children | `label` |
 | `<PlayerName>` | inserts current player username | none |
 | `<KeyBind>` | inserts keybinding display name | `id` |
-| `<ItemImage>` | inline item icon | `id` or `ore`, `scale`, `noTooltip`, `yOffset` |
+| `<ItemImage>` | inline item icon | `id` or `ore`, `scale`, `noTooltip`, `showTooltip`, `showIcon`, `label`, `format`, `yOffset` |
 | `<ItemLink>` | item tooltip + optional navigation link | `id` or `ore` |
 | `<CommandLink>` | clickable chat command link | `command`, `title`, `close` |
 | `<QuestLink>` | BetterQuesting quest link with state-aware styling (compat tag, only registered when BetterQuesting is loaded) | `id`, `text` |
@@ -245,13 +245,19 @@ Shows an inline item icon.
 | `ore` | ore dictionary name; the first match wins |
 | `id` | item reference used when `ore` is absent |
 | `scale` | float, default `1` |
-| `noTooltip` | truthy string or empty attribute suppresses tooltip |
+| `noTooltip` | truthy string or empty attribute suppresses tooltip (legacy; prefer `showTooltip`) |
+| `showTooltip` | boolean, default `true`; `false` suppresses the hover tooltip |
+| `showIcon` | boolean, default `true`; `false` hides the item icon graphic |
+| `label` | `left` or `right` — shows the item display name as text on the specified side of the icon; omit for no label |
+| `format` | format pattern for the label text; supports Markdown-style wrappers (`**bold**`, `*italic*`, `~~strike~~`, `__underline__`, `^^wavy^^`, `::dotted::`) with optional `%s` placeholder for the item name; default (no attribute) renders the name in italic |
 | `yOffset` | integer pixel offset override at scale `1` |
 
 Notes:
 
 - `ore` takes precedence over `id` when both are provided
 - if GregTech is installed, the selected ore match is passed through `GTOreDictUnificator.setStack(...)`
+- `label` requires at least one of `showIcon` or `label` to produce visible output; setting both `showIcon="false"` and omitting `label` renders nothing
+- `format` only applies when `label` is set; if `format` has no `%s`, the literal format text is used as the label
 
 Example:
 
@@ -259,6 +265,10 @@ Example:
 <ItemImage id="minecraft:diamond" scale="2" />
 <ItemImage ore="ingotIron" />
 <ItemImage id="minecraft:diamond_sword" noTooltip="true" />
+<ItemImage id="minecraft:diamond" label="right" />
+<ItemImage id="minecraft:iron_ingot" label="left" format="**%s**" />
+<ItemImage id="minecraft:book" showIcon="false" label="right" format="~~%s~~" />
+<ItemImage id="minecraft:emerald" label="right" showTooltip="false" />
 ````
 
 ### `<ItemLink>`

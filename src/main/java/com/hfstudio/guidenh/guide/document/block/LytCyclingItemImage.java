@@ -6,7 +6,6 @@ import java.util.Optional;
 import net.minecraft.item.ItemStack;
 
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
-import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
 import com.hfstudio.guidenh.guide.render.RenderContext;
 
 public class LytCyclingItemImage extends LytItemImage {
@@ -32,6 +31,6 @@ public class LytCyclingItemImage extends LytItemImage {
     @Override
     public Optional<GuideTooltip> getTooltip(float x, float y) {
         this.stack = currentStack();
-        return Optional.of(new ItemTooltip(this.stack));
+        return super.getTooltip(x, y);
     }
 }

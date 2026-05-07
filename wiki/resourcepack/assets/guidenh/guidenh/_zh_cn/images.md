@@ -99,6 +99,44 @@ navigation:
 
 > 偏移量以 scale=1 下的像素数给出，实际渲染时会乘以当前 `scale`。
 
+## ItemImage 标签文字
+
+右侧标签（默认斜体显示物品名）：
+
+<ItemImage id="minecraft:diamond" label="right" />
+
+左侧标签：
+
+<ItemImage id="minecraft:iron_ingot" label="left" />
+
+粗体格式（`%s` 占位符）：
+
+<ItemImage id="minecraft:gold_ingot" label="right" format="**%s**" />
+
+删除线格式：
+
+<ItemImage id="minecraft:rotten_flesh" label="right" format="~~%s~~" />
+
+下划线（使用 `__`）：
+
+<ItemImage id="minecraft:emerald" label="right" format="__%s__" />
+
+波浪下划线：
+
+<ItemImage id="minecraft:blaze_rod" label="right" format="^^%s^^" />
+
+点状下划线（自定义静态文字，无占位符）：
+
+<ItemImage id="minecraft:ender_pearl" label="right" format="::自定义标签::" />
+
+仅显示文字（不显示图标）：
+
+<ItemImage id="minecraft:diamond" showIcon="false" label="right" />
+
+显示图标但不显示 tooltip：
+
+<ItemImage id="minecraft:emerald" label="right" showTooltip="false" />
+
 ## BlockImage 缩放
 
 <Row>
