@@ -11,17 +11,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
+
+import cpw.mods.fml.common.FMLLog;
 
 /**
  * Internal registry for Guides.
  */
 public class GuideRegistry {
-
-    public static final Logger LOG = LoggerFactory.getLogger(GuideRegistry.class);
 
     public static final ConcurrentHashMap<ResourceLocation, MutableGuide> guides = new ConcurrentHashMap<>();
 
@@ -96,7 +94,10 @@ public class GuideRegistry {
 
         if (!overridden.isEmpty()) {
             Collections.sort(overridden, Comparator.comparing(ResourceLocation::toString));
-            LOG.info("The following guides are overridden in resource packs: {}", overridden);
+            FMLLog.getLogger()
+                .info(
+                    "[GuideNH] [GuideRegistry] The following guides are overridden in resource packs: {}",
+                    overridden);
         }
 
         GuideRegistry.mergedGuides = Collections.unmodifiableMap(merged);

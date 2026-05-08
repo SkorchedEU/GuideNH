@@ -5,9 +5,6 @@ import java.util.Set;
 
 import net.minecraft.client.Minecraft;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.compiler.IndexingContext;
 import com.hfstudio.guidenh.guide.compiler.IndexingSink;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
@@ -16,9 +13,9 @@ import com.hfstudio.guidenh.guide.document.flow.LytFlowParent;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
-public class CommandLinkCompiler extends FlowTagCompiler {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(CommandLinkCompiler.class);
+public class CommandLinkCompiler extends FlowTagCompiler {
 
     @Override
     public Set<String> getTagNames() {
@@ -45,7 +42,8 @@ public class CommandLinkCompiler extends FlowTagCompiler {
         link.setClickCallback(uiHost -> {
             var mc = Minecraft.getMinecraft();
             if (mc.thePlayer != null) {
-                LOG.info("Sending command from page {}: {}", pageId, sendCommand);
+                FMLLog.getLogger()
+                    .info("[GuideNH] [CommandLinkCompiler] Sending command from page {}: {}", pageId, sendCommand);
                 mc.thePlayer.sendChatMessage(sendCommand);
             }
         });

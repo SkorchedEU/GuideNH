@@ -18,17 +18,15 @@ import net.minecraft.client.resources.IResource;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 
+import cpw.mods.fml.common.FMLLog;
+
 public class ExportTask {
 
-    public static final Logger LOG = LoggerFactory.getLogger(ExportTask.class);
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting()
         .disableHtmlEscaping()
         .serializeNulls()
@@ -66,7 +64,8 @@ public class ExportTask {
                         .toString());
                 ok++;
             } catch (Throwable t) {
-                LOG.warn("Failed to export page {}", page.getId(), t);
+                FMLLog.getLogger()
+                    .warn("[GuideNH] [ExportTask] Failed to export page {}", page.getId(), t);
                 failed++;
             }
         }
@@ -87,7 +86,8 @@ public class ExportTask {
                     }
                     assetsCopied++;
                 } catch (IOException e) {
-                    LOG.debug("Skipping missing asset {}", id, e);
+                    FMLLog.getLogger()
+                        .debug("[GuideNH] [ExportTask] Skipping missing asset {}", id, e);
                 }
             }
         }

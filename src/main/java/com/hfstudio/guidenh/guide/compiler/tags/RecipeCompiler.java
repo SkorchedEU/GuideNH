@@ -12,8 +12,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.compat.nei.NeiRecipeLookup;
 import com.hfstudio.guidenh.guide.compiler.IdUtils;
@@ -27,9 +25,10 @@ import com.hfstudio.guidenh.guide.internal.recipe.RecipeCache;
 import com.hfstudio.guidenh.guide.internal.recipe.RecipeLookup;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
+import cpw.mods.fml.common.FMLLog;
+
 public class RecipeCompiler extends BlockTagCompiler {
 
-    public static final Logger LOG = LoggerFactory.getLogger(RecipeCompiler.class);
     public static final int MULTI_GAP = 4;
 
     @Override
@@ -113,7 +112,7 @@ public class RecipeCompiler extends BlockTagCompiler {
         List<Object> rawHandlers = RecipeCache.getCraftingHandlers(targetStack);
         // When a handler filter is specified, also consult usage handlers. This covers NEI handlers
         // that treat the target as an input rather than an output (anvil / repair, fuel, brewing
-        // ingredient) — they never show up under getCraftingHandlers.
+        // ingredient) 閳?they never show up under getCraftingHandlers.
         if (hasHandlerFilter) {
             List<Object> usage = RecipeCache.getUsageHandlers(targetStack);
             if (!usage.isEmpty()) {
@@ -122,7 +121,7 @@ public class RecipeCompiler extends BlockTagCompiler {
                 } else {
                     List<Object> merged = new ArrayList<>(rawHandlers.size() + usage.size());
                     merged.addAll(rawHandlers);
-                    // Dedup by identity — the same IRecipeHandler instance may appear in both lists.
+                    // Dedup by identity 閳?the same IRecipeHandler instance may appear in both lists.
                     java.util.IdentityHashMap<Object, Boolean> seen = new java.util.IdentityHashMap<>(merged.size());
                     for (Object h : rawHandlers) seen.put(h, Boolean.TRUE);
                     for (Object h : usage) if (seen.put(h, Boolean.TRUE) == null) merged.add(h);
@@ -146,19 +145,21 @@ public class RecipeCompiler extends BlockTagCompiler {
                 return;
             }
         } else if (hasHandlerFilter) {
-            // Handler filter eliminated every candidate. Respect fallbackText (if any) and bail quietly —
+            // Handler filter eliminated every candidate. Respect fallbackText (if any) and bail quietly 閳?
             // this is a legitimate authoring case (e.g. "only render when NEI + the relevant handler is
             // installed") and should not spam error overlays.
             if (fallbackText != null && !fallbackText.isEmpty()) {
                 parent.append(LytParagraph.of(fallbackText));
-            } else if (LOG.isDebugEnabled()) {
-                LOG.debug(
-                    "No NEI handler matched filters for {} (handlerName={}, handlerId={}, handlerOrder={})",
-                    ref.id(),
-                    handlerNameFilter,
-                    handlerIdFilter,
-                    handlerOrder);
-            }
+            } else if (FMLLog.getLogger()
+                .isDebugEnabled()) {
+                    FMLLog.getLogger()
+                        .debug(
+                            "[GuideNH] [RecipeCompiler] No NEI handler matched filters for {} (handlerName={}, handlerId={}, handlerOrder={})",
+                            ref.id(),
+                            handlerNameFilter,
+                            handlerIdFilter,
+                            handlerOrder);
+                }
             return;
         }
 
@@ -255,7 +256,7 @@ public class RecipeCompiler extends BlockTagCompiler {
                     .equals(idLower);
                 if (!match) {
                     // Secondary: match the handler class simple-name (case-insensitive substring).
-                    // Covers handlers whose overlay identifier differs from their canonical name —
+                    // Covers handlers whose overlay identifier differs from their canonical name 閳?
                     // e.g. the user writes handlerId="fuel" and the class is "FuelRecipeHandler".
                     String cn = h.getClass()
                         .getSimpleName();

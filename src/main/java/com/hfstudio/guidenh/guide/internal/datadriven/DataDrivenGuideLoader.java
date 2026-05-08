@@ -16,9 +16,6 @@ import net.minecraft.client.resources.AbstractResourcePack;
 import net.minecraft.client.resources.IResourcePack;
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
@@ -26,10 +23,10 @@ import com.hfstudio.guidenh.mixins.early.fml.AccessorFMLClientHandler;
 import com.hfstudio.guidenh.mixins.early.minecraft.AccessorAbstractResourcePack;
 
 import cpw.mods.fml.client.FMLClientHandler;
+import cpw.mods.fml.common.FMLLog;
 
 public class DataDrivenGuideLoader {
 
-    public static final Logger LOG = LoggerFactory.getLogger(DataDrivenGuideLoader.class);
     public static final String AUTO_GUIDE_FOLDER = "guidenh";
     public static final String LANGUAGE_FOLDER_PREFIX = "_";
 
@@ -70,13 +67,16 @@ public class DataDrivenGuideLoader {
         var resourcePacks = new LinkedHashSet<IResourcePack>();
 
         try {
-            var accessor = (AccessorFMLClientHandler) (Object) FMLClientHandler.instance();
+            var accessor = (AccessorFMLClientHandler) FMLClientHandler.instance();
             var basePacks = accessor.guidenh$getResourcePackList();
             if (basePacks != null) {
                 resourcePacks.addAll(basePacks);
             }
         } catch (RuntimeException e) {
-            LOG.warn("Failed to inspect the currently loaded base resource packs", e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [DataDrivenGuideLoader] Failed to inspect the currently loaded base resource packs",
+                    e);
         }
 
         var repository = Minecraft.getMinecraft()
@@ -103,11 +103,8 @@ public class DataDrivenGuideLoader {
             return;
         }
 
-        if (resourcePackFile.isDirectory()) {
-            scanResourcePackFolder(resourcePackFile, discoveredLanguages);
-        } else {
-            scanResourcePackZip(resourcePackFile, discoveredLanguages);
-        }
+        if (!resourcePackFile.isDirectory()) return;
+        scanResourcePackFolder(resourcePackFile, discoveredLanguages);
     }
 
     public static void scanPagePaths(IResourcePack resourcePack, String prefix, Set<String> pagePaths) {
@@ -131,7 +128,11 @@ public class DataDrivenGuideLoader {
         try {
             return ((AccessorAbstractResourcePack) resourcePack).guidenh$getResourcePackFile();
         } catch (RuntimeException e) {
-            LOG.warn("Failed to resolve the backing file for resource pack {}", resourcePack.getPackName(), e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [DataDrivenGuideLoader] Failed to resolve the backing file for resource pack {}",
+                    resourcePack.getPackName(),
+                    e);
             return null;
         }
     }
@@ -169,35 +170,6 @@ public class DataDrivenGuideLoader {
                 discoveredLanguages.computeIfAbsent(guideId, ignored -> new LinkedHashSet<>())
                     .add(toLanguageCode(languageFolder));
             }
-        }
-    }
-
-    public static void scanResourcePackZip(File resourcePackFile,
-        Map<ResourceLocation, LinkedHashSet<String>> discoveredLanguages) {
-        try (var zip = new ZipFile(resourcePackFile)) {
-            var entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                var entry = entries.nextElement();
-                if (entry.isDirectory()) {
-                    continue;
-                }
-
-                var path = entry.getName();
-                if (!path.endsWith(".md") || !path.startsWith("assets/")) {
-                    continue;
-                }
-
-                var parts = path.split("/", 5);
-                if (parts.length < 5 || !AUTO_GUIDE_FOLDER.equals(parts[2]) || !isLanguageFolder(parts[3])) {
-                    continue;
-                }
-
-                var guideId = new ResourceLocation(parts[1], AUTO_GUIDE_FOLDER);
-                discoveredLanguages.computeIfAbsent(guideId, ignored -> new LinkedHashSet<>())
-                    .add(toLanguageCode(parts[3]));
-            }
-        } catch (IOException e) {
-            LOG.warn("Failed to scan guide pages from resource pack {}", resourcePackFile.getAbsolutePath(), e);
         }
     }
 
@@ -247,7 +219,11 @@ public class DataDrivenGuideLoader {
                 }
             }
         } catch (IOException e) {
-            LOG.warn("Failed to scan guide pages from resource pack {}", resourcePackFile.getAbsolutePath(), e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [DataDrivenGuideLoader] Failed to scan guide pages from resource pack {}",
+                    resourcePackFile.getAbsolutePath(),
+                    e);
         }
     }
 

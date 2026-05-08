@@ -5,8 +5,6 @@ import java.util.Random;
 import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.color.ColorValue;
 import com.hfstudio.guidenh.guide.color.ConstantColor;
@@ -23,10 +21,11 @@ import com.hfstudio.guidenh.guide.document.flow.LytFlowParent;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
+import cpw.mods.fml.common.FMLLog;
+
 public class FloatingImageCompiler extends FlowTagCompiler {
 
     public static final String TAG_NAME = "FloatingImage";
-    public static final Logger LOG = LoggerFactory.getLogger(FloatingImageCompiler.class);
 
     private static final Random RANDOM = new Random();
 
@@ -53,12 +52,14 @@ public class FloatingImageCompiler extends FlowTagCompiler {
             var imageId = IdUtils.resolveLink(src, compiler.getPageId());
             var imageContent = compiler.loadAsset(imageId);
             if (imageContent == null) {
-                LOG.error("Couldn't find image {}", src);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [FloatingImageCompiler] Couldn't find image {}", src);
                 image.setTitle("Missing image: " + src);
             }
             image.setImage(imageId, imageContent);
         } catch (IllegalArgumentException e) {
-            LOG.error("Invalid image id: {}", src);
+            FMLLog.getLogger()
+                .error("[GuideNH] [FloatingImageCompiler] Invalid image id: {}", src);
             image.setTitle("Invalid image URL: " + src);
         }
 
@@ -103,11 +104,11 @@ public class FloatingImageCompiler extends FlowTagCompiler {
      * <p>
      * Attributes:
      * <ul>
-     * <li>{@code x}, {@code y}, {@code w}, {@code h} — region in image pixels; omitting all four
+     * <li>{@code x}, {@code y}, {@code w}, {@code h} 閳?region in image pixels; omitting all four
      * means the annotation covers the whole image.</li>
-     * <li>{@code border} — boolean flag; presence (or {@code {true}}) enables the border.</li>
-     * <li>{@code borderColor} — {@code #RRGGBB} or {@code #AARRGGBB}; omit for a random color.</li>
-     * <li>{@code borderThickness} — integer pixel thickness, default 1.</li>
+     * <li>{@code border} 閳?boolean flag; presence (or {@code {true}}) enables the border.</li>
+     * <li>{@code borderColor} 閳?{@code #RRGGBB} or {@code #AARRGGBB}; omit for a random color.</li>
+     * <li>{@code borderThickness} 閳?integer pixel thickness, default 1.</li>
      * </ul>
      * Child MDX content is compiled as the rich-text tooltip body.
      */

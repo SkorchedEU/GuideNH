@@ -15,14 +15,12 @@ import org.scilab.forge.jlatexmath.ParseException;
 import org.scilab.forge.jlatexmath.TeXConstants;
 import org.scilab.forge.jlatexmath.TeXFormula;
 import org.scilab.forge.jlatexmath.TeXIcon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import cpw.mods.fml.common.FMLLog;
 
 public final class GuideLatexRenderer {
 
     public static final GuideLatexRenderer INSTANCE = new GuideLatexRenderer();
-
-    private static final Logger LOG = LoggerFactory.getLogger(GuideLatexRenderer.class);
 
     private static final int DEFAULT_FILL_COLOR_ARGB = 0xFFFFFFFF;
 
@@ -55,7 +53,8 @@ public final class GuideLatexRenderer {
                 int h = icon.getIconHeight();
                 return Math.max(1, h);
             } catch (ParseException e) {
-                LOG.warn("[GuideNH/LaTeX] Failed to calibrate reference height for scale {}", sourceScale, e);
+                FMLLog.getLogger()
+                    .warn("[GuideNH/LaTeX] Failed to calibrate reference height for scale {}", sourceScale, e);
                 return 16;
             }
         });
@@ -66,7 +65,7 @@ public final class GuideLatexRenderer {
      * {@code sourceScale}, or {@code null} if the formula is invalid/failed.
      *
      * <p>
-     * {@code depthPx} is the typographic depth in jlatexmath pixels — the number of pixels the formula
+     * {@code depthPx} is the typographic depth in jlatexmath pixels 閳?the number of pixels the formula
      * extends <em>below</em> its math baseline (e.g. denominators in fractions). For formulas with no
      * descenders (letters, superscripts) this is {@code 0}.
      *
@@ -105,11 +104,13 @@ public final class GuideLatexRenderer {
             GuideLatexTextureCache.INSTANCE.putSize(sizeKey, w, h, d);
             return new int[] { w, h, d };
         } catch (ParseException e) {
-            LOG.warn("[GuideNH/LaTeX] Parse error measuring '{}': {}", formula, e.getMessage());
+            FMLLog.getLogger()
+                .warn("[GuideNH/LaTeX] Parse error measuring '{}': {}", formula, e.getMessage());
             GuideLatexTextureCache.INSTANCE.markFailed(formula, e.getMessage());
             return null;
         } catch (Exception e) {
-            LOG.warn("[GuideNH/LaTeX] Unexpected error measuring '{}': {}", formula, e.getMessage(), e);
+            FMLLog.getLogger()
+                .warn("[GuideNH/LaTeX] Unexpected error measuring '{}': {}", formula, e.getMessage(), e);
             GuideLatexTextureCache.INSTANCE.markFailed(formula, e.getMessage());
             return null;
         }
@@ -160,11 +161,13 @@ public final class GuideLatexRenderer {
 
             return new int[] { textureId, w, h };
         } catch (ParseException e) {
-            LOG.warn("[GuideNH/LaTeX] Parse error rendering '{}': {}", formula, e.getMessage());
+            FMLLog.getLogger()
+                .warn("[GuideNH/LaTeX] Parse error rendering '{}': {}", formula, e.getMessage());
             GuideLatexTextureCache.INSTANCE.markFailed(formula, e.getMessage());
             return null;
         } catch (Exception e) {
-            LOG.warn("[GuideNH/LaTeX] Unexpected error rendering '{}': {}", formula, e.getMessage(), e);
+            FMLLog.getLogger()
+                .warn("[GuideNH/LaTeX] Unexpected error rendering '{}': {}", formula, e.getMessage(), e);
             GuideLatexTextureCache.INSTANCE.markFailed(
                 formula,
                 e.getMessage() == null ? e.getClass()

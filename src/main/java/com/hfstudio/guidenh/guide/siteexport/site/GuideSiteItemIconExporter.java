@@ -17,15 +17,14 @@ import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import cpw.mods.fml.common.FMLLog;
 
 public class GuideSiteItemIconExporter implements GuideSiteItemIconResolver {
 
-    private static final Logger LOG = LoggerFactory.getLogger(GuideSiteItemIconExporter.class);
     /**
      * Raster size for exported `item-icons/*.png` (vanilla item GUI draws a
-     * 16×16 logical tile, scaled to this).
+     * 16鑴?6 logical tile, scaled to this).
      */
     private static final int ICON_SIZE = 128;
 
@@ -54,7 +53,11 @@ public class GuideSiteItemIconExporter implements GuideSiteItemIconResolver {
             exportedIcons.put(cacheKey, exportedPath);
             return exportedPath;
         } catch (Throwable t) {
-            LOG.debug("Failed to export offline icon for {}", GuideSiteItemSupport.itemId(stack), t);
+            FMLLog.getLogger()
+                .debug(
+                    "[GuideNH] [GuideSiteItemIconExporter] Failed to export offline icon for {}",
+                    GuideSiteItemSupport.itemId(stack),
+                    t);
             exportedIcons.put(cacheKey, "");
             return "";
         }

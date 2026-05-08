@@ -16,15 +16,11 @@ import net.minecraftforge.oredict.ShapedOreRecipe;
 import net.minecraftforge.oredict.ShapelessOreRecipe;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.mixins.early.forge.AccessorShapedOreRecipe;
 import com.hfstudio.guidenh.mixins.early.forge.AccessorShapelessOreRecipe;
 
 public class RecipeLookup {
-
-    public static final Logger LOG = LoggerFactory.getLogger(RecipeLookup.class);
 
     private RecipeLookup() {}
 

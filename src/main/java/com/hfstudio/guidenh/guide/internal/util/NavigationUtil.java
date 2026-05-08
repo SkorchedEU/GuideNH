@@ -9,8 +9,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.GuidePageIcon;
 import com.hfstudio.guidenh.guide.PageCollection;
@@ -19,9 +17,9 @@ import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.compiler.YamlNbtConverter;
 import com.hfstudio.guidenh.guide.render.GuidePageTexture;
 
-public class NavigationUtil {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(NavigationUtil.class);
+public class NavigationUtil {
 
     private NavigationUtil() {}
 
@@ -113,7 +111,8 @@ public class NavigationUtil {
         @Nullable java.util.Map<?, ?> nbt) {
         var item = (Item) Item.itemRegistry.getObject(itemId);
         if (item == null) {
-            LOG.error("Couldn't find icon item {} for page {}", itemId, page.getId());
+            FMLLog.getLogger()
+                .error("[GuideNH] [NavigationUtil] Couldn't find icon item {} for page {}", itemId, page.getId());
             return null;
         }
         var stack = new ItemStack(item, 1, meta);
@@ -128,12 +127,14 @@ public class NavigationUtil {
     private static GuidePageTexture loadTexture(ParsedGuidePage page, PageCollection pages, ResourceLocation iconId) {
         var data = pages.loadAsset(iconId);
         if (data == null || data.length == 0) {
-            LOG.error("Couldn't find icon texture {} for page {}", iconId, page.getId());
+            FMLLog.getLogger()
+                .error("[GuideNH] [NavigationUtil] Couldn't find icon texture {} for page {}", iconId, page.getId());
             return null;
         }
         var texture = GuidePageTexture.load(iconId, data);
         if (texture.isMissing()) {
-            LOG.error("Couldn't decode icon texture {} for page {}", iconId, page.getId());
+            FMLLog.getLogger()
+                .error("[GuideNH] [NavigationUtil] Couldn't decode icon texture {} for page {}", iconId, page.getId());
             return null;
         }
         return texture;

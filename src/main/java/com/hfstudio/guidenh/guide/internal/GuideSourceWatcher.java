@@ -22,8 +22,6 @@ import java.util.concurrent.TimeUnit;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.google.common.base.Stopwatch;
@@ -33,13 +31,12 @@ import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 
+import cpw.mods.fml.common.FMLLog;
 import io.methvin.watcher.DirectoryChangeEvent;
 import io.methvin.watcher.DirectoryChangeListener;
 import io.methvin.watcher.DirectoryWatcher;
 
 class GuideSourceWatcher implements AutoCloseable {
-
-    public static final Logger LOG = LoggerFactory.getLogger(GuideSourceWatcher.class);
 
     private final String defaultLanguage;
 
@@ -78,7 +75,8 @@ class GuideSourceWatcher implements AutoCloseable {
         if (!Files.isDirectory(sourceFolder)) {
             throw new RuntimeException("Cannot find the specified folder with guidebook sources: " + sourceFolder);
         }
-        LOG.info("Watching guidebook sources in {}", sourceFolder);
+        FMLLog.getLogger()
+            .info("[GuideNH] [GuideSourceWatcher] Watching guidebook sources in {}", sourceFolder);
 
         watchExecutor = Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setDaemon(true)
@@ -95,7 +93,11 @@ class GuideSourceWatcher implements AutoCloseable {
                 .listener(new Listener())
                 .build();
         } catch (IOException e) {
-            LOG.error("Failed to watch for changes in the guidebook sources at {}", sourceFolder, e);
+            FMLLog.getLogger()
+                .error(
+                    "[GuideNH] [GuideSourceWatcher] Failed to watch for changes in the guidebook sources at {}",
+                    sourceFolder,
+                    e);
             watcher = null;
         }
         sourceWatcher = watcher;
@@ -132,23 +134,30 @@ class GuideSourceWatcher implements AutoCloseable {
 
                 @Override
                 public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                    LOG.error("Failed to list page {}", file, exc);
+                    FMLLog.getLogger()
+                        .error("[GuideNH] [GuideSourceWatcher] Failed to list page {}", file, exc);
                     return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
                     if (exc != null) {
-                        LOG.error("Failed to list all pages in {}", dir, exc);
+                        FMLLog.getLogger()
+                            .error("[GuideNH] [GuideSourceWatcher] Failed to list all pages in {}", dir, exc);
                     }
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
-            LOG.error("Failed to list all pages in {}", sourceFolder, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideSourceWatcher] Failed to list all pages in {}", sourceFolder, e);
         }
 
-        LOG.info("Loading {} guidebook pages from {} localized variants", pageIds.size(), pageSources.size());
+        FMLLog.getLogger()
+            .info(
+                "[GuideNH] [GuideSourceWatcher] Loading {} guidebook pages from {} localized variants",
+                pageIds.size(),
+                pageSources.size());
         var loadedPages = new ArrayList<ParsedGuidePage>(pageIds.size());
         for (var pageId : pageIds) {
             var pageSource = resolvePageSource(pageSources, pageId, currentLanguage);
@@ -159,11 +168,17 @@ class GuideSourceWatcher implements AutoCloseable {
             try (var in = Files.newInputStream(pageSource.path())) {
                 loadedPages.add(PageCompiler.parse(sourcePackId, pageSource.language(), pageId, in));
             } catch (Exception e) {
-                LOG.error("Failed to reload guidebook page {}", pageSource.path(), e);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [GuideSourceWatcher] Failed to reload guidebook page {}", pageSource.path(), e);
             }
         }
 
-        LOG.info("Loaded {} pages from {} in {}", loadedPages.size(), sourceFolder, stopwatch);
+        FMLLog.getLogger()
+            .info(
+                "[GuideNH] [GuideSourceWatcher] Loaded {} pages from {} in {}",
+                loadedPages.size(),
+                sourceFolder,
+                stopwatch);
         return loadedPages;
     }
 
@@ -211,7 +226,8 @@ class GuideSourceWatcher implements AutoCloseable {
             try {
                 sourceWatcher.close();
             } catch (IOException e) {
-                LOG.error("Failed to close fileystem watcher for {}", sourceFolder);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [GuideSourceWatcher] Failed to close fileystem watcher for {}", sourceFolder);
             }
         }
     }
@@ -236,7 +252,8 @@ class GuideSourceWatcher implements AutoCloseable {
 
         @Override
         public void onException(Exception e) {
-            LOG.error("Failed watching for changes", e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideSourceWatcher] Failed watching for changes", e);
         }
     }
 
@@ -256,7 +273,8 @@ class GuideSourceWatcher implements AutoCloseable {
             var page = PageCompiler.parse(sourcePackId, language, pageKey.pageId(), in);
             changedPages.put(pageKey, page);
         } catch (Exception e) {
-            LOG.error("Failed to reload guidebook page {}", path, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideSourceWatcher] Failed to reload guidebook page {}", path, e);
         }
     }
 
@@ -341,7 +359,11 @@ class GuideSourceWatcher implements AutoCloseable {
         try (var in = Files.newInputStream(fallbackSource.path())) {
             return PageCompiler.parse(sourcePackId, fallbackSource.language(), pageKey.pageId(), in);
         } catch (Exception e) {
-            LOG.error("Failed to load fallback guidebook page {}", fallbackSource.path(), e);
+            FMLLog.getLogger()
+                .error(
+                    "[GuideNH] [GuideSourceWatcher] Failed to load fallback guidebook page {}",
+                    fallbackSource.path(),
+                    e);
             return null;
         }
     }

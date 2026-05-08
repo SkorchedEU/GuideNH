@@ -8,21 +8,21 @@ import java.util.List;
 import net.minecraft.item.ItemStack;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.compat.Mods;
 
-public class NeiRecipeLookup {
+import cpw.mods.fml.common.FMLLog;
 
-    private static final Logger LOG = LoggerFactory.getLogger(NeiRecipeLookup.class);
+public class NeiRecipeLookup {
 
     public static final boolean AVAILABLE;
 
     static {
         boolean ok = false;
         if (!Mods.NotEnoughItems.isModLoaded()) {
-            LOG.info("NEI mod not loaded; GuideNH recipe rendering falls back to vanilla.");
+            FMLLog.getLogger()
+                .info(
+                    "[GuideNH] [NeiRecipeLookup] NEI mod not loaded; GuideNH recipe rendering falls back to vanilla.");
         } else {
             try {
                 Class.forName(
@@ -31,7 +31,10 @@ public class NeiRecipeLookup {
                     NeiRecipeLookup.class.getClassLoader());
                 ok = true;
             } catch (Throwable t) {
-                LOG.warn("NEI API incompatible; recipe rendering falls back to vanilla. Reason: {}", t.toString());
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [NeiRecipeLookup] NEI API incompatible; recipe rendering falls back to vanilla. Reason: {}",
+                        t.toString());
             }
         }
         AVAILABLE = ok;
@@ -100,7 +103,8 @@ public class NeiRecipeLookup {
             }
             return out;
         } catch (Throwable t) {
-            LOG.warn("NEI crafting refs query failed", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [NeiRecipeLookup] NEI crafting refs query failed", t);
             return Collections.emptyList();
         }
     }
@@ -119,7 +123,8 @@ public class NeiRecipeLookup {
         try {
             return processHandlers(NeiDirectCalls.getUsageHandlers(target));
         } catch (Throwable t) {
-            LOG.warn("NEI usage query failed", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [NeiRecipeLookup] NEI usage query failed", t);
             return Collections.emptyList();
         }
     }
@@ -133,7 +138,8 @@ public class NeiRecipeLookup {
         try {
             return NeiDirectCalls.getCraftingHandlers(target);
         } catch (Throwable t) {
-            LOG.warn("queryRawCraftingHandlers failed", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [NeiRecipeLookup] queryRawCraftingHandlers failed", t);
             return Collections.emptyList();
         }
     }
@@ -147,7 +153,8 @@ public class NeiRecipeLookup {
         try {
             return NeiDirectCalls.getUsageHandlers(target);
         } catch (Throwable t) {
-            LOG.warn("queryRawUsageHandlers failed", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [NeiRecipeLookup] queryRawUsageHandlers failed", t);
             return Collections.emptyList();
         }
     }
@@ -366,7 +373,8 @@ public class NeiRecipeLookup {
             }
             return out;
         } catch (Throwable t) {
-            LOG.debug("NEI handler {} read failed", handler.getClass(), t);
+            FMLLog.getLogger()
+                .debug("[GuideNH] [NeiRecipeLookup] NEI handler {} read failed", handler.getClass(), t);
             return null;
         }
     }

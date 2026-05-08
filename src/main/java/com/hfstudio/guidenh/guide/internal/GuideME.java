@@ -3,15 +3,13 @@ package com.hfstudio.guidenh.guide.internal;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.GuideNH;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearch;
 
-public class GuideME {
+import cpw.mods.fml.common.FMLLog;
 
-    private static final Logger LOG = LoggerFactory.getLogger(GuideME.class);
+public class GuideME {
 
     static GuideMEProxy PROXY = new GuideMEServerProxy();
 
@@ -46,7 +44,8 @@ public class GuideME {
             try {
                 SEARCH.close();
             } catch (Exception e) {
-                LOG.error("Failed to close GuideSearch", e);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [GuideME] Failed to close GuideSearch", e);
             } finally {
                 SEARCH = null;
             }

@@ -1,6 +1,7 @@
 package com.hfstudio.guidenh.network;
 
-import cpw.mods.fml.common.network.ByteBufUtils;
+import java.nio.charset.StandardCharsets;
+
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import io.netty.buffer.ByteBuf;
 
@@ -66,7 +67,10 @@ public class GuideNhStructureRequestMessage implements IMessage {
         x = buf.readInt();
         y = buf.readInt();
         z = buf.readInt();
-        structureText = ByteBufUtils.readUTF8String(buf);
+        int len = buf.readInt();
+        byte[] bytes = new byte[len];
+        buf.readBytes(bytes);
+        structureText = new String(bytes, StandardCharsets.UTF_8);
     }
 
     @Override
@@ -75,6 +79,8 @@ public class GuideNhStructureRequestMessage implements IMessage {
         buf.writeInt(x);
         buf.writeInt(y);
         buf.writeInt(z);
-        ByteBufUtils.writeUTF8String(buf, structureText != null ? structureText : "");
+        byte[] bytes = structureText != null ? structureText.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        buf.writeInt(bytes.length);
+        buf.writeBytes(bytes);
     }
 }

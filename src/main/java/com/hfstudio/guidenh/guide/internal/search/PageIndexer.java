@@ -7,9 +7,6 @@ import java.util.Map;
 
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.PageCollection;
 import com.hfstudio.guidenh.guide.compiler.IndexingContext;
 import com.hfstudio.guidenh.guide.compiler.IndexingSink;
@@ -47,9 +44,9 @@ import com.hfstudio.guidenh.libs.mdast.model.MdAstStrong;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstText;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstThematicBreak;
 
-public class PageIndexer implements IndexingContext {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(PageIndexer.class);
+public class PageIndexer implements IndexingContext {
 
     private final PageCollection pages;
     private final ExtensionCollection extensions;
@@ -146,12 +143,16 @@ public class PageIndexer implements IndexingContext {
         } else if (content instanceof MdxJsxElementFields el) {
             var compiler = tagCompilers.get(el.name());
             if (compiler == null) {
-                LOG.warn("Unhandled custom MDX element in guide search indexing: {}", el.name());
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [PageIndexer] Unhandled custom MDX element in guide search indexing: {}",
+                        el.name());
             } else {
                 compiler.index(this, el, sink);
             }
         } else {
-            LOG.warn("Unhandled node type in guide search indexing: {}", content.type());
+            FMLLog.getLogger()
+                .warn("[GuideNH] [PageIndexer] Unhandled node type in guide search indexing: {}", content.type());
         }
         sink.appendBreak();
     }
@@ -173,7 +174,8 @@ public class PageIndexer implements IndexingContext {
                     indexContent(astListItem.children(), sink);
                 }
             } else {
-                LOG.warn("Cannot handle list content: {}", listContent);
+                FMLLog.getLogger()
+                    .warn("[GuideNH] [PageIndexer] Cannot handle list content: {}", listContent);
             }
         }
     }

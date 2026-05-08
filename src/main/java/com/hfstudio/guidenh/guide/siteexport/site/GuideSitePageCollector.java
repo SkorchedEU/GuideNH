@@ -10,18 +10,15 @@ import java.util.Optional;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
 import com.hfstudio.guidenh.guide.internal.datadriven.DataDrivenGuideLoader;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 
-public class GuideSitePageCollector {
+import cpw.mods.fml.common.FMLLog;
 
-    private static final Logger LOG = LoggerFactory.getLogger(GuideSitePageCollector.class);
+public class GuideSitePageCollector {
 
     @FunctionalInterface
     public interface PageLoader {
@@ -44,7 +41,11 @@ public class GuideSitePageCollector {
         try {
             languages = discoverLanguages(guide.getId());
         } catch (Throwable t) {
-            LOG.debug("Falling back to the guide default language for {}", guide.getId(), t);
+            FMLLog.getLogger()
+                .debug(
+                    "[GuideNH] [GuideSitePageCollector] Falling back to the guide default language for {}",
+                    guide.getId(),
+                    t);
             languages = new ArrayList<>();
         }
         if (languages.isEmpty()) {
@@ -58,7 +59,11 @@ public class GuideSitePageCollector {
             pagePathSet = new LinkedHashSet<>(
                 DataDrivenGuideLoader.discoverPagePaths(guide.getId(), guide.getContentRootFolder()));
         } catch (Throwable t) {
-            LOG.debug("Falling back to already loaded page ids for {}", guide.getId(), t);
+            FMLLog.getLogger()
+                .debug(
+                    "[GuideNH] [GuideSitePageCollector] Falling back to already loaded page ids for {}",
+                    guide.getId(),
+                    t);
             pagePathSet = new LinkedHashSet<>();
         }
         for (ParsedGuidePage page : guide.getPages()) {

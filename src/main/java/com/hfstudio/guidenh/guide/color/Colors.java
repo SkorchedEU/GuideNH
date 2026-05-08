@@ -1,11 +1,8 @@
 package com.hfstudio.guidenh.guide.color;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import cpw.mods.fml.common.FMLLog;
 
 public class Colors {
-
-    public static final Logger LOG = LoggerFactory.getLogger(Colors.class);
 
     /**
      * Converts a hexadecimal color string to a packed RGB or ARGB integer. If no alpha is given, assumes alpha 255. The
@@ -59,7 +56,8 @@ public class Colors {
             }
         }
 
-        LOG.error("Tried to parse an invalid hexadecimal color string: '{}'", hexColor);
+        FMLLog.getLogger()
+            .error("[GuideNH] [Colors] Tried to parse an invalid hexadecimal color string: '{}'", hexColor);
         return 0;
     }
 

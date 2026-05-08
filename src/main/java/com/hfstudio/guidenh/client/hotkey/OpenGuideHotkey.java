@@ -226,7 +226,9 @@ public class OpenGuideHotkey {
         Item item = stack.getItem();
         if (item == null) return null;
         Object name = Item.itemRegistry.getNameForObject(item);
-        return name != null ? name.toString() : null;
+        if (name == null) return null;
+        int meta = stack.getItemDamage();
+        return meta == 0 ? name.toString() : name + ":" + meta;
     }
 
     /**

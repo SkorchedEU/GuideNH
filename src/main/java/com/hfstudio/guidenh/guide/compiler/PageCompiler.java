@@ -21,8 +21,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.GuidePage;
@@ -124,9 +122,9 @@ import com.hfstudio.guidenh.libs.micromark.ParseException;
 import com.hfstudio.guidenh.libs.unist.UnistNode;
 import com.hfstudio.guidenh.libs.unist.UnistPosition;
 
-public class PageCompiler {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(PageCompiler.class);
+public class PageCompiler {
 
     /**
      * Default gap between block-level elements. Set as margin.
@@ -222,7 +220,8 @@ public class PageCompiler {
                 language,
                 position,
                 sourcePack);
-            LOG.error("{}", errorMessage, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [PageCompiler] {}", errorMessage, e);
             parseFailureMessage = errorMessage + ": \n" + e;
             astRoot = buildErrorPage(parseFailureMessage);
         }
@@ -345,13 +344,15 @@ public class PageCompiler {
         for (var child : root.children()) {
             if (child instanceof MdAstYamlFrontmatter frontmatter) {
                 if (result != null) {
-                    LOG.error("Found more than one frontmatter!"); // TODO: proper debugging
+                    FMLLog.getLogger()
+                        .error("[GuideNH] [PageCompiler] Found more than one frontmatter!"); // TODO: proper debugging
                     continue;
                 }
                 try {
                     result = Frontmatter.parse(pageId, frontmatter.value);
                 } catch (Exception e) {
-                    LOG.error("Failed to parse frontmatter for page {}", pageId, e);
+                    FMLLog.getLogger()
+                        .error("[GuideNH] [PageCompiler] Failed to parse frontmatter for page {}", pageId, e);
                     break;
                 }
             }
@@ -369,7 +370,8 @@ public class PageCompiler {
         try {
             return Frontmatter.parse(pageId, yamlText);
         } catch (Exception e) {
-            LOG.error("Failed to parse frontmatter for page {}", pageId, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [PageCompiler] Failed to parse frontmatter for page {}", pageId, e);
             return new Frontmatter(null, Collections.emptyMap());
         }
     }
@@ -1422,10 +1424,19 @@ public class PageCompiler {
         try {
             String normalized = MermaidMindmapParser.normalize(source);
             LytMermaidMindmap block = new LytMermaidMindmap(MermaidMindmapParser.parse(normalized), normalized);
-            LOG.info("Compiled fenced Mermaid runtime block for page {} ({} chars)", pageId, normalized.length());
+            FMLLog.getLogger()
+                .info(
+                    "[GuideNH] [PageCompiler] Compiled fenced Mermaid runtime block for page {} ({} chars)",
+                    pageId,
+                    normalized.length());
             return block;
         } catch (IllegalArgumentException e) {
-            LOG.warn("Failed to compile fenced Mermaid runtime block for page {} from source: {}", pageId, source, e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [PageCompiler] Failed to compile fenced Mermaid runtime block for page {} from source: {}",
+                    pageId,
+                    source,
+                    e);
             return null;
         }
     }
@@ -1479,12 +1490,14 @@ public class PageCompiler {
             var imageId = IdUtils.resolveLink(astImage.url, pageId);
             var imageContent = pages.loadAsset(imageId);
             if (imageContent == null) {
-                LOG.error("Couldn't find image {}", astImage.url);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [PageCompiler] Couldn't find image {}", astImage.url);
                 image.setTitle("Missing image: " + astImage.url);
             }
             image.setImage(imageId, imageContent);
         } catch (IllegalArgumentException e) {
-            LOG.error("Invalid image id: {}", astImage.url);
+            FMLLog.getLogger()
+                .error("[GuideNH] [PageCompiler] Invalid image id: {}", astImage.url);
             image.setTitle("Invalid image URL: " + astImage.url);
         }
         return image;
@@ -1526,9 +1539,11 @@ public class PageCompiler {
             span.appendText(tildes + "^");
             span.appendBreak();
 
-            LOG.warn("{}\n{}\n{}\n", text, line, tildes + "^");
+            FMLLog.getLogger()
+                .warn("[GuideNH] [PageCompiler] {}\n{}\n{}\n", text, line, tildes + "^");
         } else {
-            LOG.warn("{}\n", text);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [PageCompiler] {}\n", text);
         }
 
         return span;

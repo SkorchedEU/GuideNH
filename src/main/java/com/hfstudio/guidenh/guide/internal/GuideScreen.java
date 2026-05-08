@@ -24,8 +24,6 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -78,11 +76,10 @@ import com.hfstudio.guidenh.guide.scene.support.GuideBlockDisplayResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityDisplayResolver;
 import com.hfstudio.guidenh.guide.ui.GuideUiHost;
 
+import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.common.Loader;
 
 public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallback {
-
-    public static final Logger LOG = LogManager.getLogger("GuideNH/GuideScreen");
 
     public static final int PANEL_MARGIN = 20;
     public static final int PANEL_PADDING = 8;
@@ -280,7 +277,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     public static void open(ResourceLocation guideId, @Nullable PageAnchor anchor) {
         var guide = GuideRegistry.getById(guideId);
         if (guide == null) {
-            LOG.warn("GuideScreen.open: no guide registered with id {}", guideId);
+            FMLLog.warning("GuideScreen.open: no guide registered with id {}", guideId);
             return;
         }
         var initial = anchor != null ? anchor : PageAnchor.page(guide.getStartPage());
@@ -487,7 +484,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             try {
                 currentPage = guide.getPage(currentAnchor.pageId());
             } catch (Throwable t) {
-                LOG.error("Failed to compile guide page {}", currentAnchor.pageId(), t);
+                FMLLog.severe("Failed to compile guide page {}", currentAnchor.pageId(), t);
                 currentPage = null;
             }
             if (currentPage != null) {
@@ -1098,7 +1095,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             ct.getContent()
                 .render(ctx);
         } catch (Throwable t) {
-            LOG.warn("Error rendering ContentTooltip", t);
+            FMLLog.warning("Error rendering ContentTooltip", t);
         } finally {
             GL11.glPopMatrix();
             ctx.restoreExternalRenderState();
@@ -1194,7 +1191,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         try {
             activeDocument.render(ctx);
         } catch (Throwable t) {
-            LOG.error("Error rendering guide document {}", currentAnchor.pageId(), t);
+            FMLLog.severe("Error rendering guide document {}", currentAnchor.pageId(), t);
         } finally {
             GL11.glPopMatrix();
             ctx.restoreExternalRenderState();
@@ -1878,7 +1875,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             codeBlockClipboardService.copy(text);
             return true;
         } catch (Exception e) {
-            LOG.error("Failed to copy code block", e);
+            FMLLog.severe("Failed to copy code block", e);
             return false;
         }
     }
@@ -1901,7 +1898,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             Desktop.getDesktop()
                 .browse(uri);
         } catch (Exception e) {
-            LOG.warn("Failed to open external guide link {}", uri, e);
+            FMLLog.warning("Failed to open external guide link {}", uri, e);
         }
     }
 
@@ -2093,7 +2090,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
                         clipSnippetForWidth(result.text(), getSearchSnippetLineWidth(textColumnWidth))));
             }
         } catch (Throwable t) {
-            LOG.warn("Search failed", t);
+            FMLLog.warning("Search failed", t);
         }
 
         return GuideSearchResultDocumentBuilder

@@ -15,19 +15,16 @@ import net.minecraft.util.ResourceLocation;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.PageCollection;
 import com.hfstudio.guidenh.guide.compiler.FrontmatterNavigation;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.util.NavigationUtil;
 
+import cpw.mods.fml.common.FMLLog;
 import cpw.mods.fml.common.Loader;
 
 public class NavigationTree {
-
-    public static final Logger LOG = LoggerFactory.getLogger(NavigationTree.class);
 
     private final Map<ResourceLocation, NavigationNode> nodeIndex;
 
@@ -127,7 +124,10 @@ public class NavigationTree {
         }
 
         if (!parents.add(pageId)) {
-            LOG.error("Detected a cycle in the navigation tree parent-child relationship for page {}", pageId);
+            FMLLog.getLogger()
+                .error(
+                    "[GuideNH] [NavigationTree] Detected a cycle in the navigation tree parent-child relationship for page {}",
+                    pageId);
             return null;
         }
 
@@ -136,7 +136,8 @@ public class NavigationTree {
 
         if (page == null) {
             // These children had a parent that doesn't exist
-            LOG.error("Pages {} had unknown navigation parent {}", children, pageId);
+            FMLLog.getLogger()
+                .error("[GuideNH] [NavigationTree] Pages {} had unknown navigation parent {}", children, pageId);
             return null;
         }
 

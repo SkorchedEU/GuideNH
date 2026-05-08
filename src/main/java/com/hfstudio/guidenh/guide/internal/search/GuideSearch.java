@@ -37,8 +37,6 @@ import org.apache.lucene.search.highlight.InvalidTokenOffsetsException;
 import org.apache.lucene.search.highlight.QueryScorer;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.Guide;
@@ -50,12 +48,12 @@ import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstHeading;
 import com.hfstudio.guidenh.libs.unist.UnistNode;
 
+import cpw.mods.fml.common.FMLLog;
+
 /**
  * Manages the in-memory Lucene index for guide search.
  */
 public class GuideSearch implements AutoCloseable {
-
-    public static final Logger LOG = LoggerFactory.getLogger(GuideSearch.class);
 
     /** Maximum indexing time budget per tick. */
     public static final long TIME_PER_TICK = TimeUnit.MILLISECONDS.toNanos(5);
@@ -103,7 +101,8 @@ public class GuideSearch implements AutoCloseable {
                     guide.getId()
                         .toString()));
         } catch (IOException e) {
-            LOG.error("Failed to delete all documents before re-indexing.", e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideSearch] Failed to delete all documents before re-indexing.", e);
         }
 
         if (pendingTasks.isEmpty()) {
@@ -164,7 +163,8 @@ public class GuideSearch implements AutoCloseable {
                     try {
                         indexWriter.addDocument(pageDoc);
                     } catch (IOException e) {
-                        LOG.error("Failed to index document {}{}", guide, page, e);
+                        FMLLog.getLogger()
+                            .error("[GuideNH] [GuideSearch] Failed to index document {}{}", guide, page, e);
                     }
 
                     var searchLang = pageDoc.get(IndexSchema.FIELD_SEARCH_LANG);
@@ -187,7 +187,11 @@ public class GuideSearch implements AutoCloseable {
             throw new UncheckedIOException(e);
         }
 
-        LOG.info("Indexing of {} pages finished in {}", pagesIndexed, Duration.between(indexingStarted, Instant.now()));
+        FMLLog.getLogger()
+            .info(
+                "[GuideNH] [GuideSearch] Indexing of {} pages finished in {}",
+                pagesIndexed,
+                Duration.between(indexingStarted, Instant.now()));
     }
 
     public void processAllWork() {
@@ -224,7 +228,8 @@ public class GuideSearch implements AutoCloseable {
         try {
             query = GuideQueryParser.parse(queryText, analyzer, indexedLanguages);
         } catch (Exception e) {
-            LOG.debug("Failed to parse search query: '{}'", queryText, e);
+            FMLLog.getLogger()
+                .debug("[GuideNH] [GuideSearch] Failed to parse search query: '{}'", queryText, e);
             return Collections.emptyList();
         }
 
@@ -241,13 +246,15 @@ public class GuideSearch implements AutoCloseable {
                 .build();
         }
 
-        LOG.debug("Running GuideME search query: {}", query);
+        FMLLog.getLogger()
+            .debug("[GuideNH] [GuideSearch] Running GuideME search query: {}", query);
 
         TopDocs topDocs;
         try {
             topDocs = indexSearcher.search(query, 25);
         } catch (IOException e) {
-            LOG.error("Failed to search for '{}'", queryText, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideSearch] Failed to search for '{}'", queryText, e);
             return Collections.emptyList();
         }
 
@@ -261,13 +268,20 @@ public class GuideSearch implements AutoCloseable {
 
                 var guide = Guides.getById(guideId);
                 if (guide == null) {
-                    LOG.warn("Search index produced guide id {} which couldn't be found.", guideId);
+                    FMLLog.getLogger()
+                        .warn(
+                            "[GuideNH] [GuideSearch] Search index produced guide id {} which couldn't be found.",
+                            guideId);
                     continue;
                 }
 
                 var page = guide.getParsedPage(pageId);
                 if (page == null) {
-                    LOG.warn("Search index produced page {} in guide {}, which couldn't be found.", pageId, guideId);
+                    FMLLog.getLogger()
+                        .warn(
+                            "[GuideNH] [GuideSearch] Search index produced page {} in guide {}, which couldn't be found.",
+                            pageId,
+                            guideId);
                     continue;
                 }
 
@@ -281,7 +295,8 @@ public class GuideSearch implements AutoCloseable {
                         bestFragment = "";
                     }
                 } catch (InvalidTokenOffsetsException e) {
-                    LOG.error("Cannot determine text to highlight for result", e);
+                    FMLLog.getLogger()
+                        .error("[GuideNH] [GuideSearch] Cannot determine text to highlight for result", e);
                 }
 
                 var pageTitle = document.get(IndexSchema.FIELD_TITLE);
@@ -330,7 +345,10 @@ public class GuideSearch implements AutoCloseable {
         var luceneLang = Analyzers.MINECRAFT_TO_LUCENE_LANG.get(language);
         if (luceneLang == null) {
             if (warnedAboutLanguage.add(language)) {
-                LOG.warn("Minecraft language '{}' is unknown, so search falls back to english.", language);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [GuideSearch] Minecraft language '{}' is unknown, so search falls back to english.",
+                        language);
             }
             return Analyzers.LANG_ENGLISH;
         }

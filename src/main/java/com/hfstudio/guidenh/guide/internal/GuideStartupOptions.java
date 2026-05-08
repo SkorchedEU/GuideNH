@@ -6,15 +6,13 @@ import java.util.Set;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.PageAnchor;
 
-public class GuideStartupOptions {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(GuideStartupOptions.class);
+public class GuideStartupOptions {
 
     public GuideStartupOptions() {}
 
@@ -40,7 +38,8 @@ public class GuideStartupOptions {
 
             return new ShowOnStartup(guideId, parseStartupAnchor(guideId, parts[1]));
         } catch (RuntimeException e) {
-            LOG.error("Failed to parse guideme.showOnStartup='{}'", trimmedValue, e);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideStartupOptions] Failed to parse guideme.showOnStartup='{}'", trimmedValue, e);
             return null;
         }
     }
@@ -65,7 +64,11 @@ public class GuideStartupOptions {
             try {
                 result.add(new ResourceLocation(trimmedToken));
             } catch (RuntimeException e) {
-                LOG.error("Failed to parse validateAtStartup guide id '{}'", trimmedToken, e);
+                FMLLog.getLogger()
+                    .error(
+                        "[GuideNH] [GuideStartupOptions] Failed to parse validateAtStartup guide id '{}'",
+                        trimmedToken,
+                        e);
             }
         }
 

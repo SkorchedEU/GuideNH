@@ -8,8 +8,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import betterquesting.api.enums.EnumQuestVisibility;
 import betterquesting.api.properties.NativeProps;
@@ -20,8 +18,6 @@ import betterquesting.client.gui2.GuiQuest;
 import betterquesting.questing.QuestDatabase;
 
 public class BqHelpers {
-
-    public static final Logger LOG = LoggerFactory.getLogger(BqHelpers.class);
 
     /**
      * Resolves the per-player display attributes of a quest by its UUID. Never returns

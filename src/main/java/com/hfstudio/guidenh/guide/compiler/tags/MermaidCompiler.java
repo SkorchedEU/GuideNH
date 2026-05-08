@@ -6,9 +6,6 @@ import java.util.Set;
 
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.compiler.IdUtils;
 import com.hfstudio.guidenh.guide.compiler.IndexingContext;
 import com.hfstudio.guidenh.guide.compiler.IndexingSink;
@@ -33,9 +30,9 @@ import com.hfstudio.guidenh.libs.mdast.model.MdAstParent;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstStrong;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstText;
 
-public class MermaidCompiler extends BlockTagCompiler {
+import cpw.mods.fml.common.FMLLog;
 
-    private static final Logger LOG = LoggerFactory.getLogger(MermaidCompiler.class);
+public class MermaidCompiler extends BlockTagCompiler {
 
     @Override
     public Set<String> getTagNames() {
@@ -59,24 +56,26 @@ public class MermaidCompiler extends BlockTagCompiler {
             if (width > 0 || height > 0) {
                 block.setPreferredSize(width, height);
             }
-            LOG.info(
-                "Compiled Mermaid runtime block for page {} with root='{}', children={}, sourceLength={}, width={}, height={}",
-                compiler.getPageId(),
-                document.getRoot()
-                    .getText(),
-                document.getRoot()
-                    .getChildren()
-                    .size(),
-                source.length(),
-                width,
-                height);
+            FMLLog.getLogger()
+                .info(
+                    "[GuideNH] [MermaidCompiler] Compiled Mermaid runtime block for page {} with root='{}', children={}, sourceLength={}, width={}, height={}",
+                    compiler.getPageId(),
+                    document.getRoot()
+                        .getText(),
+                    document.getRoot()
+                        .getChildren()
+                        .size(),
+                    source.length(),
+                    width,
+                    height);
             parent.append(block);
         } catch (IllegalArgumentException e) {
-            LOG.warn(
-                "Failed to compile Mermaid runtime block for page {} from source: {}",
-                compiler.getPageId(),
-                source,
-                e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [MermaidCompiler] Failed to compile Mermaid runtime block for page {} from source: {}",
+                    compiler.getPageId(),
+                    source,
+                    e);
             parent.appendError(compiler, "Unsupported Mermaid runtime block: " + e.getMessage(), el);
         }
     }
@@ -126,23 +125,30 @@ public class MermaidCompiler extends BlockTagCompiler {
             ResourceLocation mermaidId = IdUtils.resolveLink(src, compiler.getPageId());
             byte[] data = compiler.loadAsset(mermaidId);
             if (data == null) {
-                LOG.warn(
-                    "Mermaid src '{}' for page {} could not be loaded as asset {}",
-                    src,
-                    compiler.getPageId(),
-                    mermaidId);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [MermaidCompiler] Mermaid src '{}' for page {} could not be loaded as asset {}",
+                        src,
+                        compiler.getPageId(),
+                        mermaidId);
                 return null;
             }
             String loaded = MermaidMindmapParser.normalize(new String(data, StandardCharsets.UTF_8));
-            LOG.info(
-                "Loaded Mermaid src '{}' for page {} as asset {} ({} chars)",
-                src,
-                compiler.getPageId(),
-                mermaidId,
-                loaded.length());
+            FMLLog.getLogger()
+                .info(
+                    "[GuideNH] [MermaidCompiler] Loaded Mermaid src '{}' for page {} as asset {} ({} chars)",
+                    src,
+                    compiler.getPageId(),
+                    mermaidId,
+                    loaded.length());
             return loaded;
         } catch (IllegalArgumentException e) {
-            LOG.warn("Failed to resolve Mermaid src '{}' for page {}", src, compiler.getPageId(), e);
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [MermaidCompiler] Failed to resolve Mermaid src '{}' for page {}",
+                    src,
+                    compiler.getPageId(),
+                    e);
             return null;
         }
     }

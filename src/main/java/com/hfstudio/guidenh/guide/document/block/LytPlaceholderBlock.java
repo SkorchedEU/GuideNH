@@ -5,20 +5,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.hfstudio.guidenh.guide.document.DefaultStyles;
 import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.render.RenderContext;
 
+import cpw.mods.fml.common.FMLLog;
+
 /**
  * This layout block shows a loading indicator and will ultimately replace itself with the final content.
  */
 public class LytPlaceholderBlock extends LytBlock {
-
-    public static final Logger LOG = LoggerFactory.getLogger(LytPlaceholderBlock.class);
 
     private final CompletableFuture<LytBlock> future;
 
@@ -51,7 +48,8 @@ public class LytPlaceholderBlock extends LytBlock {
 
     private void onLoad(LytBlock element, Throwable error) {
         if (error != null || element == null) {
-            LOG.error("Failed to load an asynchronous guide element.", error);
+            FMLLog.getLogger()
+                .error("[GuideNH] [LytPlaceholderBlock] Failed to load an asynchronous guide element.", error);
             var errorParagraph = new LytParagraph();
             errorParagraph.setStyle(DefaultStyles.ERROR_TEXT);
             if (error == null) {

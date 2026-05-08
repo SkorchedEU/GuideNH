@@ -15,13 +15,13 @@ import net.minecraft.client.shader.Framebuffer;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.compat.nei.NeiRecipeLookup;
 import com.hfstudio.guidenh.compat.neicustomdiagram.NeiCustomDiagramBridge;
 import com.hfstudio.guidenh.guide.internal.recipe.LytNeiRecipeBox;
 import com.hfstudio.guidenh.guide.internal.recipe.NeiRecipeLayoutMetrics;
+
+import cpw.mods.fml.common.FMLLog;
 
 /**
  * Renders NEI handler Phase1 ({@code drawBackground} / optionally {@code drawForeground} /
@@ -31,15 +31,13 @@ import com.hfstudio.guidenh.guide.internal.recipe.NeiRecipeLayoutMetrics;
  */
 public final class GuideSiteNeiPhase1BackgroundExporter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(GuideSiteNeiPhase1BackgroundExporter.class);
-
     /**
      * Extra transparent border around the NEI body rectangle. GregTech (and similar) ModularUI / nine-patch chrome
      * often draws a few pixels outside
      * {@link NeiRecipeLookup#lookupHandlerWidth}/{@link NeiRecipeLookup#lookupHandlerHeight};
      * a flush viewport clips top/right bezel lines and truncates footer text unless we pad here. Site overlays use the
      * same
-     * inset — see {@link com.hfstudio.guidenh.guide.siteexport.site.GuideSiteRecipeExporter#renderNeiPositionedSlots}.
+     * inset 閳?see {@link com.hfstudio.guidenh.guide.siteexport.site.GuideSiteRecipeExporter#renderNeiPositionedSlots}.
      */
     public static final int VIEWPORT_MARGIN_PX = 6;
 
@@ -80,7 +78,11 @@ public final class GuideSiteNeiPhase1BackgroundExporter {
         int vw = bodyW + 2 * m;
         int vh = bodyH + 2 * m;
         if (vw > MAX_EXPORT_EDGE || vh > MAX_EXPORT_EDGE) {
-            LOG.debug("Skip NEI Phase1 export: {}x{} exceeds cap", vw, vh);
+            FMLLog.getLogger()
+                .debug(
+                    "[GuideNH] [GuideSiteNeiPhase1BackgroundExporter] Skip NEI Phase1 export: {}x{} exceeds cap",
+                    vw,
+                    vh);
             return null;
         }
 
@@ -98,7 +100,12 @@ public final class GuideSiteNeiPhase1BackgroundExporter {
             cache.put(cacheKey, res);
             return res;
         } catch (Throwable t) {
-            LOG.debug("NEI Phase1 snapshot failed for {} recipe {}", handler.getClass(), recipeIndex, t);
+            FMLLog.getLogger()
+                .debug(
+                    "[GuideNH] [GuideSiteNeiPhase1BackgroundExporter] NEI Phase1 snapshot failed for {} recipe {}",
+                    handler.getClass(),
+                    recipeIndex,
+                    t);
             return null;
         }
     }

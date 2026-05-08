@@ -21,9 +21,6 @@ import net.minecraft.client.resources.Language;
 import net.minecraft.client.resources.LanguageManager;
 import net.minecraft.util.ResourceLocation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.hfstudio.guidenh.compat.structurelib.StructureLibPreviewSelection;
@@ -41,9 +38,10 @@ import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 
+import cpw.mods.fml.common.FMLLog;
+
 public class GuideSiteExportTask {
 
-    private static final Logger LOG = LoggerFactory.getLogger(GuideSiteExportTask.class);
     public static final Gson GSON = new GsonBuilder().disableHtmlEscaping()
         .serializeNulls()
         .create();
@@ -102,7 +100,11 @@ public class GuideSiteExportTask {
                 try {
                     variants = collector.collect(guide);
                 } catch (Throwable t) {
-                    LOG.warn("Failed to collect page variants for guide {}", guide.getId(), t);
+                    FMLLog.getLogger()
+                        .warn(
+                            "[GuideNH] [GuideSiteExportTask] Failed to collect page variants for guide {}",
+                            guide.getId(),
+                            t);
                     recordFailure(outDir, "collect " + guide.getId(), t);
                     pagesFailed++;
                     continue;
@@ -234,7 +236,12 @@ public class GuideSiteExportTask {
                             }
                             pagesExported++;
                         } catch (Throwable t) {
-                            LOG.warn("Failed to export page {} for language {}", variant.pageId(), language, t);
+                            FMLLog.getLogger()
+                                .warn(
+                                    "[GuideNH] [GuideSiteExportTask] Failed to export page {} for language {}",
+                                    variant.pageId(),
+                                    language,
+                                    t);
                             recordFailure(outDir, "page " + variant.pageId() + " (" + language + ")", t);
                             pagesFailed++;
                         }
@@ -281,7 +288,10 @@ public class GuideSiteExportTask {
                 }
             }
             if (target == null) {
-                LOG.warn("Cannot switch Minecraft locale to {}: no matching Language registered", requested);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [GuideSiteExportTask] Cannot switch Minecraft locale to {}: no matching Language registered",
+                        requested);
                 return;
             }
             Language current = manager.getCurrentLanguage();
@@ -297,7 +307,8 @@ public class GuideSiteExportTask {
                 manager.onResourceManagerReload(rm);
             }
         } catch (Throwable t) {
-            LOG.warn("Failed to switch Minecraft locale to {}", requested, t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [GuideSiteExportTask] Failed to switch Minecraft locale to {}", requested, t);
         }
     }
 
@@ -320,7 +331,8 @@ public class GuideSiteExportTask {
                 manager.onResourceManagerReload(rm);
             }
         } catch (Throwable t) {
-            LOG.warn("Failed to restore original Minecraft locale", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [GuideSiteExportTask] Failed to restore original Minecraft locale", t);
         }
     }
 
@@ -514,7 +526,12 @@ public class GuideSiteExportTask {
                     exportedScenesByScene.put(scene, exportedScene);
                 }
             } catch (Throwable t) {
-                LOG.warn("Failed to export scene for page {} in guide {}", parsedPage.getId(), guide.getId(), t);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [GuideSiteExportTask] Failed to export scene for page {} in guide {}",
+                        parsedPage.getId(),
+                        guide.getId(),
+                        t);
             }
         }
 
@@ -644,10 +661,11 @@ public class GuideSiteExportTask {
         for (List<Integer> values : channelValues) {
             variantCount *= values.size();
             if (variantCount > MAX_SCENE_STATE_VARIANTS) {
-                LOG.warn(
-                    "Skipping scene state manifest export because {} variants exceed limit {}.",
-                    variantCount,
-                    MAX_SCENE_STATE_VARIANTS);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [GuideSiteExportTask] Skipping scene state manifest export because {} variants exceed limit {}.",
+                        variantCount,
+                        MAX_SCENE_STATE_VARIANTS);
                 return null;
             }
         }

@@ -20,8 +20,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.GuideItemSettings;
@@ -35,13 +33,14 @@ import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 
+import cpw.mods.fml.common.FMLLog;
+
 /**
  * Encapsulates a Guide, which consists of a collection of Markdown pages and associated content, loaded from a
  * guide-specific subdirectory of resource packs.
  */
 public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
 
-    public static final Logger LOG = LoggerFactory.getLogger(MutableGuide.class);
     public static final String ACTIVE_CLIENT_WORLD_REQUIRED_MESSAGE = "active client world";
 
     private final ResourceLocation id;
@@ -123,7 +122,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     @Nullable
     public ParsedGuidePage getParsedPage(ResourceLocation id) {
         if (pages == null) {
-            LOG.warn("Can't get page {}. Pages not loaded yet.", id);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [MutableGuide] Can't get page {}. Pages not loaded yet.", id);
             return null;
         }
 
@@ -150,7 +150,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             clearCompileFailure(id);
         } catch (Throwable t) {
             recordCompileFailure(id, buildCompileFailureText(id, t));
-            LOG.error("Failed to compile guide page {}", id, t);
+            FMLLog.getLogger()
+                .error("[GuideNH] [MutableGuide] Failed to compile guide page {}", id, t);
             compiledPage = buildFailurePage(parsedPage, pageFailures.get(id));
         }
         compiledPage.prepareForDisplay();
@@ -194,7 +195,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             try {
                 return Files.readAllBytes(path);
             } catch (NoSuchFileException ignored) {} catch (IOException e) {
-                LOG.error("Failed to open guidebook asset {}", path);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [MutableGuide] Failed to open guidebook asset {}", path);
                 return null;
             }
         }
@@ -210,7 +212,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             return bytes;
         }
 
-        LOG.error("Failed to open guidebook asset {}", id);
+        FMLLog.getLogger()
+            .error("[GuideNH] [MutableGuide] Failed to open guidebook asset {}", id);
         return null;
     }
 
@@ -305,7 +308,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             warmPage(startPage);
         } catch (Throwable t) {
             if (!isDeferrableWarmPageFailure(t)) {
-                LOG.error("Failed to pre-warm guide start page {}", startPage, t);
+                FMLLog.getLogger()
+                    .error("[GuideNH] [MutableGuide] Failed to pre-warm guide start page {}", startPage, t);
             }
             // Deferrable failures are expected when world is partially loaded; the page will compile on first open.
         }
@@ -431,7 +435,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     public void validateAll() {
         // Iterate and compile all pages to warn about errors on startup
         for (var entry : developmentPages.entrySet()) {
-            LOG.info("Compiling {}", entry.getKey());
+            FMLLog.getLogger()
+                .info("[GuideNH] [MutableGuide] Compiling {}", entry.getKey());
             getPage(entry.getKey());
         }
     }
@@ -493,9 +498,10 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
                     compiledPages.put(parsedPage, PageCompiler.compile(this, extensions, parsedPage));
                 } catch (RuntimeException e) {
                     if (isDeferrableWarmPageFailure(e)) {
-                        LOG.debug(
-                            "Deferring warm compilation for page {} until an active client world is available",
-                            pageId);
+                        FMLLog.getLogger()
+                            .debug(
+                                "[GuideNH] [MutableGuide] Deferring warm compilation for page {} until an active client world is available",
+                                pageId);
                         return;
                     }
                     throw e;
@@ -528,13 +534,18 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
                 PageCompiler.compile(this, extensions, parsedPage);
             } catch (Throwable t) {
                 if (isDeferrableWarmPageFailure(t)) {
-                    LOG.debug(
-                        "Deferring validation for page {} until an active client world is available",
-                        parsedPage.getId());
+                    FMLLog.getLogger()
+                        .debug(
+                            "[GuideNH] [MutableGuide] Deferring validation for page {} until an active client world is available",
+                            parsedPage.getId());
                     continue;
                 }
                 recordCompileFailure(parsedPage.getId(), buildCompileFailureText(parsedPage.getId(), t));
-                LOG.error("Failed to compile guide page {} during guide refresh", parsedPage.getId(), t);
+                FMLLog.getLogger()
+                    .error(
+                        "[GuideNH] [MutableGuide] Failed to compile guide page {} during guide refresh",
+                        parsedPage.getId(),
+                        t);
             }
         }
     }

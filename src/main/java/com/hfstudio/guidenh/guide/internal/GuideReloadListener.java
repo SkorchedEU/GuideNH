@@ -8,8 +8,6 @@ import net.minecraft.client.resources.IResourceManagerReloadListener;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
@@ -20,13 +18,14 @@ import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.render.GuidePageTexture;
 
-public class GuideReloadListener implements IResourceManagerReloadListener {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(GuideReloadListener.class);
+public class GuideReloadListener implements IResourceManagerReloadListener {
 
     @Override
     public void onResourceManagerReload(IResourceManager resourceManager) {
-        LOG.info("Reloading guides...");
+        FMLLog.getLogger()
+            .info("[GuideNH] [GuideReloadListener] Reloading guides...");
         // Drop cached NEI reflection data so freshly (re)registered handlers are picked up.
         RecipeCache.clear();
         NeiAnimationTicker.clear();
@@ -54,10 +53,12 @@ public class GuideReloadListener implements IResourceManagerReloadListener {
             GuideME.getSearch()
                 .indexAll();
         } catch (Throwable t) {
-            LOG.warn("Failed to reindex search after reload", t);
+            FMLLog.getLogger()
+                .warn("[GuideNH] [GuideReloadListener] Failed to reindex search after reload", t);
         }
 
-        LOG.info("Guide reload complete, loaded {} guides", guidePages.size());
+        FMLLog.getLogger()
+            .info("[GuideNH] [GuideReloadListener] Guide reload complete, loaded {} guides", guidePages.size());
     }
 
     /**
@@ -96,11 +97,13 @@ public class GuideReloadListener implements IResourceManagerReloadListener {
             if (parsed != null) {
                 pages.put(pageId, parsed);
             } else {
-                LOG.warn("Failed to load guide page {}", pageId);
+                FMLLog.getLogger()
+                    .warn("[GuideNH] [GuideReloadListener] Failed to load guide page {}", pageId);
             }
         }
 
-        LOG.info("Loaded {} pages for folder {}", pages.size(), folder);
+        FMLLog.getLogger()
+            .info("[GuideNH] [GuideReloadListener] Loaded {} pages for folder {}", pages.size(), folder);
         return pages;
     }
 
@@ -123,7 +126,8 @@ public class GuideReloadListener implements IResourceManagerReloadListener {
             }
             return PageCompiler.parse(sourcePack, language, pageId, stream);
         } catch (Exception ex) {
-            LOG.error("Error parsing page {} from {}", pageId, sourceId, ex);
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideReloadListener] Error parsing page {} from {}", pageId, sourceId, ex);
             return null;
         }
     }

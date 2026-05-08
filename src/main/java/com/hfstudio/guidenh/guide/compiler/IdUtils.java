@@ -14,16 +14,14 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.oredict.OreDictionary;
 
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.gtnewhorizon.gtnhlib.util.data.ItemId;
 import com.hfstudio.guidenh.guide.internal.structure.GuideTextNbtCodec;
 
-public class IdUtils {
+import cpw.mods.fml.common.FMLLog;
 
-    public static final Logger LOG = LoggerFactory.getLogger(IdUtils.class);
+public class IdUtils {
 
     // Bounded LRU cache for parsed item references that carry no SNBT tail. Refs containing NBT
     // are intentionally NOT cached: callers like ItemId.createNoCopy share the NBT reference,
@@ -107,7 +105,12 @@ public class IdUtils {
                     nbt = tc;
                 }
             } catch (Throwable t) {
-                LOG.warn("Failed to parse SNBT tail '{}' for id '{}'; ignoring NBT", snbt, idText, t);
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [IdUtils] Failed to parse SNBT tail '{}' for id '{}'; ignoring NBT",
+                        snbt,
+                        idText,
+                        t);
             }
         } else {
             head = idText;

@@ -1,4 +1,3 @@
-import java.io.File
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
@@ -15,56 +14,6 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
-}
-
-configurations.matching { it.name.startsWith("test", ignoreCase = true) }.configureEach {
-    exclude(group = "com.github.GTNewHorizons", module = "ForgeMultipart")
-}
-
-tasks.named<Jar>("sourcesJar") {
-    dependsOn("packageGuideTutorialResourcePack")
-}
-
-val tutorialGuideSourceDir = layout.projectDirectory.dir("wiki/resourcepack")
-val tutorialGuidePackOutputDir = layout.projectDirectory.dir("src/main/resources/assets/guidenh/resourcepacks")
-
-val packageGuideTutorialResourcePack = tasks.register<Zip>("packageGuideTutorialResourcePack") {
-    group = "guidenh"
-    description = "Packages the built-in tutorial guide as a standard Minecraft resource pack zip."
-
-    archiveFileName.set("guidenh_tutorial_guide_resource_pack.zip")
-    destinationDirectory.set(tutorialGuidePackOutputDir)
-
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-
-    val packMetaFile = tutorialGuideSourceDir.file("pack.mcmeta")
-    val packIconFile = tutorialGuideSourceDir.file("pack.png")
-    val guideRootDir = tutorialGuideSourceDir.dir("assets/guidenh/guidenh")
-
-    doFirst {
-        val missing = mutableListOf<File>()
-        if (!packMetaFile.asFile.isFile) {
-            missing.add(packMetaFile.asFile)
-        }
-        if (!packIconFile.asFile.isFile) {
-            missing.add(packIconFile.asFile)
-        }
-
-        check(missing.isEmpty()) {
-            "Guide runtime resource pack is incomplete. Missing: " + missing.joinToString()
-        }
-
-        check(guideRootDir.asFile.walkTopDown().any { it.isFile }) {
-            "Guide runtime resource pack is empty: ${guideRootDir.asFile}"
-        }
-    }
-
-    from(tutorialGuideSourceDir)
-}
-
-tasks.named("processResources").configure {
-    dependsOn(packageGuideTutorialResourcePack)
 }
 
 tasks.named<ShadowJar>("shadowJar") {
@@ -93,36 +42,6 @@ val runConfigs = listOf(
 runConfigs.forEach { (taskName, path) ->
     tasks.named<JavaExec>(taskName) {
         workingDir = file("${projectDir}/$path")
-        doFirst {
-            workingDir.mkdirs()
-        }
-    }
-}
-
-val guidePreviewSourceDir = tutorialGuideSourceDir.dir("assets/guidenh/guidenh").asFile.absolutePath
-val guideRunConfigs = listOf(
-    Triple("runGuide", "runClient", "run/client"),
-    Triple("runGuide17", "runClient17", "run/client_new"),
-    Triple("runGuide21", "runClient21", "run/client_new"),
-    Triple("runGuide25", "runClient25", "run/client_new"))
-
-guideRunConfigs.forEach { (taskName, baseTaskName, path) ->
-    val baseTask = tasks.named<JavaExec>(baseTaskName).get()
-    tasks.register<JavaExec>(taskName) {
-        group = baseTask.group
-        description = "Runs GuideNH live preview based on $baseTaskName."
-        dependsOn(baseTask.taskDependencies.getDependencies(baseTask))
-        standardInput = System.`in`
-        workingDir = file("${projectDir}/$path")
-        classpath = baseTask.classpath
-        javaLauncher.set(baseTask.javaLauncher)
-        baseTask.mainClass.orNull?.let { mainClass.set(it) }
-        setArgs(baseTask.args ?: emptyList())
-        setJvmArgs(baseTask.jvmArgs ?: emptyList())
-        environment(baseTask.environment)
-        systemProperties.putAll(baseTask.systemProperties)
-        systemProperty("guideme.guidenh.guidenh.sources", guidePreviewSourceDir)
-        systemProperty("guideme.showOnStartup", "guidenh:guidenh!index.md")
         doFirst {
             workingDir.mkdirs()
         }

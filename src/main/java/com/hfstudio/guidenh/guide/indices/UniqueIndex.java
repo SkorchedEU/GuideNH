@@ -10,20 +10,18 @@ import net.minecraft.util.ResourceLocation;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.github.bsideup.jabel.Desugar;
 import com.google.gson.stream.JsonWriter;
 import com.hfstudio.guidenh.guide.GuidePageChange;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 
+import cpw.mods.fml.common.FMLLog;
+
 /**
  * Maintains an index for any given page using a mapping function for keys and values of the index.
  */
 public class UniqueIndex<K, V> implements PageIndex {
-
-    public static final Logger LOG = LoggerFactory.getLogger(UniqueIndex.class);
 
     private final Map<K, Record<V>> index = new HashMap<>();
 
@@ -102,14 +100,15 @@ public class UniqueIndex<K, V> implements PageIndex {
             var value = entry.getValue();
             var previousPage = index.putIfAbsent(key, new Record<>(page.getId(), value));
             if (previousPage != null) {
-                LOG.warn(
-                    "Key conflict in index {}: {} is used by pages {} and {}; keeping {} and ignoring {}",
-                    name,
-                    key,
-                    previousPage.pageId,
-                    page,
-                    previousPage.pageId,
-                    page.getId());
+                FMLLog.getLogger()
+                    .warn(
+                        "[GuideNH] [UniqueIndex] Key conflict in index {}: {} is used by pages {} and {}; keeping {} and ignoring {}",
+                        name,
+                        key,
+                        previousPage.pageId,
+                        page,
+                        previousPage.pageId,
+                        page.getId());
                 hadDuplicates = true;
             }
         }

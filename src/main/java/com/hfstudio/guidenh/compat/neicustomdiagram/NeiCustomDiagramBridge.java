@@ -13,8 +13,6 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.item.ItemStack;
 
 import org.lwjgl.opengl.GL11;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
@@ -23,9 +21,9 @@ import com.hfstudio.guidenh.guide.internal.recipe.NeiHandlerRenderer;
 import com.hfstudio.guidenh.guide.internal.tooltip.AppendedItemTooltip;
 import com.hfstudio.guidenh.guide.internal.util.DisplayScale;
 
-public class NeiCustomDiagramBridge {
+import cpw.mods.fml.common.FMLLog;
 
-    private static final Logger LOG = LoggerFactory.getLogger(NeiCustomDiagramBridge.class);
+public class NeiCustomDiagramBridge {
 
     private static final String DIAGRAM_GROUP_CLASS_NAME = "com.github.dcysteine.neicustomdiagram.api.diagram.DiagramGroup";
     private static final String DIAGRAM_CLASS_NAME = "com.github.dcysteine.neicustomdiagram.api.diagram.Diagram";
@@ -219,7 +217,8 @@ public class NeiCustomDiagramBridge {
                 .getMethod("get");
             available = true;
         } catch (Throwable t) {
-            LOG.debug("nei-custom-diagram bridge unavailable: {}", t.toString());
+            FMLLog.getLogger()
+                .debug("[GuideNH] [NeiCustomDiagramBridge] nei-custom-diagram bridge unavailable: {}", t.toString());
         }
 
         AVAILABLE = available;
@@ -288,7 +287,7 @@ public class NeiCustomDiagramBridge {
      * <p>
      * {@code renderX}/{@code renderY} remain parent-local GUI coordinates (matching {@code Gui});
      * {@code guiScissorAbs*} are absolute GUI coords (viewport space), same convention as {@code VanillaRenderContext}
-     * scissor — required because {@code GL_SCISSOR} ignores {@code GL_MODELVIEW}.
+     * scissor 閳?required because {@code GL_SCISSOR} ignores {@code GL_MODELVIEW}.
      *
      * <p>
      * For wide diagrams, {@code guiScissorAbsW} may be smaller than intrinsic layout (NEI {@code HandlerInfo}
@@ -332,7 +331,8 @@ public class NeiCustomDiagramBridge {
             METHOD_DIAGRAM_DRAW_BACKGROUND.invoke(diagram, diagramState);
             renderForeground(diagram, diagramState, guiScissorAbsX, guiScissorAbsY, gw, gh);
         } catch (Throwable t) {
-            LOG.debug("Embedded nei-custom-diagram render failed", t);
+            FMLLog.getLogger()
+                .debug("[GuideNH] [NeiCustomDiagramBridge] Embedded nei-custom-diagram render failed", t);
         } finally {
             GL11.glPopMatrix();
             GL11.glPopAttrib();
@@ -368,7 +368,8 @@ public class NeiCustomDiagramBridge {
                 return lines.isEmpty() ? null : new TextTooltip(String.join("\n", lines));
             }
         } catch (Throwable t) {
-            LOG.debug("Embedded nei-custom-diagram tooltip lookup failed", t);
+            FMLLog.getLogger()
+                .debug("[GuideNH] [NeiCustomDiagramBridge] Embedded nei-custom-diagram tooltip lookup failed", t);
         }
         return null;
     }
