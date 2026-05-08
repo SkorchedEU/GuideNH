@@ -30,6 +30,7 @@ public record TextStyle(@Nullable Float fontScale, @Nullable Boolean bold, @Null
         null);
 
     public ResolvedTextStyle mergeWith(ResolvedTextStyle base) {
+        if (this == EMPTY) return base;
         var fontScale = this.fontScale != null ? this.fontScale : base.fontScale();
         var bold = this.bold != null ? this.bold : base.bold();
         var italic = this.italic != null ? this.italic : base.italic();

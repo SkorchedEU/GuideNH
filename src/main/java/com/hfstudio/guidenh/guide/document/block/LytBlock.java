@@ -38,11 +38,24 @@ public abstract class LytBlock extends LytNode {
     }
 
     public final void setLayoutPos(LytPoint point) {
-        var deltaX = (int) point.x() - bounds.x();
-        var deltaY = (int) point.y() - bounds.y();
+        int newX = (int) point.x();
+        int newY = (int) point.y();
+        int deltaX = newX - bounds.x();
+        int deltaY = newY - bounds.y();
         if (deltaX != 0 || deltaY != 0) {
-            bounds = bounds.withX((int) point.x())
-                .withY((int) point.y());
+            bounds = bounds.move(deltaX, deltaY);
+            onLayoutMoved(deltaX, deltaY);
+        }
+    }
+
+    /**
+     * Shifts this block's layout position by the given delta without requiring a {@link LytPoint} allocation.
+     * Prefer this over {@link #setLayoutPos} when the caller already has the delta (e.g. inside
+     * {@link #onLayoutMoved} implementations propagating a parent's move to children).
+     */
+    public final void moveLayoutPos(int deltaX, int deltaY) {
+        if (deltaX != 0 || deltaY != 0) {
+            bounds = bounds.move(deltaX, deltaY);
             onLayoutMoved(deltaX, deltaY);
         }
     }

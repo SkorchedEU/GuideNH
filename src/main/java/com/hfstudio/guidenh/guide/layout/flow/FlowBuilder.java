@@ -50,7 +50,7 @@ public class FlowBuilder {
     public void render(RenderContext context, @Nullable LytFlowContent hoveredContent) {
         updateContainsMouse(hoveredContent);
         for (var line : lines) {
-            for (var el = line.firstElement(); el != null; el = el.next) {
+            for (var el = line.firstElement; el != null; el = el.next) {
                 el.render(context);
             }
         }
@@ -69,7 +69,7 @@ public class FlowBuilder {
         }
         lastHoveredForContainsMouse = hoveredContent;
         for (var line : lines) {
-            for (var el = line.firstElement(); el != null; el = el.next) {
+            for (var el = line.firstElement; el != null; el = el.next) {
                 el.containsMouse = hoveredContent != null && hoveredContent.isInclusiveAncestor(el.getFlowContent());
             }
         }
@@ -98,9 +98,8 @@ public class FlowBuilder {
         for (var line : lines) {
             // Floating content overflows the line-box, but still belongs to the line
             // otherwise only hit-test line-elements if the line itself is hit
-            if (line.bounds()
-                .contains(x, y)) {
-                for (var el = line.firstElement(); el != null; el = el.next) {
+            if (line.bounds.contains(x, y)) {
+                for (var el = line.firstElement; el != null; el = el.next) {
                     if (el.bounds.contains(x, y)) {
                         return el;
                     }
@@ -112,20 +111,20 @@ public class FlowBuilder {
     }
 
     public Stream<LytRect> enumerateContentBounds(LytFlowContent content) {
-        var matchingBounds = new ArrayList<LytRect>();
+        Stream.Builder<LytRect> builder = Stream.builder();
         for (var line : lines) {
-            for (var el = line.firstElement(); el != null; el = el.next) {
+            for (var el = line.firstElement; el != null; el = el.next) {
                 if (el.getFlowContent() == content) {
-                    matchingBounds.add(el.bounds);
+                    builder.accept(el.bounds);
                 }
             }
         }
         for (var el : floats) {
             if (el.getFlowContent() == content) {
-                matchingBounds.add(el.bounds);
+                builder.accept(el.bounds);
             }
         }
-        return matchingBounds.stream();
+        return builder.build();
     }
 
     @Nullable
@@ -162,24 +161,16 @@ public class FlowBuilder {
     }
 
     public void move(int deltaX, int deltaY) {
-        for (int i = 0; i < this.lines.size(); i++) {
-            var line = this.lines.get(i);
-            this.lines.set(
-                i,
-                new Line(
-                    line.bounds()
-                        .move(deltaX, deltaY),
-                    line.firstElement()));
-
-            for (var el = line.firstElement(); el != null; el = el.next) {
+        if (deltaX == 0 && deltaY == 0) {
+            return;
+        }
+        for (var line : this.lines) {
+            line.bounds = line.bounds.move(deltaX, deltaY);
+            for (var el = line.firstElement; el != null; el = el.next) {
                 el.bounds = el.bounds.move(deltaX, deltaY);
                 if (el instanceof LineBlock lineBlock) {
                     lineBlock.getBlock()
-                        .setLayoutPos(
-                            lineBlock.getBlock()
-                                .getBounds()
-                                .point()
-                                .add(deltaX, deltaY));
+                        .moveLayoutPos(deltaX, deltaY);
                 }
             }
         }

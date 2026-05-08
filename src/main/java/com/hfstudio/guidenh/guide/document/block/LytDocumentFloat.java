@@ -89,10 +89,7 @@ public class LytDocumentFloat extends LytBlock {
 
     @Override
     protected void onLayoutMoved(int deltaX, int deltaY) {
-        inner.setLayoutPos(
-            inner.getBounds()
-                .point()
-                .add(deltaX, deltaY));
+        inner.moveLayoutPos(deltaX, deltaY);
     }
 
     @Override

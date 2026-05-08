@@ -12,19 +12,19 @@ public abstract class LineElement {
      * Next Element in flow direction.
      */
     @Nullable
-    LineElement next;
+    public LineElement next;
 
-    LytRect bounds = LytRect.empty();
+    public LytRect bounds = LytRect.empty();
 
     /**
      * The original flow content this line element is associated with.
      */
     @Nullable
-    LytFlowContent flowContent;
+    public LytFlowContent flowContent;
 
-    boolean containsMouse;
+    public boolean containsMouse;
 
-    boolean floating;
+    public boolean floating;
 
     @Nullable
     public LytFlowContent getFlowContent() {

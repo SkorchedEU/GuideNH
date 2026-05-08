@@ -52,10 +52,7 @@ public class LytTable extends LytBlock {
         for (var row : rows) {
             row.bounds = row.bounds.move(deltaX, deltaY);
             for (var cell : row.getChildren()) {
-                cell.setLayoutPos(
-                    cell.getBounds()
-                        .point()
-                        .add(deltaX, deltaY));
+                cell.moveLayoutPos(deltaX, deltaY);
             }
         }
     }

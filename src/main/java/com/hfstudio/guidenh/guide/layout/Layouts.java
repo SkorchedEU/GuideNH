@@ -2,7 +2,6 @@ package com.hfstudio.guidenh.guide.layout;
 
 import java.util.List;
 
-import com.hfstudio.guidenh.guide.document.LytPoint;
 import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.document.block.AlignItems;
 import com.hfstudio.guidenh.guide.document.block.LytAxis;
@@ -185,12 +184,20 @@ public class Layouts {
             var childSize = size(bounds, axis) + child.getMarginStart(axis) + child.getMarginEnd(axis);
 
             switch (alignItems) {
-                case CENTER -> child.setLayoutPos(
-                    axis == LytAxis.HORIZONTAL ? new LytPoint(start + (float) (space - childSize) / 2, bounds.y())
-                        : new LytPoint(bounds.x(), start + (float) (space - childSize) / 2));
-                case END -> child.setLayoutPos(
-                    axis == LytAxis.HORIZONTAL ? new LytPoint(end - childSize, bounds.y())
-                        : new LytPoint(bounds.x(), end - childSize));
+                case CENTER -> {
+                    if (axis == LytAxis.HORIZONTAL) {
+                        child.moveLayoutPos(start + (space - childSize) / 2 - bounds.x(), 0);
+                    } else {
+                        child.moveLayoutPos(0, start + (space - childSize) / 2 - bounds.y());
+                    }
+                }
+                case END -> {
+                    if (axis == LytAxis.HORIZONTAL) {
+                        child.moveLayoutPos(end - childSize - bounds.x(), 0);
+                    } else {
+                        child.moveLayoutPos(0, end - childSize - bounds.y());
+                    }
+                }
             }
         }
     }

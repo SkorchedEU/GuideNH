@@ -37,9 +37,9 @@ public class LytHeading extends LytParagraph {
 
     @Override
     public LytRect computeLayout(LayoutContext context, int x, int y, int availableWidth) {
-        // Capture the left float edge so the separator line starts at the text, not the block edge
-        var leftEdge = context.getLeftFloatRightEdge();
-        separatorXOffset = leftEdge.isPresent() ? Math.max(0, leftEdge.getAsInt() - x) : 0;
+        // Capture the left float edge so the separator line starts at the text, not the block edge.
+        // Use the int overload to avoid OptionalInt allocation.
+        separatorXOffset = Math.max(0, context.getLeftFloatRightEdgeOr(x) - x);
         return super.computeLayout(context, x, y, availableWidth);
     }
 

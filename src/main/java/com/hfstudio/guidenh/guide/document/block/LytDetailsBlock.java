@@ -111,10 +111,7 @@ public class LytDetailsBlock extends LytBlock implements InteractiveElement, Lyt
 
     @Override
     protected void onLayoutMoved(int deltaX, int deltaY) {
-        root.setLayoutPos(
-            root.getBounds()
-                .point()
-                .add(deltaX, deltaY));
+        root.moveLayoutPos(deltaX, deltaY);
     }
 
     @Override

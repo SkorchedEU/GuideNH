@@ -1,23 +1,19 @@
 package com.hfstudio.guidenh.guide.layout.flow;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
-
-import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.document.LytRect;
 
-@Desugar
-record Line(LytRect bounds, LineElement firstElement) {
+/**
+ * A single typeset line produced by {@link LineBuilder}.
+ * Kept mutable so {@link FlowBuilder#move} can shift bounds in-place
+ * without allocating a new object per line.
+ */
+public class Line {
 
-    Stream<LineElement> elements() {
-        // Java 8 compatible: manual iteration
-        List<LineElement> elems = new ArrayList<>();
-        LineElement cur = firstElement;
-        while (cur != null) {
-            elems.add(cur);
-            cur = cur.next;
-        }
-        return elems.stream();
+    public LytRect bounds;
+    public final LineElement firstElement;
+
+    public Line(LytRect bounds, LineElement firstElement) {
+        this.bounds = bounds;
+        this.firstElement = firstElement;
     }
 }

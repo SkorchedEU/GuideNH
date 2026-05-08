@@ -1,6 +1,7 @@
 package com.hfstudio.guidenh.guide.layout.flow;
 
 import java.text.BreakIterator;
+import java.text.CharacterIterator;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -44,6 +45,17 @@ class LineBuilder implements Consumer<LytFlowContent> {
     private LineElement openLineTail;
     private final TextAlignment alignment;
     private final StringBuilder lineBuffer = new StringBuilder();
+
+    /** Reusable CharacterIterator wrapping {@link #lineBuffer} to avoid String allocation in BreakIterator. */
+    private final StringBuilderCharIterator charIterator = new StringBuilderCharIterator();
+
+    /**
+     * Incremental max-bottom and max-right of elements on the current open line.
+     * Updated by {@link #appendToOpenLine} and reset by {@link #endLine}.
+     * Eliminates the O(N) scan in {@link #endLine} for line-height and line-width.
+     */
+    private int openLineMaxBottom;
+    private int openLineMaxRight;
 
     public LineBuilder(LayoutContext context, int x, int y, int availableWidth, List<Line> lines,
         List<LineBlock> floats, TextAlignment alignment) {
@@ -188,10 +200,12 @@ class LineBuilder implements Consumer<LytFlowContent> {
             if (run.length() != 0) {
                 var el = new LineTextRun(run.toString(), style, hoverStyle);
                 el.flowContent = flowContent;
-                el.bounds = new LytRect(innerX, 0, Math.round(width), context.getLineHeight(style));
+                int w = Math.round(width);
+                int h = context.getLineHeight(style);
+                el.bounds = new LytRect(innerX, 0, w, h);
                 appendToOpenLine(el);
-                innerX += el.bounds.width();
-                remainingLineWidth -= el.bounds.width();
+                innerX += w;
+                remainingLineWidth -= w;
             }
             if (endLine) {
                 endLine();
@@ -203,6 +217,12 @@ class LineBuilder implements Consumer<LytFlowContent> {
         float curLineWidth = 0;
 
         lineBuffer.setLength(0);
+
+        // Hoist whitespace mode flags out of the per-character loop to avoid repeated method calls.
+        boolean collapseSegmentBreaks = style.whiteSpace()
+            .isCollapseSegmentBreaks();
+        boolean collapseWhitespace = style.whiteSpace()
+            .isCollapseWhitespace();
 
         boolean lastCharWasWhitespace = Character.isWhitespace(lastChar);
         boolean canBreakAtStart = lastCharWasWhitespace;
@@ -223,8 +243,7 @@ class LineBuilder implements Consumer<LytFlowContent> {
 
             // Handle explicit line breaks
             if (codePoint == '\n') {
-                if (style.whiteSpace()
-                    .isCollapseSegmentBreaks()) {
+                if (collapseSegmentBreaks) {
                     codePoint = ' ';
                 } else {
                     consumer.visitRun(lineBuffer, curLineWidth, true);
@@ -237,8 +256,7 @@ class LineBuilder implements Consumer<LytFlowContent> {
 
             if (Character.isWhitespace(codePoint)) {
                 // Skip if the last one was a space already
-                if (lastCharWasWhitespace && style.whiteSpace()
-                    .isCollapseWhitespace()) {
+                if (lastCharWasWhitespace && collapseWhitespace) {
                     continue; // White space collapsing
                 }
                 lastCharWasWhitespace = true;
@@ -260,7 +278,8 @@ class LineBuilder implements Consumer<LytFlowContent> {
                     // Append the char temporarily to avoid a string-concatenation allocation.
                     var breakIterator = LINE_BREAK_ITERATOR.get();
                     lineBuffer.append((char) codePoint);
-                    breakIterator.setText(lineBuffer.toString());
+                    charIterator.reset(lineBuffer);
+                    breakIterator.setText(charIterator);
                     precedingBreakOpportunity = breakIterator.preceding(lineBuffer.length());
                     lineBuffer.setLength(lineBuffer.length() - 1);
                 }
@@ -269,9 +288,16 @@ class LineBuilder implements Consumer<LytFlowContent> {
                 // current word does not offer us any opportunity to.
                 if (precedingBreakOpportunity > 0 || precedingBreakOpportunity == 0 && canBreakAtStart) {
                     // Determine width up until the break opportunity.
-                    var widthAtBreakOpportunity = 0f;
-                    for (var j = 0; j < precedingBreakOpportunity; j++) {
-                        widthAtBreakOpportunity += context.getAdvance(lineBuffer.charAt(j), style);
+                    // Short-circuit: when breaking at end-of-buffer (whitespace case), curLineWidth
+                    // already equals the total, so skip the O(N) recomputation loop.
+                    float widthAtBreakOpportunity;
+                    if (precedingBreakOpportunity == lineBuffer.length()) {
+                        widthAtBreakOpportunity = curLineWidth;
+                    } else {
+                        widthAtBreakOpportunity = 0f;
+                        for (var j = 0; j < precedingBreakOpportunity; j++) {
+                            widthAtBreakOpportunity += context.getAdvance(lineBuffer.charAt(j), style);
+                        }
                     }
 
                     consumer
@@ -313,12 +339,9 @@ class LineBuilder implements Consumer<LytFlowContent> {
 
         context.clearFloatsAbove(lineBoxY);
 
-        var lineHeight = 1;
-        var lineWidth = 0;
-        for (var el = openLineElement; el != null; el = el.next) {
-            lineHeight = Math.max(lineHeight, el.bounds.bottom());
-            lineWidth = Math.max(lineWidth, el.bounds.right());
-        }
+        // Use incrementally tracked values instead of rescanning the linked list.
+        var lineHeight = Math.max(1, openLineMaxBottom);
+        var lineWidth = openLineMaxRight;
 
         var textAreaStart = getInnerLeftEdge();
         var textAreaEnd = getInnerRightEdge();
@@ -349,8 +372,7 @@ class LineBuilder implements Consumer<LytFlowContent> {
         lines.add(line);
 
         // Advance vertically
-        lineBoxY += line.bounds()
-            .height();
+        lineBoxY += line.bounds.height();
 
         // Close out any floats that are above the fold
         context.clearFloatsAbove(lineBoxY);
@@ -359,6 +381,8 @@ class LineBuilder implements Consumer<LytFlowContent> {
         openLineElement = null;
         openLineTail = null;
         innerX = 0;
+        openLineMaxBottom = 0;
+        openLineMaxRight = 0;
 
         // Recompute now that floats may have been closed, what the horizontal space really is
         remainingLineWidth = getInnerRightEdge() - getInnerLeftEdge();
@@ -371,14 +395,12 @@ class LineBuilder implements Consumer<LytFlowContent> {
 
     // Absolute X coord of the beginning of the text area of the current line box
     private int getInnerLeftEdge() {
-        return context.getLeftFloatRightEdge()
-            .orElse(lineBoxX);
+        return context.getLeftFloatRightEdgeOr(lineBoxX);
     }
 
     // Absolute X coord of the end of the text area of the current line box
     private int getInnerRightEdge() {
-        return context.getRightFloatLeftEdge()
-            .orElse(this.lineBoxX + lineBoxWidth);
+        return context.getRightFloatLeftEdgeOr(lineBoxX + lineBoxWidth);
     }
 
     private void appendToOpenLine(LineElement el) {
@@ -390,6 +412,10 @@ class LineBuilder implements Consumer<LytFlowContent> {
             openLineElement = el;
         }
         openLineTail = el;
+        int bottom = el.bounds.bottom();
+        if (bottom > openLineMaxBottom) openLineMaxBottom = bottom;
+        int right = el.bounds.right();
+        if (right > openLineMaxRight) openLineMaxRight = right;
     }
 
     public void end() {
@@ -399,10 +425,7 @@ class LineBuilder implements Consumer<LytFlowContent> {
     public LytRect getBounds() {
         int width = 0;
         for (var line : lines) {
-            width = Math.max(
-                width,
-                line.bounds()
-                    .width());
+            width = Math.max(width, line.bounds.width());
         }
         return new LytRect(lineBoxX, startY, width, lineBoxY - startY);
     }
@@ -411,5 +434,98 @@ class LineBuilder implements Consumer<LytFlowContent> {
     interface LineConsumer {
 
         void visitRun(CharSequence run, float width, boolean end);
+    }
+
+    /**
+     * A {@link CharacterIterator} that wraps a {@link StringBuilder} without copying it to a {@link String}.
+     * Reuse by calling {@link #reset} before each use.
+     */
+    private static final class StringBuilderCharIterator implements CharacterIterator {
+
+        private StringBuilder sb;
+        private int begin;
+        private int end;
+        private int pos;
+
+        /** Points this iterator at the full content of {@code buf}. */
+        public void reset(StringBuilder buf) {
+            this.sb = buf;
+            this.begin = 0;
+            this.end = buf.length();
+            this.pos = 0;
+        }
+
+        @Override
+        public char first() {
+            pos = begin;
+            return current();
+        }
+
+        @Override
+        public char last() {
+            if (end == begin) {
+                pos = end;
+                return DONE;
+            }
+            pos = end - 1;
+            return current();
+        }
+
+        @Override
+        public char current() {
+            return (pos >= begin && pos < end) ? sb.charAt(pos) : DONE;
+        }
+
+        @Override
+        public char next() {
+            if (pos < end - 1) {
+                pos++;
+                return current();
+            }
+            pos = end;
+            return DONE;
+        }
+
+        @Override
+        public char previous() {
+            if (pos > begin) {
+                pos--;
+                return current();
+            }
+            return DONE;
+        }
+
+        @Override
+        public char setIndex(int position) {
+            if (position < begin || position > end) {
+                throw new IllegalArgumentException("Invalid index: " + position);
+            }
+            pos = position;
+            return current();
+        }
+
+        @Override
+        public int getBeginIndex() {
+            return begin;
+        }
+
+        @Override
+        public int getEndIndex() {
+            return end;
+        }
+
+        @Override
+        public int getIndex() {
+            return pos;
+        }
+
+        @Override
+        public Object clone() {
+            try {
+                return super.clone();
+            } catch (CloneNotSupportedException e) {
+                throw new AssertionError(e);
+            }
+        }
     }
 }

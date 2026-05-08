@@ -5,9 +5,9 @@ import com.hfstudio.guidenh.guide.style.ResolvedTextStyle;
 
 public class LineTextRun extends LineElement {
 
-    final String text;
-    final ResolvedTextStyle style;
-    final ResolvedTextStyle hoverStyle;
+    public final String text;
+    public final ResolvedTextStyle style;
+    public final ResolvedTextStyle hoverStyle;
 
     public LineTextRun(String text, ResolvedTextStyle style, ResolvedTextStyle hoverStyle) {
         this.text = text;
@@ -18,8 +18,7 @@ public class LineTextRun extends LineElement {
     @Override
     public void render(RenderContext context) {
         var style = containsMouse ? this.hoverStyle : this.style;
-
-        context.renderText(text, style, (float) bounds.x(), (float) bounds.y());
+        context.drawText(text, bounds.x(), bounds.y(), style);
     }
 
     @Override

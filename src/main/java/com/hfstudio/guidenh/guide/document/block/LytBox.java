@@ -74,9 +74,7 @@ public abstract class LytBox extends LytBlock implements LytBlockContainer {
     @Override
     protected void onLayoutMoved(int deltaX, int deltaY) {
         for (var child : children) {
-            child.setLayoutPos(
-                child.bounds.point()
-                    .add(deltaX, deltaY));
+            child.moveLayoutPos(deltaX, deltaY);
         }
     }
 
@@ -126,7 +124,12 @@ public abstract class LytBox extends LytBlock implements LytBlockContainer {
             child.render(context);
         }
 
-        // Render border on top of children
-        borderRenderer.render(context, bounds, getBorderTop(), getBorderLeft(), getBorderRight(), getBorderBottom());
+        // Only render borders when at least one side has a non-zero width; most boxes have no borders.
+        if (getBorderTop().width() > 0 || getBorderLeft().width() > 0
+            || getBorderRight().width() > 0
+            || getBorderBottom().width() > 0) {
+            borderRenderer
+                .render(context, bounds, getBorderTop(), getBorderLeft(), getBorderRight(), getBorderBottom());
+        }
     }
 }

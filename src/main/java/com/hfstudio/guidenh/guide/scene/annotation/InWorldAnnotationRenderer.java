@@ -103,18 +103,20 @@ public class InWorldAnnotationRenderer {
     }
 
     public static int lighter(int argb, int percent) {
+        int adj = percent * 255 / 100;
         int a = (argb >>> 24) & 0xFF;
-        int r = Math.min(255, ((argb >>> 16) & 0xFF) + percent * 255 / 100);
-        int g = Math.min(255, ((argb >>> 8) & 0xFF) + percent * 255 / 100);
-        int b = Math.min(255, (argb & 0xFF) + percent * 255 / 100);
+        int r = Math.min(255, ((argb >>> 16) & 0xFF) + adj);
+        int g = Math.min(255, ((argb >>> 8) & 0xFF) + adj);
+        int b = Math.min(255, (argb & 0xFF) + adj);
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     public static int darker(int argb, int percent) {
+        int adj = percent * 255 / 100;
         int a = (argb >>> 24) & 0xFF;
-        int r = Math.max(0, ((argb >>> 16) & 0xFF) - percent * 255 / 100);
-        int g = Math.max(0, ((argb >>> 8) & 0xFF) - percent * 255 / 100);
-        int b = Math.max(0, (argb & 0xFF) - percent * 255 / 100);
+        int r = Math.max(0, ((argb >>> 16) & 0xFF) - adj);
+        int g = Math.max(0, ((argb >>> 8) & 0xFF) - adj);
+        int b = Math.max(0, (argb & 0xFF) - adj);
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 

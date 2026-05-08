@@ -11,7 +11,6 @@ import java.util.Set;
 
 import com.hfstudio.guidenh.guide.color.ConstantColor;
 import com.hfstudio.guidenh.guide.color.SymbolicColor;
-import com.hfstudio.guidenh.guide.document.LytPoint;
 import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowSpan;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowText;
@@ -381,11 +380,11 @@ public class LytCodeBlock extends LytVBox implements InteractiveElement, Documen
                 .isEmpty()) {
             int bodyViewportY = toolbar.getBounds()
                 .bottom() + getGap();
-            body.setLayoutPos(
-                new LytPoint(
-                    body.getBounds()
-                        .x(),
-                    bodyViewportY - bodyScrollOffsetY));
+            body.moveLayoutPos(
+                0,
+                bodyViewportY - bodyScrollOffsetY
+                    - body.getBounds()
+                        .y());
         }
     }
 

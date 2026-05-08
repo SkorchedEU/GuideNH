@@ -6,7 +6,6 @@ import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
 import com.hfstudio.guidenh.guide.color.SymbolicColor;
-import com.hfstudio.guidenh.guide.document.LytPoint;
 import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser.SlotKind;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
@@ -110,19 +109,9 @@ public class LytFileTree extends LytBlock {
         for (Row row : rows) {
             row.rowY += deltaY;
             if (row.iconBlock != null) {
-                row.iconBlock.setLayoutPos(
-                    new LytPoint(
-                        row.iconBlock.getBounds()
-                            .x() + deltaX,
-                        row.iconBlock.getBounds()
-                            .y() + deltaY));
+                row.iconBlock.moveLayoutPos(deltaX, deltaY);
             }
-            row.payload.setLayoutPos(
-                new LytPoint(
-                    row.payload.getBounds()
-                        .x() + deltaX,
-                    row.payload.getBounds()
-                        .y() + deltaY));
+            row.payload.moveLayoutPos(deltaX, deltaY);
         }
     }
 

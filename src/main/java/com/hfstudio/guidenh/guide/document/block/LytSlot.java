@@ -23,6 +23,9 @@ public class LytSlot extends LytBlock implements InteractiveElement {
     public static final int OUTER_SIZE_LARGE = ITEM_SIZE + 2 * LARGE_PADDING;
     public static final int CYCLE_TIME = 2000;
 
+    /** Precomputed nanosecond period for item cycling to avoid repeated TimeUnit conversion. */
+    private static final long CYCLE_NANOS = TimeUnit.MILLISECONDS.toNanos(CYCLE_TIME);
+
     private static final int SLOT_BORDER_DARK = 0xFF373737;
     private static final int SLOT_BORDER_LIGHT = 0xFFFFFFFF;
     private static final int SLOT_INNER_BG = 0xFF8B8B8B;
@@ -107,7 +110,7 @@ public class LytSlot extends LytBlock implements InteractiveElement {
         if (stacks.isEmpty()) {
             return null;
         }
-        long cycle = System.nanoTime() / TimeUnit.MILLISECONDS.toNanos(CYCLE_TIME);
+        long cycle = System.nanoTime() / CYCLE_NANOS;
         if (cycle != cachedCycleId) {
             cachedCycleId = cycle;
             cachedStackIdx = (int) (cycle % stacks.size());

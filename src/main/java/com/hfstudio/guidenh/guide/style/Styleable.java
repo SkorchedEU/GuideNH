@@ -39,20 +39,21 @@ public interface Styleable {
     }
 
     default ResolvedTextStyle resolveStyle() {
-        var stylingParent = getStylingParent();
-        if (stylingParent != null) {
-            return getStyle().mergeWith(stylingParent.resolveStyle());
+        if (getStyle() == TextStyle.EMPTY) {
+            var stylingParent = getStylingParent();
+            return stylingParent != null ? stylingParent.resolveStyle() : DefaultStyles.BASE_STYLE;
         }
-
-        return getStyle().mergeWith(DefaultStyles.BASE_STYLE);
+        var stylingParent = getStylingParent();
+        return getStyle().mergeWith(stylingParent != null ? stylingParent.resolveStyle() : DefaultStyles.BASE_STYLE);
     }
 
     default ResolvedTextStyle resolveHoverStyle(ResolvedTextStyle baseStyle) {
-        var stylingParent = getStylingParent();
-        if (stylingParent != null) {
-            return getHoverStyle().mergeWith(stylingParent.resolveHoverStyle(baseStyle));
+        if (getHoverStyle() == TextStyle.EMPTY) {
+            var stylingParent = getStylingParent();
+            return stylingParent != null ? stylingParent.resolveHoverStyle(baseStyle) : baseStyle;
         }
-
-        return getHoverStyle().mergeWith(baseStyle);
+        var stylingParent = getStylingParent();
+        return getHoverStyle()
+            .mergeWith(stylingParent != null ? stylingParent.resolveHoverStyle(baseStyle) : baseStyle);
     }
 }

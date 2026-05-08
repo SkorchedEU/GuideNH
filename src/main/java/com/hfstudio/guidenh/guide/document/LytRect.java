@@ -24,6 +24,9 @@ public record LytRect(int x, int y, int width, int height) {
     }
 
     public LytRect shrink(int left, int top, int right, int bottom) {
+        if (left == 0 && top == 0 && right == 0 && bottom == 0) {
+            return this;
+        }
         return new LytRect(x + left, y + top, Math.max(width - left - right, 0), Math.max(height - top - bottom, 0));
     }
 
@@ -32,18 +35,30 @@ public record LytRect(int x, int y, int width, int height) {
     }
 
     public LytRect expand(int left, int top, int right, int bottom) {
+        if (left == 0 && top == 0 && right == 0 && bottom == 0) {
+            return this;
+        }
         return new LytRect(x - left, y - top, Math.max(width + left + right, 0), Math.max(height + top + bottom, 0));
     }
 
     public LytRect withWidth(int width) {
+        if (width == this.width) {
+            return this;
+        }
         return new LytRect(x, y, width, height);
     }
 
     public LytRect withHeight(int height) {
+        if (height == this.height) {
+            return this;
+        }
         return new LytRect(x, y, width, height);
     }
 
     public LytRect move(int x, int y) {
+        if (x == 0 && y == 0) {
+            return this;
+        }
         return new LytRect(this.x + x, this.y + y, width, height);
     }
 

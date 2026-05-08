@@ -14,66 +14,107 @@ public class LayoutContext implements FontMetrics {
     private final List<LytRect> leftFloats = new ArrayList<>();
     private final List<LytRect> rightFloats = new ArrayList<>();
 
+    /** Cached right edge of the furthest-right left float. {@link Integer#MIN_VALUE} = dirty. */
+    private int cachedLeftFloatRightEdge = Integer.MIN_VALUE;
+    /** Cached left edge of the furthest-left right float. {@link Integer#MAX_VALUE} = dirty. */
+    private int cachedRightFloatLeftEdge = Integer.MAX_VALUE;
+
     public LayoutContext(FontMetrics fontMetrics) {
         this.fontMetrics = fontMetrics;
     }
 
     public void addLeftFloat(LytRect bounds) {
         leftFloats.add(bounds);
+        cachedLeftFloatRightEdge = Integer.MIN_VALUE;
     }
 
     public void addRightFloat(LytRect bounds) {
         rightFloats.add(bounds);
+        cachedRightFloatLeftEdge = Integer.MAX_VALUE;
     }
 
     public OptionalInt getLeftFloatRightEdge() {
         if (leftFloats.isEmpty()) {
             return OptionalInt.empty();
         }
+        return OptionalInt.of(getLeftFloatRightEdgeOr(0));
+    }
 
-        int maxRight = Integer.MIN_VALUE;
-        for (var bounds : leftFloats) {
-            maxRight = Math.max(maxRight, bounds.right());
+    /**
+     * Returns the right edge of the furthest-right left float, or {@code fallback} if there are none.
+     * Prefer this over {@link #getLeftFloatRightEdge()} in hot paths to avoid {@link OptionalInt} allocation.
+     */
+    public int getLeftFloatRightEdgeOr(int fallback) {
+        if (leftFloats.isEmpty()) {
+            return fallback;
         }
-        return OptionalInt.of(maxRight);
+        if (cachedLeftFloatRightEdge == Integer.MIN_VALUE) {
+            int maxRight = Integer.MIN_VALUE + 1;
+            for (var f : leftFloats) {
+                int r = f.right();
+                if (r > maxRight) maxRight = r;
+            }
+            cachedLeftFloatRightEdge = maxRight;
+        }
+        return cachedLeftFloatRightEdge;
     }
 
     public OptionalInt getRightFloatLeftEdge() {
         if (rightFloats.isEmpty()) {
             return OptionalInt.empty();
         }
-
-        int minLeft = Integer.MAX_VALUE;
-        for (var bounds : rightFloats) {
-            minLeft = Math.min(minLeft, bounds.x());
-        }
-        return OptionalInt.of(minLeft);
+        return OptionalInt.of(getRightFloatLeftEdgeOr(0));
     }
 
-    // Clears all pending floats and returns the lowest y level below the cleared floats
+    /**
+     * Returns the left edge of the furthest-left right float, or {@code fallback} if there are none.
+     * Prefer this over {@link #getRightFloatLeftEdge()} in hot paths to avoid {@link OptionalInt} allocation.
+     */
+    public int getRightFloatLeftEdgeOr(int fallback) {
+        if (rightFloats.isEmpty()) {
+            return fallback;
+        }
+        if (cachedRightFloatLeftEdge == Integer.MAX_VALUE) {
+            int minLeft = Integer.MAX_VALUE - 1;
+            for (var f : rightFloats) {
+                int x = f.x();
+                if (x < minLeft) minLeft = x;
+            }
+            cachedRightFloatLeftEdge = minLeft;
+        }
+        return cachedRightFloatLeftEdge;
+    }
+
+    /** Clears all pending floats and returns the lowest y level below the cleared floats. */
     public OptionalInt clearFloats(boolean left, boolean right) {
         if (left && right) {
             var result = getMaxBottom(leftFloats, rightFloats);
             leftFloats.clear();
             rightFloats.clear();
+            cachedLeftFloatRightEdge = Integer.MIN_VALUE;
+            cachedRightFloatLeftEdge = Integer.MAX_VALUE;
             return result;
         } else if (left) {
             var result = getMaxBottom(leftFloats);
             leftFloats.clear();
+            cachedLeftFloatRightEdge = Integer.MIN_VALUE;
             return result;
         } else if (right) {
             var result = getMaxBottom(rightFloats);
             rightFloats.clear();
+            cachedRightFloatLeftEdge = Integer.MAX_VALUE;
             return result;
         } else {
             return OptionalInt.empty();
         }
     }
 
-    // Close out all floats above the given y position
+    /** Removes all floats whose bottom edge is at or above the given y position. */
     public void clearFloatsAbove(int y) {
-        leftFloats.removeIf(f -> f.bottom() <= y);
-        rightFloats.removeIf(f -> f.bottom() <= y);
+        boolean leftChanged = leftFloats.removeIf(f -> f.bottom() <= y);
+        boolean rightChanged = rightFloats.removeIf(f -> f.bottom() <= y);
+        if (leftChanged) cachedLeftFloatRightEdge = Integer.MIN_VALUE;
+        if (rightChanged) cachedRightFloatLeftEdge = Integer.MAX_VALUE;
     }
 
     @Override

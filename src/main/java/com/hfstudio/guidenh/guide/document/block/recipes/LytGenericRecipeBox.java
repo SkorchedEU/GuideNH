@@ -80,7 +80,7 @@ public class LytGenericRecipeBox extends LytBox {
     @Override
     public void render(RenderContext context) {
         if (hasTitle()) {
-            context.renderText(title, DefaultStyles.BASE_STYLE, bounds.x(), bounds.y());
+            context.drawText(title, bounds.x(), bounds.y(), DefaultStyles.BASE_STYLE);
         }
         super.render(context);
     }
@@ -91,9 +91,9 @@ public class LytGenericRecipeBox extends LytBox {
 
     public static class PositionedSlot extends LytSlot {
 
-        final NeiRecipeLookup.Slot src;
+        private final NeiRecipeLookup.Slot src;
 
-        PositionedSlot(NeiRecipeLookup.Slot src, boolean large) {
+        public PositionedSlot(NeiRecipeLookup.Slot src, boolean large) {
             super(src.stacks);
             this.src = src;
             if (large) setLargeSlot(true);

@@ -60,7 +60,8 @@ public class LytFlowContent implements Styleable {
 
     @Override
     public @Nullable Styleable getStylingParent() {
-        return getParent() instanceof Styleable ? (Styleable) getParent() : null;
+        var p = getParent();
+        return p instanceof Styleable ? (Styleable) p : null;
     }
 
     public final void mouseClicked() {}

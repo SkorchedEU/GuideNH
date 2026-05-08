@@ -60,9 +60,7 @@ public class LytBalancedColumns extends LytBox {
                 columnCounts[1]);
 
             if (columnIndex == 1) {
-                child.setLayoutPos(
-                    childBounds.point()
-                        .add(rightColumnX - leftColumnX, rightColumnY - leftColumnY));
+                child.moveLayoutPos(rightColumnX - leftColumnX, rightColumnY - leftColumnY);
                 childBounds = child.getBounds();
             }
 

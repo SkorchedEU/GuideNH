@@ -102,10 +102,7 @@ public class LytQuoteBox extends LytBlock implements LytBlockContainer {
 
     @Override
     protected void onLayoutMoved(int deltaX, int deltaY) {
-        root.setLayoutPos(
-            root.getBounds()
-                .point()
-                .add(deltaX, deltaY));
+        root.moveLayoutPos(deltaX, deltaY);
     }
 
     @Override
