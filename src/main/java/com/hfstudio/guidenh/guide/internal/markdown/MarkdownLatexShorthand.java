@@ -1,11 +1,21 @@
 package com.hfstudio.guidenh.guide.internal.markdown;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
+
+import com.github.bsideup.jabel.Desugar;
+import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttribute;
+import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstLiteral;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstNode;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstParent;
 
 /**
  * Utility for detecting and splitting {@code $$formula$$} shorthand LaTeX expressions
@@ -22,6 +32,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class MarkdownLatexShorthand {
 
+    private static final String PLACEHOLDER_PREFIX = "\uE000GUIDENH_LATEX_";
+    private static final String PLACEHOLDER_SUFFIX = "_\uE001";
+
     /**
      * Matches {@code $$...$$} where the content contains no literal {@code $} characters.
      * DOTALL allows newlines inside the formula.
@@ -29,6 +42,31 @@ public final class MarkdownLatexShorthand {
     private static final Pattern DOLLAR_PATTERN = Pattern.compile("\\$\\$([^$]+?)\\$\\$", Pattern.DOTALL);
 
     private MarkdownLatexShorthand() {}
+
+    public static MaskResult mask(String source) {
+        if (!mayContain(source)) {
+            return new MaskResult(source, Collections.emptyMap());
+        }
+        Matcher matcher = DOLLAR_PATTERN.matcher(source);
+        StringBuffer masked = new StringBuffer(source.length());
+        Map<String, String> formulas = new HashMap<>();
+        int index = 0;
+        while (matcher.find()) {
+            String placeholder = PLACEHOLDER_PREFIX + index + PLACEHOLDER_SUFFIX;
+            formulas.put(placeholder, matcher.group(1));
+            matcher.appendReplacement(masked, Matcher.quoteReplacement("$$" + placeholder + "$$"));
+            index++;
+        }
+        matcher.appendTail(masked);
+        return new MaskResult(masked.toString(), formulas);
+    }
+
+    public static void restore(MdAstNode root, MaskResult maskResult) {
+        if (maskResult == null || maskResult.isEmpty() || root == null) {
+            return;
+        }
+        restoreNode(root, maskResult);
+    }
 
     /**
      * Quick pre-check: returns {@code false} if {@code text} cannot contain any {@code $$} pattern.
@@ -81,6 +119,65 @@ public final class MarkdownLatexShorthand {
             result.add(Segment.text(text.substring(last)));
         }
         return result;
+    }
+
+    private static void restoreNode(MdAstNode node, MaskResult maskResult) {
+        if (node instanceof MdAstLiteral literal) {
+            literal.value = restoreText(literal.value, maskResult);
+        }
+        if (node instanceof MdxJsxAttribute attribute) {
+            restoreAttribute(attribute, maskResult);
+        }
+        if (node instanceof MdAstParent<?>parent) {
+            for (Object child : parent.children()) {
+                if (child instanceof MdAstNode childNode) {
+                    restoreNode(childNode, maskResult);
+                }
+            }
+        } else if (node instanceof MdxJsxElementFields element) {
+            for (Object attribute : element.attributes()) {
+                if (attribute instanceof MdAstNode attributeNode) {
+                    restoreNode(attributeNode, maskResult);
+                }
+            }
+            for (Object child : element.children()) {
+                if (child instanceof MdAstNode childNode) {
+                    restoreNode(childNode, maskResult);
+                }
+            }
+        }
+    }
+
+    private static String restoreText(String text, MaskResult maskResult) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String restored = text;
+        for (Map.Entry<String, String> entry : maskResult.formulas()
+            .entrySet()) {
+            restored = restored.replace(entry.getKey(), entry.getValue());
+        }
+        return restored;
+    }
+
+    private static void restoreAttribute(MdxJsxAttribute attribute, MaskResult maskResult) {
+        if (attribute.hasStringValue()) {
+            attribute.setValue(restoreText(attribute.getStringValue(), maskResult));
+        } else if (attribute.hasExpressionValue()) {
+            attribute.setExpression(restoreText(attribute.getExpressionValue(), maskResult));
+        }
+    }
+
+    @Desugar
+    public record MaskResult(String source, Map<String, String> formulas) {
+
+        public MaskResult {
+            formulas = formulas == null ? Collections.emptyMap() : Collections.unmodifiableMap(new HashMap<>(formulas));
+        }
+
+        public boolean isEmpty() {
+            return formulas.isEmpty();
+        }
     }
 
     /** A text-or-formula segment produced by {@link #split}. */

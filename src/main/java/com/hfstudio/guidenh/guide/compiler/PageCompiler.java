@@ -198,7 +198,8 @@ public class PageCompiler {
         pageContent = normalizeLineEndings(pageContent);
         pageContent = FootnotePreprocessor.preprocess(pageContent);
         var sourceFrontmatter = parseFrontmatterFromSource(id, pageContent);
-        String parseContent = MdxCommentMasker.mask(pageContent);
+        MarkdownLatexShorthand.MaskResult latexMask = MarkdownLatexShorthand.mask(pageContent);
+        String parseContent = MdxCommentMasker.mask(latexMask.source());
 
         MdAstRoot astRoot;
         String parseFailureMessage = null;
@@ -206,6 +207,7 @@ public class PageCompiler {
         UnistPoint parseFailureTo = null;
         try {
             astRoot = MdAst.fromMarkdown(parseContent, PARSE_OPTIONS);
+            MarkdownLatexShorthand.restore(astRoot, latexMask);
             MarkdownHtmlRuntimeNormalizer.normalize(astRoot);
         } catch (ParseException e) {
             parseFailureFrom = e.getFrom();
