@@ -101,6 +101,14 @@ The `src` attribute accepts both relative and absolute IDs:
 | `layer` | integer or null | No | Visible layer override. `null` (or omitted) shows all layers. 1-based index. |
 | `annotations` | array | No | List of annotation objects shown while this keyframe is active. |
 | `blockChanges` | array | No | List of block replacements applied when this keyframe first becomes active. |
+| `mergeTileNBT` | array | No | Merge SNBT compounds into tile entities at block positions. |
+| `modifyTileNBT` | array | No | Set one tile-entity NBT path to an SNBT value. |
+| `removeTileNBT` | array | No | Remove one tile-entity NBT path. |
+| `createEntities` | array | No | Create Ponder-owned entities that can be referenced by later entity NBT operations. |
+| `setEntityNBT` | array | No | Replace a referenced entity's NBT with the supplied SNBT compound. |
+| `mergeEntityNBT` | array | No | Merge an SNBT compound into a referenced entity. |
+| `modifyEntityNBT` | array | No | Set one referenced entity NBT path to an SNBT value. |
+| `removeEntityNBT` | array | No | Remove one referenced entity NBT path. |
 
 ### Camera fields
 
@@ -160,6 +168,110 @@ The displayed structure is always correct regardless of seek direction.
 
 > **Note on particles:** Block-texture particles fire once, only during forward playback when the
 > keyframe first becomes active. They are cleared on seek, restart, or initial load.
+
+---
+
+## Tile Entity NBT Operations
+
+Use `mergeTileNBT`, `modifyTileNBT`, and `removeTileNBT` when the block stays in place but its
+tile entity data changes. Operations are seek-safe: GuideNH restores the original tile NBT and
+then replays all operations from keyframe 0 through the active keyframe.
+
+```json
+{
+  "time": 80,
+  "mergeTileNBT": [
+    {
+      "x": 2, "y": 1, "z": 2,
+      "nbt": "{InputTanks:[{Level:{Speed:0.25,Target:0.25,Value:0.0},TankContent:{Amount:250,FluidName:\"minecraft:lava\"}}]}"
+    }
+  ],
+  "modifyTileNBT": [
+    {
+      "x": 2, "y": 1, "z": 2,
+      "path": "InputTanks[0].TankContent.Amount",
+      "value": "500"
+    }
+  ],
+  "removeTileNBT": [
+    { "x": 2, "y": 1, "z": 2, "path": "InputTanks[0].Level.Target" }
+  ]
+}
+```
+
+| Field | Used by | Description |
+|-------|---------|-------------|
+| `x`, `y`, `z` | all | Tile-entity block position in structure coordinates. |
+| `nbt` | `mergeTileNBT` | SNBT compound merged into the tile entity. Existing compound keys are merged recursively; other values replace the old value. |
+| `path` | `modifyTileNBT`, `removeTileNBT` | Dotted NBT path with list indexes, e.g. `Items[0].Count` or `InputTanks[0].TankContent.Amount`. |
+| `value` | `modifyTileNBT` | SNBT value written at `path`, e.g. `3b`, `500`, `"\"text\""`, `{Count:1b,id:"minecraft:stone"}`. |
+
+Paths follow the same idea as Minecraft's `/data` paths: use dots for compound keys and
+`[index]` for list entries. List traversal currently expects the traversed list entries to be
+compounds, which matches common tile NBT such as inventories, tanks, and recipe slots.
+
+---
+
+## Entity Actions
+
+Regular `<Entity>` tags are already supported in `GameScene`. Ponder timelines can also create
+their own entities with `createEntities`, then target those entities by `ref` in later keyframes.
+
+```json
+{
+  "time": 0,
+  "createEntities": [
+    {
+      "ref": "marker",
+      "id": "minecraft:pig",
+      "x": 1.5, "y": 1.0, "z": 2.5,
+      "yaw": 180,
+      "nbt": "{CustomName:\"Before\",CustomNameVisible:1b}"
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `ref` | Required local reference name for later operations. |
+| `id` | Entity ID, e.g. `minecraft:pig`, `Pig`, or a mod entity ID supported by the scene entity loader. |
+| `x`, `y`, `z` | Optional spawn position. Defaults to `0, 0, 0` unless `nbt` supplies `Pos`. |
+| `yaw`, `pitch` | Optional spawn rotation. Defaults to `0, 0` unless `nbt` supplies `Rotation`. |
+| `nbt` | Optional SNBT compound applied when the entity is created. |
+| `name`, `uuid` | Optional preview-player profile fields when creating a preview player entity. |
+
+After creation, use the entity NBT operations:
+
+```json
+{
+  "time": 60,
+  "mergeEntityNBT": [
+    { "ref": "marker", "nbt": "{Saddle:1b}" }
+  ],
+  "modifyEntityNBT": [
+    { "ref": "marker", "path": "CustomName", "value": "\"After\"" }
+  ],
+  "removeEntityNBT": [
+    { "ref": "marker", "path": "CustomNameVisible" }
+  ]
+}
+```
+
+`setEntityNBT` is also available when you want to replace the entity's NBT instead of merging:
+
+```json
+{
+  "time": 100,
+  "setEntityNBT": [
+    { "ref": "marker", "nbt": "{Pos:[0.0d,0.0d,0.0d],Rotation:[0.0f,0.0f],CustomName:\"Reset\"}" }
+  ]
+}
+```
+
+Like tile operations, entity operations are replayed from the beginning whenever the active
+keyframe changes, so seeking backwards removes Ponder-created entities and recreates the correct
+state for the target tick.
 
 ---
 
@@ -580,9 +692,13 @@ The Grinder turns ores into doubled dust. Press **Play** to see the animated wal
 - The `inputType` field defaults to `"lmb"` if omitted or unrecognised.
 - `blockChanges` are applied in order from the first to the current keyframe every time the
   active keyframe changes, so changing the same position in multiple keyframes works correctly.
+- Tile/entity NBT operations use the same replay model as `blockChanges`; they are safe to seek
+  forwards or backwards.
 - `text` annotations with a `maxWidth` &gt; 0 are word-wrapped using the vanilla font renderer;
   the bubble box height adjusts automatically for multi-line text.
 - `nbt` strings in `blockChanges` must use **unquoted** SNBT keys (standard MC 1.7.10 format).
   Quoted keys will be rejected by the parser. String values still require quotes:
   `{id:"minecraft:iron_ingot",Count:8b}`.
+- `modifyTileNBT` and `modifyEntityNBT` values are SNBT values, not JSON values. For a string
+  value, escape the SNBT quotes inside JSON: `"value": "\"hello\""`.
 

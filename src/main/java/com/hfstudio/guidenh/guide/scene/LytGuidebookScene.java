@@ -16,6 +16,9 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.nbt.NBTTagFloat;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.IIcon;
@@ -54,11 +57,15 @@ import com.hfstudio.guidenh.guide.scene.annotation.InWorldLineAnnotation;
 import com.hfstudio.guidenh.guide.scene.annotation.OverlayAnnotation;
 import com.hfstudio.guidenh.guide.scene.annotation.SceneAnnotation;
 import com.hfstudio.guidenh.guide.scene.annotation.SceneFloorGridAnnotation;
+import com.hfstudio.guidenh.guide.scene.element.GuidebookSceneEntityLoader;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookTileEntityLoader;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframe;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeBlockChange;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeCameraState;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeEntityAction;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeTileNbtOperation;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderNbtPath;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderSceneData;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockBoundsResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideDebugLog;
@@ -115,6 +122,7 @@ public class LytGuidebookScene extends LytBlock {
     private int ponderLastKeyframeIdx = -2;
     private int ponderAnnotationFadeTick = 5;
     private final Map<Long, PonderBlockInfo> ponderBlockSnapshot = new LinkedHashMap<>();
+    private final Map<String, PonderEntityRuntime> ponderEntityRefs = new LinkedHashMap<>();
     @Nullable
     private LytRect cachedPonderBarTrackRect;
     @Nullable
@@ -2257,10 +2265,10 @@ public class LytGuidebookScene extends LytBlock {
             }
 
             ponderAnnotationFadeTick = ponderPaused ? 5 : 0;
-            if (!ponderBlockSnapshot.isEmpty()) {
+            if (hasPonderReplayActions()) {
                 // Trigger particle effects only during forward playback, not on seek or initial load.
                 boolean triggerParticles = !ponderPaused && wasAtValidKeyframe;
-                applyPonderBlockChanges(activeIdx, triggerParticles);
+                applyPonderTimelineActions(activeIdx, triggerParticles);
             }
         }
 
@@ -2362,34 +2370,96 @@ public class LytGuidebookScene extends LytBlock {
 
     private void snapshotPonderBlocks() {
         ponderBlockSnapshot.clear();
+        ponderEntityRefs.clear();
         if (ponderSceneData == null) return;
         for (PonderKeyframe kf : ponderSceneData.getKeyframes()) {
             for (PonderKeyframeBlockChange bc : kf.getBlockChanges()) {
-                long key = GuidebookLevel.packPos(bc.getX(), bc.getY(), bc.getZ());
-                if (!ponderBlockSnapshot.containsKey(key)) {
-                    int bx = bc.getX(), by = bc.getY(), bz = bc.getZ();
-                    Block existing = level.getBlock(bx, by, bz);
-                    int meta = level.getBlockMetadata(bx, by, bz);
-                    ponderBlockSnapshot
-                        .put(key, new PonderBlockInfo(bx, by, bz, existing == Blocks.air ? null : existing, meta));
-                }
+                snapshotPonderBlockPosition(bc.getX(), bc.getY(), bc.getZ());
+            }
+            for (PonderKeyframeTileNbtOperation op : kf.getMergeTileNBT()) {
+                snapshotPonderBlockPosition(op.getX(), op.getY(), op.getZ());
+            }
+            for (PonderKeyframeTileNbtOperation op : kf.getModifyTileNBT()) {
+                snapshotPonderBlockPosition(op.getX(), op.getY(), op.getZ());
+            }
+            for (PonderKeyframeTileNbtOperation op : kf.getRemoveTileNBT()) {
+                snapshotPonderBlockPosition(op.getX(), op.getY(), op.getZ());
             }
         }
     }
 
+    private void snapshotPonderBlockPosition(int x, int y, int z) {
+        long key = GuidebookLevel.packPos(x, y, z);
+        if (ponderBlockSnapshot.containsKey(key)) {
+            return;
+        }
+        Block existing = level.getBlock(x, y, z);
+        int meta = level.getBlockMetadata(x, y, z);
+        TileEntity tileEntity = level.getTileEntity(x, y, z);
+        NBTTagCompound tileNbt = null;
+        if (tileEntity != null) {
+            tileNbt = new NBTTagCompound();
+            try {
+                tileEntity.writeToNBT(tileNbt);
+            } catch (Exception ignored) {
+                tileNbt = null;
+            }
+        }
+        ponderBlockSnapshot
+            .put(key, new PonderBlockInfo(x, y, z, existing == Blocks.air ? null : existing, meta, tileNbt));
+    }
+
     private void restoreFromPonderSnapshot() {
         for (PonderBlockInfo info : ponderBlockSnapshot.values()) {
-            level.setBlock(info.x, info.y, info.z, info.initialBlock, info.initialMeta);
+            TileEntity tileEntity = null;
+            if (info.initialBlock != null && info.initialTileNbt != null) {
+                tileEntity = GuidebookTileEntityLoader.load(
+                    level.getOrCreateFakeWorld(),
+                    info.initialBlock,
+                    info.initialMeta,
+                    info.x,
+                    info.y,
+                    info.z,
+                    info.initialTileNbt);
+            }
+            level.setBlock(info.x, info.y, info.z, info.initialBlock, info.initialMeta, tileEntity);
         }
     }
 
     private void clearPonderBlockChanges() {
         restoreFromPonderSnapshot();
+        clearPonderEntities();
         ponderBlockSnapshot.clear();
+        ponderEntityRefs.clear();
     }
 
-    private void applyPonderBlockChanges(int upToKeyframeIdx, boolean triggerParticles) {
+    private boolean hasPonderReplayActions() {
+        if (!ponderBlockSnapshot.isEmpty() || !ponderEntityRefs.isEmpty()) {
+            return true;
+        }
+        if (ponderSceneData == null) {
+            return false;
+        }
+        for (PonderKeyframe kf : ponderSceneData.getKeyframes()) {
+            if (!kf.getCreateEntities()
+                .isEmpty()
+                || !kf.getSetEntityNBT()
+                    .isEmpty()
+                || !kf.getMergeEntityNBT()
+                    .isEmpty()
+                || !kf.getModifyEntityNBT()
+                    .isEmpty()
+                || !kf.getRemoveEntityNBT()
+                    .isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void applyPonderTimelineActions(int upToKeyframeIdx, boolean triggerParticles) {
         restoreFromPonderSnapshot();
+        clearPonderEntities();
         if (upToKeyframeIdx < 0 || ponderSceneData == null) return;
         for (int i = 0; i <= upToKeyframeIdx && i < ponderSceneData.getKeyframeCount(); i++) {
             PonderKeyframe kf = ponderSceneData.getKeyframe(i);
@@ -2410,7 +2480,300 @@ public class LytGuidebookScene extends LytBlock {
                     }
                 }
             }
+            applyPonderTileNbtChanges(kf);
+            applyPonderEntityActions(kf);
         }
+    }
+
+    private void applyPonderTileNbtChanges(PonderKeyframe kf) {
+        for (PonderKeyframeTileNbtOperation op : kf.getMergeTileNBT()) {
+            applyPonderTileNbtMerge(op);
+        }
+        for (PonderKeyframeTileNbtOperation op : kf.getModifyTileNBT()) {
+            applyPonderTileNbtSet(op);
+        }
+        for (PonderKeyframeTileNbtOperation op : kf.getRemoveTileNBT()) {
+            applyPonderTileNbtRemove(op);
+        }
+    }
+
+    private void applyPonderTileNbtMerge(PonderKeyframeTileNbtOperation op) {
+        String nbt = op.getNbt();
+        if (nbt == null || nbt.trim()
+            .isEmpty()) {
+            return;
+        }
+        NBTTagCompound current = readPonderTileNbt(op.getX(), op.getY(), op.getZ());
+        if (current == null) {
+            return;
+        }
+        try {
+            PonderNbtPath.mergeCompound(current, PonderNbtPath.parseCompound(nbt));
+            writePonderTileNbt(op.getX(), op.getY(), op.getZ(), current);
+        } catch (Exception ignored) {}
+    }
+
+    private void applyPonderTileNbtSet(PonderKeyframeTileNbtOperation op) {
+        String path = op.getPath();
+        String value = op.getValue();
+        if (path == null || value == null) {
+            return;
+        }
+        NBTTagCompound current = readPonderTileNbt(op.getX(), op.getY(), op.getZ());
+        if (current == null) {
+            return;
+        }
+        try {
+            if (PonderNbtPath.set(current, path, PonderNbtPath.parseValue(value))) {
+                writePonderTileNbt(op.getX(), op.getY(), op.getZ(), current);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void applyPonderTileNbtRemove(PonderKeyframeTileNbtOperation op) {
+        String path = op.getPath();
+        if (path == null) {
+            return;
+        }
+        NBTTagCompound current = readPonderTileNbt(op.getX(), op.getY(), op.getZ());
+        if (current == null) {
+            return;
+        }
+        if (PonderNbtPath.remove(current, path)) {
+            writePonderTileNbt(op.getX(), op.getY(), op.getZ(), current);
+        }
+    }
+
+    @Nullable
+    private NBTTagCompound readPonderTileNbt(int x, int y, int z) {
+        TileEntity tileEntity = level.getTileEntity(x, y, z);
+        if (tileEntity == null) {
+            Block block = level.getBlock(x, y, z);
+            int meta = level.getBlockMetadata(x, y, z);
+            if (block == null || block == Blocks.air || !block.hasTileEntity(meta)) {
+                return null;
+            }
+            tileEntity = GuidebookTileEntityLoader.load(level.getOrCreateFakeWorld(), block, meta, x, y, z, null);
+            if (tileEntity == null) {
+                return null;
+            }
+            level.setTileEntity(x, y, z, tileEntity);
+        }
+        NBTTagCompound current = new NBTTagCompound();
+        try {
+            tileEntity.writeToNBT(current);
+            return current;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void writePonderTileNbt(int x, int y, int z, NBTTagCompound tag) {
+        TileEntity tileEntity = level.getTileEntity(x, y, z);
+        if (tileEntity == null) {
+            return;
+        }
+        GuidebookTileEntityLoader.applyTag(tileEntity, tag, x, y, z);
+        level.setTileEntity(x, y, z, tileEntity);
+    }
+
+    private void applyPonderEntityActions(PonderKeyframe kf) {
+        for (PonderKeyframeEntityAction action : kf.getCreateEntities()) {
+            createPonderEntity(action);
+        }
+        for (PonderKeyframeEntityAction action : kf.getSetEntityNBT()) {
+            setPonderEntityNbt(action);
+        }
+        for (PonderKeyframeEntityAction action : kf.getMergeEntityNBT()) {
+            mergePonderEntityNbt(action);
+        }
+        for (PonderKeyframeEntityAction action : kf.getModifyEntityNBT()) {
+            modifyPonderEntityNbt(action);
+        }
+        for (PonderKeyframeEntityAction action : kf.getRemoveEntityNBT()) {
+            removePonderEntityNbt(action);
+        }
+    }
+
+    private void createPonderEntity(PonderKeyframeEntityAction action) {
+        String ref = trimToNull(action.getRef());
+        String entityId = trimToNull(action.getId());
+        if (ref == null || entityId == null) {
+            return;
+        }
+        NBTTagCompound tag = new NBTTagCompound();
+        String nbt = action.getNbt();
+        if (nbt != null && !nbt.trim()
+            .isEmpty()) {
+            try {
+                tag = PonderNbtPath.parseCompound(nbt);
+            } catch (Exception ignored) {
+                return;
+            }
+        }
+        applyPonderEntityTransform(tag, action);
+        Entity entity = GuidebookSceneEntityLoader
+            .loadFromNbt(level.getOrCreateFakeWorld(), entityId, tag, action.getName(), action.getUuid());
+        if (entity == null) {
+            return;
+        }
+        PonderEntityRuntime existing = ponderEntityRefs.remove(ref);
+        if (existing != null) {
+            level.removeEntity(existing.entityId);
+        }
+        level.addEntity(entity);
+        ponderEntityRefs
+            .put(ref, new PonderEntityRuntime(entity.getEntityId(), entityId, action.getName(), action.getUuid()));
+    }
+
+    private void setPonderEntityNbt(PonderKeyframeEntityAction action) {
+        Entity entity = resolvePonderEntity(action);
+        String nbt = action.getNbt();
+        if (entity == null || nbt == null
+            || nbt.trim()
+                .isEmpty()) {
+            return;
+        }
+        try {
+            NBTTagCompound tag = PonderNbtPath.parseCompound(nbt);
+            applyPonderEntityNbt(entity, tag);
+        } catch (Exception ignored) {}
+    }
+
+    private void mergePonderEntityNbt(PonderKeyframeEntityAction action) {
+        Entity entity = resolvePonderEntity(action);
+        String nbt = action.getNbt();
+        if (entity == null || nbt == null
+            || nbt.trim()
+                .isEmpty()) {
+            return;
+        }
+        try {
+            NBTTagCompound current = readPonderEntityNbt(entity);
+            PonderNbtPath.mergeCompound(current, PonderNbtPath.parseCompound(nbt));
+            applyPonderEntityNbt(entity, current);
+        } catch (Exception ignored) {}
+    }
+
+    private void modifyPonderEntityNbt(PonderKeyframeEntityAction action) {
+        Entity entity = resolvePonderEntity(action);
+        String path = action.getPath();
+        String value = action.getValue();
+        if (entity == null || path == null || value == null) {
+            return;
+        }
+        try {
+            NBTTagCompound current = readPonderEntityNbt(entity);
+            if (PonderNbtPath.set(current, path, PonderNbtPath.parseValue(value))) {
+                applyPonderEntityNbt(entity, current);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void removePonderEntityNbt(PonderKeyframeEntityAction action) {
+        Entity entity = resolvePonderEntity(action);
+        String path = action.getPath();
+        if (entity == null || path == null) {
+            return;
+        }
+        NBTTagCompound current = readPonderEntityNbt(entity);
+        if (PonderNbtPath.remove(current, path)) {
+            applyPonderEntityNbt(entity, current);
+        }
+    }
+
+    @Nullable
+    private Entity resolvePonderEntity(PonderKeyframeEntityAction action) {
+        String ref = trimToNull(action.getRef());
+        if (ref == null) {
+            return null;
+        }
+        PonderEntityRuntime runtime = ponderEntityRefs.get(ref);
+        return runtime == null ? null : level.getEntity(runtime.entityId);
+    }
+
+    private NBTTagCompound readPonderEntityNbt(Entity entity) {
+        NBTTagCompound tag = new NBTTagCompound();
+        entity.writeToNBT(tag);
+        return tag;
+    }
+
+    private void applyPonderEntityNbt(Entity entity, NBTTagCompound tag) {
+        PonderEntityRuntime runtime = findPonderEntityRuntime(entity);
+        String entityId = runtime != null ? runtime.entityTypeId : null;
+        if (entityId != null) {
+            Entity replacement = GuidebookSceneEntityLoader
+                .loadFromNbt(level.getOrCreateFakeWorld(), entityId, tag, runtime.playerName, runtime.playerUuid);
+            if (replacement != null) {
+                level.removeEntity(entity.getEntityId());
+                level.addEntity(replacement);
+                runtime.entityId = replacement.getEntityId();
+                return;
+            }
+        }
+        entity.readFromNBT(tag);
+        level.addEntity(entity);
+    }
+
+    @Nullable
+    private PonderEntityRuntime findPonderEntityRuntime(Entity entity) {
+        for (PonderEntityRuntime runtime : ponderEntityRefs.values()) {
+            if (runtime.entityId == entity.getEntityId()) {
+                return runtime;
+            }
+        }
+        return null;
+    }
+
+    private void applyPonderEntityTransform(NBTTagCompound tag, PonderKeyframeEntityAction action) {
+        boolean hasPosition = action.getX() != null || action.getY() != null || action.getZ() != null;
+        if (hasPosition || !tag.hasKey("Pos")) {
+            double x = action.getX() != null ? action.getX() : 0.0D;
+            double y = action.getY() != null ? action.getY() : 0.0D;
+            double z = action.getZ() != null ? action.getZ() : 0.0D;
+            tag.setTag("Pos", createDoubleList(x, y, z));
+        }
+        if (!tag.hasKey("Motion")) {
+            tag.setTag("Motion", createDoubleList(0.0D, 0.0D, 0.0D));
+        }
+        boolean hasRotation = action.getYaw() != null || action.getPitch() != null;
+        if (hasRotation || !tag.hasKey("Rotation")) {
+            float yaw = action.getYaw() != null ? action.getYaw() : 0.0F;
+            float pitch = action.getPitch() != null ? action.getPitch() : 0.0F;
+            tag.setTag("Rotation", createFloatList(yaw, pitch));
+        }
+    }
+
+    private NBTTagList createDoubleList(double... values) {
+        NBTTagList list = new NBTTagList();
+        for (double value : values) {
+            list.appendTag(new NBTTagDouble(value));
+        }
+        return list;
+    }
+
+    private NBTTagList createFloatList(float... values) {
+        NBTTagList list = new NBTTagList();
+        for (float value : values) {
+            list.appendTag(new NBTTagFloat(value));
+        }
+        return list;
+    }
+
+    private void clearPonderEntities() {
+        for (PonderEntityRuntime runtime : ponderEntityRefs.values()) {
+            level.removeEntity(runtime.entityId);
+        }
+        ponderEntityRefs.clear();
+    }
+
+    @Nullable
+    private static String trimToNull(@Nullable String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void spawnBlockParticles(int bx, int by, int bz, Block block, int meta) {
@@ -2475,13 +2838,35 @@ public class LytGuidebookScene extends LytBlock {
         @Nullable
         final Block initialBlock;
         final int initialMeta;
+        @Nullable
+        final NBTTagCompound initialTileNbt;
 
-        PonderBlockInfo(int x, int y, int z, @Nullable Block initialBlock, int initialMeta) {
+        PonderBlockInfo(int x, int y, int z, @Nullable Block initialBlock, int initialMeta,
+            @Nullable NBTTagCompound initialTileNbt) {
             this.x = x;
             this.y = y;
             this.z = z;
             this.initialBlock = initialBlock;
             this.initialMeta = initialMeta;
+            this.initialTileNbt = initialTileNbt != null ? (NBTTagCompound) initialTileNbt.copy() : null;
+        }
+    }
+
+    private static final class PonderEntityRuntime {
+
+        private int entityId;
+        private final String entityTypeId;
+        @Nullable
+        private final String playerName;
+        @Nullable
+        private final String playerUuid;
+
+        private PonderEntityRuntime(int entityId, String entityTypeId, @Nullable String playerName,
+            @Nullable String playerUuid) {
+            this.entityId = entityId;
+            this.entityTypeId = entityTypeId;
+            this.playerName = playerName;
+            this.playerUuid = playerUuid;
         }
     }
 

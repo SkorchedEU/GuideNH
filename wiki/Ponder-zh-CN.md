@@ -54,6 +54,14 @@ assets/<modid>/guidebooks/
 | `layer` | 整数 或 null | 否 | 可见层覆盖。`null` 显示所有层；从 1 开始的整数限制到指定层。 |
 | `annotations` | 数组 | 否 | 该关键帧激活时显示的注释列表。 |
 | `blockChanges` | 数组 | 否 | 该关键帧激活时执行的方块替换列表。 |
+| `mergeTileNBT` | 数组 | 否 | 将 SNBT 复合标签合并到指定坐标的方块实体。 |
+| `modifyTileNBT` | 数组 | 否 | 将某个方块实体 NBT 路径设置为指定 SNBT 值。 |
+| `removeTileNBT` | 数组 | 否 | 删除某个方块实体 NBT 路径。 |
+| `createEntities` | 数组 | 否 | 创建可被后续实体 NBT 操作引用的 Ponder 专用实体。 |
+| `setEntityNBT` | 数组 | 否 | 用提供的 SNBT 复合标签替换引用实体的 NBT。 |
+| `mergeEntityNBT` | 数组 | 否 | 将 SNBT 复合标签合并到引用实体。 |
+| `modifyEntityNBT` | 数组 | 否 | 将引用实体的某个 NBT 路径设置为指定 SNBT 值。 |
+| `removeEntityNBT` | 数组 | 否 | 删除引用实体的某个 NBT 路径。 |
 
 ### 摄像机字段（均为可选）
 
@@ -103,6 +111,108 @@ assets/<modid>/guidebooks/
 **支持倒放定位：** 向前或向后拖动进度条时，运行时会先将所有改动过的位置恢复为原始状态，再从第 0 帧重新应用到当前帧。无论如何定位，显示的结构始终正确。
 
 > **关于粒子效果：** 粒子效果只在正向播放、关键帧第一次激活时触发，粒子使用被替换方块的自身贴图。定位（倒带/快进）、重置或初始加载时粒子**不会**触发，已有粒子会被清除。
+
+---
+
+## 方块实体 NBT 操作
+
+当方块本身不变，只需要改变方块实体数据时，可以使用 `mergeTileNBT`、`modifyTileNBT`
+和 `removeTileNBT`。这些操作支持进度条定位：运行时会先恢复初始方块实体 NBT，再从第
+0 帧重放到当前关键帧。
+
+```json
+{
+  "time": 80,
+  "mergeTileNBT": [
+    {
+      "x": 2, "y": 1, "z": 2,
+      "nbt": "{InputTanks:[{Level:{Speed:0.25,Target:0.25,Value:0.0},TankContent:{Amount:250,FluidName:\"minecraft:lava\"}}]}"
+    }
+  ],
+  "modifyTileNBT": [
+    {
+      "x": 2, "y": 1, "z": 2,
+      "path": "InputTanks[0].TankContent.Amount",
+      "value": "500"
+    }
+  ],
+  "removeTileNBT": [
+    { "x": 2, "y": 1, "z": 2, "path": "InputTanks[0].Level.Target" }
+  ]
+}
+```
+
+| 字段 | 适用于 | 说明 |
+|------|--------|------|
+| `x`, `y`, `z` | 全部 | 方块实体所在的结构坐标。 |
+| `nbt` | `mergeTileNBT` | 要合并到方块实体的 SNBT 复合标签。复合标签会递归合并，其他值会覆盖旧值。 |
+| `path` | `modifyTileNBT`、`removeTileNBT` | 带列表索引的点分 NBT 路径，例如 `Items[0].Count` 或 `InputTanks[0].TankContent.Amount`。 |
+| `value` | `modifyTileNBT` | 写入 `path` 的 SNBT 值，例如 `3b`、`500`、`"\"text\""`、`{Count:1b,id:"minecraft:stone"}`。 |
+
+路径写法与 Minecraft `/data` 的思路相同：用 `.` 进入复合标签，用 `[index]` 进入列表。
+列表遍历目前面向常见的“列表内是复合标签”的结构，例如物品栏、流体罐和配方槽。
+
+---
+
+## 实体操作
+
+`GameScene` 本身已经支持普通 `<Entity>` 标签。Ponder 时间轴现在也可以通过
+`createEntities` 创建由时间轴管理的实体，并在后续关键帧中通过 `ref` 引用它们。
+
+```json
+{
+  "time": 0,
+  "createEntities": [
+    {
+      "ref": "marker",
+      "id": "minecraft:pig",
+      "x": 1.5, "y": 1.0, "z": 2.5,
+      "yaw": 180,
+      "nbt": "{CustomName:\"Before\",CustomNameVisible:1b}"
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `ref` | 必填，本 Ponder JSON 内用于后续操作的引用名。 |
+| `id` | 实体 ID，例如 `minecraft:pig`、`Pig` 或场景实体加载器支持的模组实体 ID。 |
+| `x`, `y`, `z` | 可选生成位置。未填写且 `nbt` 没有 `Pos` 时默认为 `0, 0, 0`。 |
+| `yaw`, `pitch` | 可选生成旋转。未填写且 `nbt` 没有 `Rotation` 时默认为 `0, 0`。 |
+| `nbt` | 可选，实体创建时应用的 SNBT 复合标签。 |
+| `name`, `uuid` | 可选，创建预览玩家实体时使用的玩家档案字段。 |
+
+实体创建后，可以使用实体 NBT 操作：
+
+```json
+{
+  "time": 60,
+  "mergeEntityNBT": [
+    { "ref": "marker", "nbt": "{Saddle:1b}" }
+  ],
+  "modifyEntityNBT": [
+    { "ref": "marker", "path": "CustomName", "value": "\"After\"" }
+  ],
+  "removeEntityNBT": [
+    { "ref": "marker", "path": "CustomNameVisible" }
+  ]
+}
+```
+
+如果需要替换实体 NBT，而不是合并，可以使用 `setEntityNBT`：
+
+```json
+{
+  "time": 100,
+  "setEntityNBT": [
+    { "ref": "marker", "nbt": "{Pos:[0.0d,0.0d,0.0d],Rotation:[0.0f,0.0f],CustomName:\"Reset\"}" }
+  ]
+}
+```
+
+与方块实体操作一样，实体操作会在关键帧变化时从头重放；向后拖动进度条时，
+Ponder 创建的实体会被移除并重新创建到目标时刻的正确状态。
 
 ---
 
@@ -500,6 +610,7 @@ assets/mymod/guidebooks/
 - `text` 字段缺失或为空的 `text` 注释将被静默跳过。
 - `inputType` 字段缺失或无法识别时默认为 `"lmb"`。
 - `blockChanges` 按从第 0 帧到当前帧的顺序应用；在多个关键帧中修改同一位置的方块完全正常。
+- 方块实体和实体 NBT 操作也使用同样的重放模型；向前或向后拖动进度条都能恢复正确状态。
 - `maxWidth` &gt; 0 的 `text` 注释使用原版字体渲染器自动换行；气泡框高度会随多行文本自动调整。
 - `nbt` 字符串中键名必须为**不带引号**的标准 SNBT 格式（MC 1.7.10 `JsonToNBT` 要求）。字符串值仍需引号，例如 `{id:"minecraft:iron_ingot",Count:8b}`。
-
+- `modifyTileNBT` 和 `modifyEntityNBT` 的 `value` 是 SNBT 值，不是 JSON 值。字符串值需要在 JSON 内转义 SNBT 引号：`"value": "\"hello\""`。
