@@ -364,6 +364,20 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         return screen instanceof GuideScreen gs ? gs : null;
     }
 
+    public static boolean toggleEditorModeFromCommand() {
+        boolean enabled = !GuideScreenEditorState.isEnabled();
+        GuideScreenEditorState.setEnabled(enabled);
+        GuideScreen screen = current();
+        if (screen != null) {
+            screen.syncGuideEditorStateFromConfig();
+            screen.refreshGuideEditorDraft(true);
+            screen.rebuildToolbar();
+            screen.ensureLayout();
+            screen.clampScroll();
+        }
+        return enabled;
+    }
+
     public ResourceLocation getCurrentPageId() {
         return currentAnchor.pageId();
     }
@@ -489,10 +503,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     }
 
     private void toggleGuideEditorEnabled() {
-        GuideScreenEditorState.setEnabled(!GuideScreenEditorState.isEnabled());
-        syncGuideEditorStateFromConfig();
-        refreshGuideEditorDraft(true);
-        rebuildToolbar();
+        toggleEditorModeFromCommand();
     }
 
     private void toggleGuideEditorAdvancedButtons() {
@@ -521,7 +532,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             ParsedGuidePage parsedNewPage = PageCompiler
                 .parse(currentParsedPage.getSourcePack(), language, newPageId, pageText);
             applyGuideEditorPageWithoutReload(parsedNewPage);
-            guide.rebuildIndices();
+            guide.rebuildEditorNavigationState();
             navigateTo(PageAnchor.page(newPageId));
             refreshGuideEditorDraft(true);
             rebuildToolbar();
@@ -954,7 +965,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             @Override
             public void run() {
                 try {
-                    guide.rebuildIndices();
+                    guide.rebuildEditorNavigationState();
                 } catch (Throwable t) {
                     FMLLog.warning("Guide editor index refresh failed", t);
                 }

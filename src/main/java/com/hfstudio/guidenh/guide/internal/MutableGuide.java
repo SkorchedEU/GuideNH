@@ -32,6 +32,7 @@ import com.hfstudio.guidenh.guide.indices.PageIndex;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
+import com.hfstudio.guidenh.guide.scene.level.GuidebookFakeWorld;
 
 import cpw.mods.fml.common.FMLLog;
 
@@ -307,7 +308,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     /**
      * Called each client tick to pre-compile the guide's start page in the background, eliminating the 5-6 second
      * freeze on first guide open. Compilation is deferred until an active server connection is available (required for
-     * {@link com.hfstudio.guidenh.guide.scene.level.GuidebookFakeWorld} creation).
+     * {@link GuidebookFakeWorld} creation).
      */
     public void tickWarmup() {
         if (startPageWarmed || pages == null) {
@@ -499,13 +500,23 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         if (parsedPage == null) {
             return;
         }
-        applyChanges(
-            Collections.singletonList(
-                new GuidePageChange(
-                    parsedPage.getLanguage(),
-                    parsedPage.getId(),
-                    developmentPages.get(parsedPage.getId()),
-                    parsedPage)));
+        ResourceLocation pageId = parsedPage.getId();
+        developmentPages.put(pageId, parsedPage);
+        synchronized (compiledPages) {
+            compiledPages.remove(parsedPage);
+        }
+        if (parsedPage.hasParseFailure()) {
+            recordParseFailure(parsedPage);
+        } else {
+            clearCompileFailure(pageId);
+            clearParseFailure(pageId);
+        }
+    }
+
+    public void rebuildEditorNavigationState() {
+        rebuildIndices();
+        navigationTree = buildNavigation();
+        refreshPageFailures();
     }
 
     public GuideItemSettings getItemSettings() {
@@ -604,6 +615,13 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     private void clearCompileFailure(ResourceLocation pageId) {
         var failure = pageFailures.get(pageId);
         if (failure != null && !failure.parseFailure) {
+            pageFailures.remove(pageId);
+        }
+    }
+
+    private void clearParseFailure(ResourceLocation pageId) {
+        var failure = pageFailures.get(pageId);
+        if (failure != null && failure.parseFailure) {
             pageFailures.remove(pageId);
         }
     }

@@ -19,6 +19,7 @@ import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.internal.GuideME;
 import com.hfstudio.guidenh.guide.internal.GuideMEProxy;
 import com.hfstudio.guidenh.guide.internal.GuideRegistry;
+import com.hfstudio.guidenh.guide.internal.GuideScreen;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.internal.editor.SceneEditorScreen;
 import com.hfstudio.guidenh.guide.internal.item.RegionWandItem;
@@ -30,8 +31,8 @@ import com.hfstudio.guidenh.guide.siteexport.site.GuideSiteOutputPaths;
 
 public class GuideNhClientCommand extends CommandBase {
 
-    public static final String[] ROOT_SUB_COMMANDS = { "editor", "list", "open", "reload", "search", "export",
-        "exportsite", "exportstructure" };
+    public static final String[] ROOT_SUB_COMMANDS = { "editor", "guideeditor", "guideedit", "list", "open", "reload",
+        "search", "export", "exportsite", "exportstructure" };
 
     @Override
     public String getCommandName() {
@@ -52,6 +53,7 @@ public class GuideNhClientCommand extends CommandBase {
 
         switch (args[0].toLowerCase()) {
             case "editor" -> SceneEditorScreen.open();
+            case "guideeditor", "guideedit" -> toggleGuideEditor(sender);
             case "list" -> listGuides(sender);
             case "open" -> openGuide(sender, args);
             case "reload" -> reloadGuides(sender);
@@ -118,6 +120,11 @@ public class GuideNhClientCommand extends CommandBase {
             return;
         }
         send(sender, GuidebookText.CommandReloadUnsupported);
+    }
+
+    private void toggleGuideEditor(ICommandSender sender) {
+        boolean enabled = GuideScreen.toggleEditorModeFromCommand();
+        send(sender, enabled ? GuidebookText.GuideEditorCommandEnabled : GuidebookText.GuideEditorCommandDisabled);
     }
 
     private void searchGuides(ICommandSender sender, String[] args) {

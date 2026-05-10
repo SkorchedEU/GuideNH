@@ -179,6 +179,8 @@ public enum GuidebookText implements LocalizationEnum {
     GuideEditorConflictMessage,
     GuideEditorConflictKeepExternal,
     GuideEditorConflictKeepLocal,
+    GuideEditorCommandEnabled,
+    GuideEditorCommandDisabled,
     SceneEditorSnapPoint,
     SceneEditorSnapLine,
     SceneEditorSnapFace,
