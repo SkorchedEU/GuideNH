@@ -143,6 +143,9 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         if ("KeyBind".equals(name)) {
             return escapeHtml(resolveKeyBindLabel(element));
         }
+        if ("Comment".equals(name)) {
+            return "";
+        }
         if ("CommandLink".equals(name)) {
             return renderCommandLink(element, defaultNamespace, currentPageId, templates, sceneResolver, compiler);
         }
@@ -1553,7 +1556,7 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
     }
 
     private String resolveKeyBindLabel(MdxJsxElementFields element) {
-        String id = readOptional(element, "id");
+        String id = KeyBindTagCompiler.getKeyBindId(element);
         if (id == null || id.isEmpty()) {
             return "";
         }

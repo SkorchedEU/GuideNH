@@ -13,10 +13,13 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.hfstudio.guidenh.guide.scene.level.GuidebookFakeWorld;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.snapshot.ExportBlockContext;
 import com.hfstudio.guidenh.guide.scene.snapshot.ExportSession;
@@ -24,6 +27,7 @@ import com.hfstudio.guidenh.guide.scene.snapshot.GuidebookLevelStructureExportAc
 import com.hfstudio.guidenh.guide.scene.snapshot.ServerPreviewSupplementNbt;
 import com.hfstudio.guidenh.guide.scene.snapshot.StructureExportAccess;
 import com.hfstudio.guidenh.guide.scene.snapshot.StructureExportPipeline;
+import com.hfstudio.guidenh.guide.scene.support.GuideBlockStatsStackResolver;
 
 import appeng.api.AEApi;
 import appeng.api.networking.IGridHost;
@@ -57,14 +61,13 @@ public final class Ae2Helpers {
     private Ae2Helpers() {}
 
     /**
-     * Whether {@link net.minecraft.world.World#markBlockForUpdate} must not reapply
+     * Whether {@link World#markBlockForUpdate} must not reapply
      * {@link TileEntity#getDescriptionPacket}
-     * for this TE inside a {@link com.hfstudio.guidenh.guide.scene.level.GuidebookFakeWorld}:
+     * for this TE inside a {@link GuidebookFakeWorld}:
      * {@link #prepare(GuidebookLevel)}
      * already merged server-authoritative preview bytes ({@link Ae2ServerPreviewRegistration#SUPPLEMENT_ID} /
      * {@link Ae2BaseTileNetworkStreamPreview#SUPPLEMENT_ID}). Vanilla description resync rebuilds payloads from an
-     * inert
-     * preview grid / proxy and overrides that state (channels, TileSecurity connectivity, …).
+     * inert preview grid / proxy and overrides that state.
      */
     @Optional.Method(modid = "appliedenergistics2")
     @Nullable
@@ -318,6 +321,20 @@ public final class Ae2Helpers {
         }
     }
 
+    @Optional.Method(modid = "appliedenergistics2")
+    public static void appendCableBusStatEntries(@Nullable TileEntity tileEntity,
+        List<GuideBlockStatsStackResolver.ResolvedStack> output, int x, int y, int z) {
+        if (!(tileEntity instanceof TileCableBus cableBusTile) || output == null) {
+            return;
+        }
+        for (ForgeDirection direction : ForgeDirection.values()) {
+            appendPartStatEntry(cableBusTile.getPart(direction), output, x, y, z, direction);
+            if (direction != ForgeDirection.UNKNOWN) {
+                appendFacadeStatEntry(cableBusTile, direction, output, x, y, z);
+            }
+        }
+    }
+
     private static void appendPartStatStack(@Nullable IPart part, List<ItemStack> output) {
         if (part == null) {
             return;
@@ -333,6 +350,24 @@ public final class Ae2Helpers {
             stack = safePartStack(part, PartItemStack.Network);
         }
         appendCopy(output, stack);
+    }
+
+    private static void appendPartStatEntry(@Nullable IPart part,
+        List<GuideBlockStatsStackResolver.ResolvedStack> output, int x, int y, int z, ForgeDirection direction) {
+        if (part == null) {
+            return;
+        }
+        ItemStack stack = safePartStack(part, PartItemStack.Break);
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.World);
+        }
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.Pick);
+        }
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.Network);
+        }
+        appendEntryCopy(output, stack, approximateCableBusBounds(x, y, z, direction, false));
     }
 
     @Nullable
@@ -356,11 +391,54 @@ public final class Ae2Helpers {
         } catch (Throwable ignored) {}
     }
 
+    private static void appendFacadeStatEntry(TileCableBus cableBusTile, ForgeDirection direction,
+        List<GuideBlockStatsStackResolver.ResolvedStack> output, int x, int y, int z) {
+        try {
+            IFacadePart facade = cableBusTile.getFacadeContainer()
+                .getFacade(direction);
+            if (facade != null) {
+                appendEntryCopy(output, facade.getItemStack(), approximateCableBusBounds(x, y, z, direction, true));
+            }
+        } catch (Throwable ignored) {}
+    }
+
     private static void appendCopy(List<ItemStack> output, @Nullable ItemStack stack) {
         if (stack == null || stack.getItem() == null) {
             return;
         }
         output.add(stack.copy());
+    }
+
+    private static void appendEntryCopy(List<GuideBlockStatsStackResolver.ResolvedStack> output,
+        @Nullable ItemStack stack, AxisAlignedBB bounds) {
+        if (stack == null || stack.getItem() == null) {
+            return;
+        }
+        output.add(new GuideBlockStatsStackResolver.ResolvedStack(stack.copy(), bounds));
+    }
+
+    private static AxisAlignedBB approximateCableBusBounds(int x, int y, int z, ForgeDirection direction,
+        boolean facade) {
+        double min = facade ? 0.0D : 0.25D;
+        double max = facade ? 1.0D : 0.75D;
+        double sideMin = facade ? 0.0D : 0.375D;
+        double sideMax = facade ? 1.0D : 0.625D;
+        double thickness = facade ? 0.125D : 0.25D;
+        return switch (direction) {
+            case DOWN -> AxisAlignedBB
+                .getBoundingBox(x + sideMin, y, z + sideMin, x + sideMax, y + thickness, z + sideMax);
+            case UP -> AxisAlignedBB
+                .getBoundingBox(x + sideMin, y + 1.0D - thickness, z + sideMin, x + sideMax, y + 1.0D, z + sideMax);
+            case NORTH -> AxisAlignedBB
+                .getBoundingBox(x + sideMin, y + sideMin, z, x + sideMax, y + sideMax, z + thickness);
+            case SOUTH -> AxisAlignedBB
+                .getBoundingBox(x + sideMin, y + sideMin, z + 1.0D - thickness, x + sideMax, y + sideMax, z + 1.0D);
+            case WEST -> AxisAlignedBB
+                .getBoundingBox(x, y + sideMin, z + sideMin, x + thickness, y + sideMax, z + sideMax);
+            case EAST -> AxisAlignedBB
+                .getBoundingBox(x + 1.0D - thickness, y + sideMin, z + sideMin, x + 1.0D, y + sideMax, z + sideMax);
+            default -> AxisAlignedBB.getBoundingBox(x + min, y + min, z + min, x + max, y + max, z + max);
+        };
     }
 
     @Optional.Method(modid = "appliedenergistics2")

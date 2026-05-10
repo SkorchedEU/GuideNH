@@ -19,6 +19,7 @@ import com.hfstudio.guidenh.guide.compiler.tags.BreakCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.CategoryIndexCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.ColorTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.CommandLinkCompiler;
+import com.hfstudio.guidenh.guide.compiler.tags.CommentTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.CsvTableCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.DetailsTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.DivTagCompiler;
@@ -119,6 +120,7 @@ public class DefaultExtensions {
                 new CommandLinkCompiler(),
                 new PlayerNameTagCompiler(),
                 new KeyBindTagCompiler(),
+                new CommentTagCompiler(),
                 new TooltipTagCompiler(),
                 new MarkTagCompiler(),
                 new FootnoteListCompiler(),

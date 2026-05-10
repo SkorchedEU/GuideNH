@@ -27,7 +27,7 @@
 | `<Tooltip>` | 带 Markdown/标签子内容的富悬浮提示 | `label` |
 | `<mark>` | 行内高亮文本；等价于 `==text==`，并可自定义颜色 | `color` |
 | `<PlayerName>` | 插入当前玩家用户名 | 无 |
-| `<KeyBind>` | 插入按键绑定显示名 | `id` |
+| `<KeyBind>` | 插入按键绑定显示名 | `id` 或 `action` |
 | `<ItemImage>` | 行内物品图标 | `id` 或 `ore`，`scale`，`noTooltip`，`showTooltip`，`showIcon`，`label`，`format`，`yOffset`，`labelYOffset` |
 | `<ItemLink>` | 物品 tooltip + 可选导航链接 | `id` 或 `ore`，`linksTo`，`showTooltip`，`noTooltip`，`showIcon` |
 | `<CommandLink>` | 可点击的聊天命令链接 | `command`, `title`, `close` |
@@ -187,7 +187,7 @@ Welcome, <PlayerName />!
 
 ### `<KeyBind>`
 
-通过 id 查找按键绑定，并渲染玩家当前实际绑定的按键名称。
+通过 id 或 action 查找按键绑定，并渲染玩家当前实际绑定的按键名称。
 
 可接受的 id 形式：
 
@@ -198,6 +198,7 @@ Welcome, <PlayerName />!
 
 ````md
 Press <KeyBind id="key.jump" /> to jump.
+攻击键：<KeyBind action="key.attack" />。
 ````
 
 ### MDX 注释
@@ -212,6 +213,12 @@ multiline comment
 */}
 
 More visible text.
+````
+
+GuideNH 也会忽略显式 `<Comment>` 标签：
+
+````md
+可见文字。<Comment>这里不会渲染。</Comment>仍然可见。
 ````
 
 ### `<ItemImage>`

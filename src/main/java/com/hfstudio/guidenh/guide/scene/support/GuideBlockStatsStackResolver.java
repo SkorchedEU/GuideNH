@@ -8,6 +8,7 @@ import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.AxisAlignedBB;
 
 import com.hfstudio.guidenh.compat.Mods;
 import com.hfstudio.guidenh.compat.ae2.Ae2Helpers;
@@ -20,6 +21,20 @@ public final class GuideBlockStatsStackResolver {
     private GuideBlockStatsStackResolver() {}
 
     public static List<ItemStack> resolveStacks(GuidebookLevel level, int x, int y, int z) {
+        List<ResolvedStack> entries = resolveEntries(level, x, y, z);
+        if (entries.isEmpty()) {
+            return Collections.emptyList();
+        }
+        ArrayList<ItemStack> stacks = new ArrayList<>(entries.size());
+        for (ResolvedStack entry : entries) {
+            if (entry.stack() != null) {
+                stacks.add(entry.stack());
+            }
+        }
+        return stacks;
+    }
+
+    public static List<ResolvedStack> resolveEntries(GuidebookLevel level, int x, int y, int z) {
         if (level == null) {
             return Collections.emptyList();
         }
@@ -28,45 +43,81 @@ public final class GuideBlockStatsStackResolver {
             return Collections.emptyList();
         }
         TileEntity tileEntity = level.getTileEntity(x, y, z);
-        ArrayList<ItemStack> stacks = new ArrayList<>(4);
-        appendMultipartStacks(level, block, tileEntity, x, y, z, stacks);
-        if (stacks.isEmpty()) {
-            appendFallbackStack(level, x, y, z, stacks);
+        ArrayList<ResolvedStack> entries = new ArrayList<>(4);
+        AxisAlignedBB fallbackBounds = GuideBlockBoundsResolver.resolveSelectedBounds(level, x, y, z);
+        if (fallbackBounds == null) {
+            fallbackBounds = GuideBlockBoundsResolver.resolveWorldBounds(level, x, y, z);
         }
-        normalizeStacks(stacks);
-        return stacks;
+        appendMultipartEntries(level, block, tileEntity, x, y, z, fallbackBounds, entries);
+        if (entries.isEmpty()) {
+            appendFallbackEntry(level, x, y, z, fallbackBounds, entries);
+        }
+        normalizeEntries(entries);
+        return entries;
     }
 
-    private static void appendMultipartStacks(GuidebookLevel level, Block block, TileEntity tileEntity, int x, int y,
-        int z, List<ItemStack> stacks) {
+    private static void appendMultipartEntries(GuidebookLevel level, Block block, TileEntity tileEntity, int x, int y,
+        int z, AxisAlignedBB fallbackBounds, List<ResolvedStack> entries) {
         if (Mods.AE2.isModLoaded()) {
-            Ae2Helpers.appendCableBusStatStacks(tileEntity, stacks);
+            Ae2Helpers.appendCableBusStatEntries(tileEntity, entries, x, y, z);
         }
-        if (stacks.isEmpty() && Mods.ForgeMultipart.isModLoaded()
+        if (entries.isEmpty() && Mods.ForgeMultipart.isModLoaded()
             && (ForgeMultipartHelpers.isForgeMultipartBlock(block)
                 || ForgeMultipartHelpers.isMultipartTileEntity(tileEntity))) {
+            ArrayList<ItemStack> stacks = new ArrayList<>(4);
             ForgeMultipartHelpers.appendMultipartStatStacks(tileEntity, stacks);
+            appendWithFallbackBounds(stacks, fallbackBounds, entries);
         }
-        if (stacks.isEmpty() && CarpentersBlocksHelpers.isCarpentersBlock(block)) {
+        if (entries.isEmpty() && CarpentersBlocksHelpers.isCarpentersBlock(block)) {
+            ArrayList<ItemStack> stacks = new ArrayList<>(4);
             CarpentersBlocksHelpers.appendComponentStatStacks(tileEntity, stacks);
+            appendWithFallbackBounds(stacks, fallbackBounds, entries);
         }
     }
 
-    private static void appendFallbackStack(GuidebookLevel level, int x, int y, int z, List<ItemStack> stacks) {
+    private static void appendFallbackEntry(GuidebookLevel level, int x, int y, int z, AxisAlignedBB fallbackBounds,
+        List<ResolvedStack> entries) {
         try {
             ItemStack stack = GuideBlockDisplayResolver.resolveDisplayStack(level, x, y, z);
             if (stack != null) {
-                stacks.add(stack);
+                entries.add(new ResolvedStack(stack, fallbackBounds));
             }
         } catch (Throwable ignored) {}
     }
 
-    private static void normalizeStacks(List<ItemStack> stacks) {
-        for (int i = stacks.size() - 1; i >= 0; i--) {
-            ItemStack stack = stacks.get(i);
+    private static void appendWithFallbackBounds(List<ItemStack> stacks, AxisAlignedBB fallbackBounds,
+        List<ResolvedStack> entries) {
+        for (ItemStack stack : stacks) {
+            entries.add(new ResolvedStack(stack, fallbackBounds));
+        }
+    }
+
+    private static void normalizeEntries(List<ResolvedStack> entries) {
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            ResolvedStack entry = entries.get(i);
+            ItemStack stack = entry != null ? entry.stack() : null;
             if (stack == null || stack.getItem() == null || stack.stackSize <= 0) {
-                stacks.remove(i);
+                entries.remove(i);
             }
+        }
+    }
+
+    public static final class ResolvedStack {
+
+        private final ItemStack stack;
+        private final AxisAlignedBB bounds;
+
+        public ResolvedStack(ItemStack stack, AxisAlignedBB bounds) {
+            this.stack = stack;
+            this.bounds = bounds;
+        }
+
+        public ItemStack stack() {
+            return stack;
+        }
+
+        public AxisAlignedBB bounds() {
+            return bounds;
         }
     }
 }

@@ -229,6 +229,7 @@ public enum GuidebookText implements LocalizationEnum {
     SceneStructureLibHintBlockLabel,
     SceneStructureLibHintDotNumber,
     SceneStructureLibValidHatchesLabel,
+    SceneBlockStatsTooltipCount,
     SceneSliderLabelFormat,
     SceneStructureLibTierLabel,
     SceneVisibleLayerLabel,

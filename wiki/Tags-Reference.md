@@ -25,7 +25,7 @@ This page lists the built-in runtime tags registered by `DefaultExtensions`.
 | `<Tooltip>` | rich hover tooltip with markdown/tag children | `label` |
 | `<mark>` | inline highlighted text; equivalent to `==text==` with optional color control | `color` |
 | `<PlayerName>` | inserts current player username | none |
-| `<KeyBind>` | inserts keybinding display name | `id` |
+| `<KeyBind>` | inserts keybinding display name | `id` or `action` |
 | `<ItemImage>` | inline item icon | `id` or `ore`, `scale`, `noTooltip`, `showTooltip`, `showIcon`, `label`, `format`, `yOffset`, `labelYOffset` |
 | `<ItemLink>` | item tooltip + optional navigation link | `id` or `ore`, `linksTo`, `showTooltip`, `noTooltip`, `showIcon` |
 | `<CommandLink>` | clickable chat command link | `command`, `title`, `close` |
@@ -211,7 +211,7 @@ Welcome, <PlayerName />!
 
 ### `<KeyBind>`
 
-Looks up a keybinding by id and renders the player's current bound key name.
+Looks up a keybinding by id or action and renders the player's current bound key name.
 
 Accepted ids:
 
@@ -222,6 +222,7 @@ Example:
 
 ````md
 Press <KeyBind id="key.jump" /> to jump.
+Attack with <KeyBind action="key.attack" />.
 ````
 
 ### MDX Comments
@@ -236,6 +237,12 @@ multiline comment
 */}
 
 More visible text.
+````
+
+GuideNH also ignores explicit `<Comment>` tags:
+
+````md
+Visible text. <Comment>This does not render.</Comment> Still visible.
 ````
 
 ### `<ItemImage>`

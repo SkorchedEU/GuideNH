@@ -83,6 +83,10 @@ public final class GuideScreenEditorFileStore {
         Files.write(pagePath, text.getBytes(StandardCharsets.UTF_8));
     }
 
+    public boolean canSaveBesideSource(MutableGuide guide, @Nullable ResourceLocation sourcePageId, String language) {
+        return sourcePageId != null && findWritableResourcePackRootContaining(guide, sourcePageId, language) != null;
+    }
+
     @Nullable
     public String readPageText(MutableGuide guide, ResourceLocation pageId, String language) {
         Path pagePath = resolveExistingWritablePagePath(guide, pageId, language);

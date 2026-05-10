@@ -529,9 +529,17 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         ResourceLocation sourcePageId = resolveGuideEditorNewPageSource(currentParsedPage);
         ResourceLocation newPageId = resolveGuideEditorNewPageId(language, sourcePageId);
         String pageText = buildGuideEditorNewPageText(titleText, parentId);
+        boolean canApplyImmediately = guideEditorFileStore.canSaveBesideSource(guide, sourcePageId, language);
 
         try {
             guideEditorFileStore.savePage(guide, newPageId, language, pageText, sourcePageId);
+            if (!canApplyImmediately) {
+                FMLLog.info(
+                    "Created guide editor page {} in fallback resource pack {}. Enable that resource pack to load it.",
+                    newPageId,
+                    guideEditorFileStore.getPackRoot());
+                return;
+            }
             ParsedGuidePage parsedNewPage = PageCompiler
                 .parse(currentParsedPage.getSourcePack(), language, newPageId, pageText);
             applyGuideEditorPageWithoutReload(parsedNewPage);
@@ -2741,6 +2749,11 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
 
         var scene = interaction.scene;
         if (scene != null) {
+            GuideTooltip blockStatsTooltip = scene.createBlockStatsTooltip(mouseX, mouseY);
+            if (blockStatsTooltip != null) {
+                renderGuideTooltip(blockStatsTooltip, mouseX, mouseY, interaction);
+                return;
+            }
             // Annotation tooltips have absolute priority: when an annotation is hovered we
             // MUST short-circuit the rest of the scene-tooltip cascade so the underlying block
             // (whose hover detection uses screen-space AABBs and may overlap an annotation that

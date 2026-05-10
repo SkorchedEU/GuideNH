@@ -25,17 +25,27 @@
 
 ## Block Statistics Overlay
 
-Add a `<BlockStats>` child to display a compact semi-transparent list inside the scene. The list is
+Scenes that contain blocks enable the block-stat toggle button by default. Add a `<BlockStats>`
+child when you want to override its mode, placement, filters, visibility, or size. The list is
 cached and only rebuilt when the scene blocks, Ponder timeline state, StructureLib selection, or
 block-stat settings change; normal rendering reuses the prepared rows. Long lists are clipped to
-`maxWidth` and `maxHeight`; overflow receives draggable scrollbars, and the mouse wheel scrolls the
-list while the cursor is over the overlay. Hold Shift to wheel-scroll horizontally.
+`maxWidth` and `maxHeight`; if those are omitted, each defaults to 25% of the final scene size.
+Overflow receives draggable scrollbars, and the mouse wheel scrolls the list while the cursor is
+over the overlay. Hold Shift to wheel-scroll horizontally.
 
 In automatic mode, GuideNH scans the scene's filled blocks and resolves each block to the item
 stack users normally see. Blocks that contain multiple visible components can contribute multiple
 items from the same coordinate; this includes AE2 cable bus parts and facades, ForgeMultipart part
 drops, and Carpenters' Blocks covers or overlays when those mods are installed. Counts are grouped
 by `item:meta` and sorted by count.
+
+Automatic lists can also be docked outside the scene with `dock="left"`, `dock="top"`,
+`dock="right"`, or `dock="bottom"`. Docked lists wrap into extra columns or rows based on the
+attached side length, reserve layout space, and avoid the scene button column on the right. Click an
+item in an automatic list to highlight all matching scene placements with their resolved collision
+boxes using an always-on-top face overlay; click the same item again to clear the highlight. Counts
+are rendered through the ItemStack stack-size overlay. Set `showNames={true}` to append the count
+after each name as well, and hover an item to see the exact block count in the tooltip.
 
 Filters can hide common blocks or show only selected blocks:
 
@@ -44,7 +54,7 @@ Filters can hide common blocks or show only selected blocks:
   <Block id="minecraft:stone" />
   <Block id="minecraft:furnace" x="1" />
   <BlockStats corner="topRight" filterMode="blacklist" filter="minecraft:air minecraft:stone"
-    maxWidth={160} maxHeight={96} />
+    maxWidth="160" maxHeight="96" />
 </GameScene>
 ````
 
@@ -54,9 +64,9 @@ contents:
 ````md
 <GameScene>
   <Block id="minecraft:furnace" />
-  <BlockStats mode="manual" corner="topRight" maxWidth={160} maxHeight={96}>
-    <BlockStat item="minecraft:cobblestone" count={8} />
-    <BlockStat item="minecraft:furnace" count={1} />
+  <BlockStats mode="manual" corner="topRight" maxWidth="160" maxHeight="96">
+    <BlockStat item="minecraft:cobblestone" count="8" />
+    <BlockStat item="minecraft:furnace" count="1" />
   </BlockStats>
 </GameScene>
 ````
@@ -192,9 +202,9 @@ GuideNH currently registers these scene child tags:
 
 ## `<BlockStats>` and `<BlockStat>`
 
-Declares a block statistics overlay. The overlay is disabled unless the scene contains this child
-tag. Adding one or more `<BlockStat>` children switches the overlay to manual statistics mode for
-that scene.
+Declares or customizes a block statistics overlay. Scenes with blocks enable the automatic toggle
+button even when this child is omitted. Adding one or more `<BlockStat>` children switches the
+overlay to manual statistics mode for that scene.
 
 `<BlockStats>` attributes:
 
@@ -204,10 +214,12 @@ that scene.
 | `buttonEnabled` | no | config, default `true` | shows the block statistics toggle button |
 | `mode` | no | `auto` | `auto` or `manual`; child `<BlockStat>` entries force manual mode |
 | `corner` | no | `topRight` | overlay corner: `topRight`, `topLeft`, `bottomRight`, or `bottomLeft` |
+| `dock` | no | `inside` | automatic lists can attach to `inside`, `left`, `top`, `right`, or `bottom`; manual mode always uses the inside overlay |
+| `showNames` | no | `false` | whether to show item names beside icons; when enabled the count is also appended after the name |
 | `filterMode` | no | `blacklist` | `blacklist` or `whitelist` |
 | `filter` | no | empty | item keys such as `minecraft:stone` or `minecraft:stone:0`, separated by spaces, commas, or semicolons |
-| `maxWidth` | no | `140` | maximum overlay width in pixels before horizontal scrolling |
-| `maxHeight` | no | `96` | maximum overlay height in pixels before vertical scrolling |
+| `maxWidth` | no | 25% of scene width | maximum overlay width in pixels before horizontal scrolling |
+| `maxHeight` | no | 25% of scene height | maximum overlay height in pixels before vertical scrolling |
 
 `<BlockStat>` attributes:
 
@@ -221,9 +233,9 @@ Example:
 
 ````md
 <GameScene>
-  <BlockStats corner="bottomRight" maxWidth={160} maxHeight={96}>
-    <BlockStat item="minecraft:stone" count={16} />
-    <BlockStat item="minecraft:torch" count={4} />
+  <BlockStats corner="bottomRight" maxWidth="160" maxHeight="96">
+    <BlockStat item="minecraft:stone" count="16" />
+    <BlockStat item="minecraft:torch" count="4" />
   </BlockStats>
 </GameScene>
 ````

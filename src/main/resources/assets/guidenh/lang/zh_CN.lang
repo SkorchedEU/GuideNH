@@ -343,6 +343,7 @@ guideme.guidebook.SceneEditorTextSyncHint=点击其他区域后同步
 guideme.guidebook.SceneEditorTitle=场景编辑器
 guideme.guidebook.SceneEditorUnsupportedSyntax=包含当前编辑器不支持的语法
 guideme.guidebook.SceneEditorZoom=缩放
+guideme.guidebook.SceneBlockStatsTooltipCount=数量：%s
 guideme.guidebook.SceneNotSet=未设置
 guideme.guidebook.SceneSliderLabelFormat=%s：%s
 guideme.guidebook.SceneStructureLibHintBlockLabel=提示方块：

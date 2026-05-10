@@ -22,6 +22,9 @@ navigation:
 
 ## 红石线路
 
+这个场景没有声明 `<BlockStats>`，但因为场景包含方块，方块统计切换按钮仍然可用。
+打开后会显示默认的内部列表，最大宽高限制为场景尺寸的 25%。
+
 <GameScene zoom={4} interactive={true}>
     <Block id="minecraft:stone" />
     <Block id="minecraft:stone" x="1" />
@@ -44,8 +47,10 @@ navigation:
     <Block id="minecraft:stone" x="2" />
     <Block id="minecraft:furnace" x="1" y="1" />
     <Block id="minecraft:torch" x="2" y="1" />
-    <BlockStats corner="topRight" maxWidth={160} maxHeight={96} />
+    <BlockStats dock="right" showNames={true} maxWidth="180" maxHeight="96" />
 </GameScene>
+
+点击统计列表中的物品可以用穿透显示的面覆盖高亮场景里所有对应位置，并使用每个条目解析出的碰撞箱。数量由 ItemStack 自带的堆叠数量渲染，Tooltip 会显示精确方块数量。
 
 手动模式可以显示规划材料表，而不是场景内真实方块数量。
 
@@ -53,9 +58,9 @@ navigation:
     <Block id="minecraft:furnace" />
     <Block id="minecraft:cobblestone" x="1" />
     <Block id="minecraft:cobblestone" x="-1" />
-    <BlockStats mode="manual" corner="bottomRight" maxWidth={160} maxHeight={96}>
-        <BlockStat item="minecraft:cobblestone" count={8} />
-        <BlockStat item="minecraft:furnace" count={1} />
+    <BlockStats mode="manual" corner="bottomRight" maxWidth="160" maxHeight="96">
+        <BlockStat item="minecraft:cobblestone" count="8" />
+        <BlockStat item="minecraft:furnace" count="1" />
     </BlockStats>
 </GameScene>
 

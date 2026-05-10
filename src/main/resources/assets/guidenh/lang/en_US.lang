@@ -343,6 +343,7 @@ guideme.guidebook.SceneEditorTextSyncHint=Click elsewhere to sync
 guideme.guidebook.SceneEditorTitle=Scene Editor
 guideme.guidebook.SceneEditorUnsupportedSyntax=The scene contains syntax that this editor does not support
 guideme.guidebook.SceneEditorZoom=Zoom
+guideme.guidebook.SceneBlockStatsTooltipCount=Blocks: %s
 guideme.guidebook.SceneNotSet=Not Set
 guideme.guidebook.SceneSliderLabelFormat=%s: %s
 guideme.guidebook.SceneStructureLibHintBlockLabel=Hint Block:
