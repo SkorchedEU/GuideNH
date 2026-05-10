@@ -1,5 +1,7 @@
 package com.hfstudio.guidenh.compat.carpentersblocks;
 
+import java.util.List;
+
 import net.minecraft.block.Block;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
@@ -95,5 +97,40 @@ public class CarpentersBlocksHelpers {
         }
         ItemStack value = te.getAttribute(attribute);
         return value != null ? value.copy() : null;
+    }
+
+    public static void appendComponentStatStacks(@Nullable TileEntity tileEntity, List<ItemStack> output) {
+        if (!isCarpentersTile(tileEntity) || output == null) {
+            return;
+        }
+        try {
+            appendComponentStatStacksImpl(tileEntity, output);
+        } catch (Throwable ignored) {}
+    }
+
+    @Optional.Method(modid = "CarpentersBlocks")
+    private static void appendComponentStatStacksImpl(TileEntity tileEntity, List<ItemStack> output) {
+        TEBase te = (TEBase) tileEntity;
+        for (int sideIndex = 0; sideIndex <= BASE_COVER_SIDE; sideIndex++) {
+            appendAttributeStack(te, TEBase.ATTR_COVER[sideIndex], output);
+            appendAttributeStack(te, TEBase.ATTR_OVERLAY[sideIndex], output);
+            appendAttributeStack(te, TEBase.ATTR_DYE[sideIndex], output);
+        }
+        appendAttributeStack(te, TEBase.ATTR_ILLUMINATOR, output);
+        appendAttributeStack(te, TEBase.ATTR_PLANT, output);
+        appendAttributeStack(te, TEBase.ATTR_SOIL, output);
+        appendAttributeStack(te, TEBase.ATTR_FERTILIZER, output);
+        appendAttributeStack(te, TEBase.ATTR_UPGRADE, output);
+    }
+
+    @Optional.Method(modid = "CarpentersBlocks")
+    private static void appendAttributeStack(TEBase te, byte attribute, List<ItemStack> output) {
+        if (!te.hasAttribute(attribute)) {
+            return;
+        }
+        ItemStack stack = te.getAttributeForDrop(attribute);
+        if (stack != null && stack.getItem() != null) {
+            output.add(stack.copy());
+        }
     }
 }

@@ -23,6 +23,44 @@
 | `gridButtonEnabled` | boolean | `true` | shows the floor grid toggle button |
 | `showGrid` | boolean | `false` | initial visibility of the floor grid |
 
+## Block Statistics Overlay
+
+Add a `<BlockStats>` child to display a compact semi-transparent list inside the scene. The list is
+cached and only rebuilt when the scene blocks, Ponder timeline state, StructureLib selection, or
+block-stat settings change; normal rendering reuses the prepared rows. Long lists are clipped to
+`maxWidth` and `maxHeight`; overflow receives draggable scrollbars, and the mouse wheel scrolls the
+list while the cursor is over the overlay. Hold Shift to wheel-scroll horizontally.
+
+In automatic mode, GuideNH scans the scene's filled blocks and resolves each block to the item
+stack users normally see. Blocks that contain multiple visible components can contribute multiple
+items from the same coordinate; this includes AE2 cable bus parts and facades, ForgeMultipart part
+drops, and Carpenters' Blocks covers or overlays when those mods are installed. Counts are grouped
+by `item:meta` and sorted by count.
+
+Filters can hide common blocks or show only selected blocks:
+
+````md
+<GameScene>
+  <Block id="minecraft:stone" />
+  <Block id="minecraft:furnace" x="1" />
+  <BlockStats visible={true} corner="topRight" filterMode="blacklist" filter="minecraft:air minecraft:stone"
+    maxWidth={160} maxHeight={96} />
+</GameScene>
+````
+
+Use manual mode when a guide wants to show a planned material list instead of the literal scene
+contents:
+
+````md
+<GameScene>
+  <Block id="minecraft:furnace" />
+  <BlockStats visible={true} mode="manual" corner="topRight" maxWidth={160} maxHeight={96}>
+    <BlockStat item="minecraft:cobblestone" count={8} />
+    <BlockStat item="minecraft:furnace" count={1} />
+  </BlockStats>
+</GameScene>
+````
+
 ## Debug Mode Overlays
 
 When the `enableDebugMode` option is enabled in the GuideNH mod config, the following extra
@@ -144,12 +182,51 @@ GuideNH currently registers these scene child tags:
 - `<ImportStructure>`
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
+- `<BlockStats>`
 - `<RemoveBlocks>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - annotation tags such as `<BoxAnnotation>` and `<LineAnnotation>`
+
+## `<BlockStats>` and `<BlockStat>`
+
+Declares a block statistics overlay. The overlay is disabled unless the scene contains this child
+tag. Adding one or more `<BlockStat>` children switches the overlay to manual statistics mode for
+that scene.
+
+`<BlockStats>` attributes:
+
+| Attribute | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `visible` | no | config | initial overlay visibility |
+| `buttonEnabled` | no | config | shows the block statistics toggle button |
+| `mode` | no | `auto` | `auto` or `manual`; child `<BlockStat>` entries force manual mode |
+| `corner` | no | `topRight` | overlay corner: `topRight`, `topLeft`, `bottomRight`, or `bottomLeft` |
+| `filterMode` | no | `blacklist` | `blacklist` or `whitelist` |
+| `filter` | no | empty | item keys such as `minecraft:stone` or `minecraft:stone:0`, separated by spaces, commas, or semicolons |
+| `maxWidth` | no | `140` | maximum overlay width in pixels before horizontal scrolling |
+| `maxHeight` | no | `96` | maximum overlay height in pixels before vertical scrolling |
+
+`<BlockStat>` attributes:
+
+| Attribute | Required | Meaning |
+| --- | --- | --- |
+| `item` | yes, unless `id` is used | item id shown in the list |
+| `id` | yes, unless `item` is used | existing item-stack attribute form |
+| `count` | no | displayed count, default `0` |
+
+Example:
+
+````md
+<GameScene>
+  <BlockStats visible={true} corner="bottomRight" maxWidth={160} maxHeight={96}>
+    <BlockStat item="minecraft:stone" count={16} />
+    <BlockStat item="minecraft:torch" count={4} />
+  </BlockStats>
+</GameScene>
+````
 
 ## `<Block>`
 

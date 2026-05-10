@@ -569,6 +569,21 @@ public class SceneEditorScreen extends GuiScreen {
     }
 
     @Override
+    public void handleKeyboardInput() {
+        if (isCommittedCharacterEventForFocusedTextInput()) {
+            keyTyped(Keyboard.getEventCharacter(), Keyboard.getEventKey());
+            this.mc.func_152348_aa();
+            return;
+        }
+        super.handleKeyboardInput();
+    }
+
+    private boolean isCommittedCharacterEventForFocusedTextInput() {
+        return hasFocusedTextInput() && Keyboard.getEventKey() == 0
+            && Character.isDefined(Keyboard.getEventCharacter());
+    }
+
+    @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         recalculateLayout();
         if (markdownTextArea != null) {

@@ -2,13 +2,17 @@ package com.hfstudio.guidenh.guide.scene;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.minecraft.item.ItemStack;
+
 import com.hfstudio.guidenh.compat.structurelib.StructureLibPreviewSelection;
 import com.hfstudio.guidenh.config.ModConfig;
+import com.hfstudio.guidenh.guide.compiler.IdUtils;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.BlockTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
@@ -119,6 +123,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
         scene.setGridButtonEnabled(gridButtonEnabled);
         boolean showGrid = MdxAttrs.getBoolean(compiler, parent, el, "showGrid", false);
         scene.setGridVisible(showGrid);
+        scene.resetBlockStatsConfiguration();
 
         if (el instanceof MdxJsxFlowElement flow) {
             compileSceneChildren(scene, compiler, parent, flow);
@@ -285,12 +290,104 @@ public class SceneTagCompiler extends BlockTagCompiler {
                 continue;
             }
             var elCompiler = elementCompilers.get(name);
+            if ("BlockStats".equals(name)) {
+                compileBlockStatsElement(scene, compiler, errorSink, childEl);
+                continue;
+            }
             if (elCompiler == null) {
                 errorSink.appendError(compiler, "Unknown scene element <" + name + ">", childNode);
                 continue;
             }
             elCompiler.compile(scene.getLevel(), scene.getCamera(), compiler, errorSink, childEl);
         }
+    }
+
+    private static Set<String> parseBlockStatsFilter(String raw) {
+        Set<String> filter = new HashSet<>();
+        if (raw == null || raw.trim()
+            .isEmpty()) {
+            return filter;
+        }
+        String[] parts = raw.split("[,;\\s]+");
+        for (String part : parts) {
+            String normalized = LytGuidebookScene.normalizeBlockStatsKey(part);
+            if (normalized != null) {
+                filter.add(normalized);
+            }
+        }
+        return filter;
+    }
+
+    private void compileBlockStatsElement(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,
+        MdxJsxElementFields el) {
+        scene.setBlockStatsEnabled(true);
+        scene.setBlockStatsVisible(
+            MdxAttrs.getBoolean(compiler, errorSink, el, "visible", ModConfig.ui.sceneBlockStatsVisible));
+        scene.setBlockStatsButtonEnabled(
+            MdxAttrs.getBoolean(compiler, errorSink, el, "buttonEnabled", ModConfig.ui.sceneBlockStatsButtonEnabled));
+        scene.setBlockStatsMode(
+            BlockStatsMode.fromString(MdxAttrs.getString(compiler, errorSink, el, "mode", null), BlockStatsMode.AUTO));
+        scene.setBlockStatsCorner(
+            BlockStatsCorner
+                .fromString(MdxAttrs.getString(compiler, errorSink, el, "corner", null), BlockStatsCorner.TOP_RIGHT));
+        scene.setBlockStatsFilterMode(
+            BlockStatsFilterMode.fromString(
+                MdxAttrs.getString(compiler, errorSink, el, "filterMode", null),
+                BlockStatsFilterMode.BLACKLIST));
+        scene.setBlockStatsFilterKeys(
+            parseBlockStatsFilter(MdxAttrs.getString(compiler, errorSink, el, "filter", null)));
+        scene.setBlockStatsMaxSize(
+            MdxAttrs.getInt(compiler, errorSink, el, "maxWidth", LytGuidebookScene.BLOCK_STATS_DEFAULT_MAX_WIDTH),
+            MdxAttrs.getInt(compiler, errorSink, el, "maxHeight", LytGuidebookScene.BLOCK_STATS_DEFAULT_MAX_HEIGHT));
+        scene.clearManualBlockStatsEntries();
+        boolean manualEntries = false;
+        for (MdAstAnyContent child : el.children()) {
+            MdxJsxElementFields childEl = unwrapSceneElement(child);
+            if (childEl == null) {
+                continue;
+            }
+            String name = childEl.name();
+            if (!"BlockStat".equals(name)) {
+                errorSink.appendError(compiler, "Unknown BlockStats element <" + name + ">", child);
+                continue;
+            }
+            ItemStack item = getBlockStatItemStack(compiler, errorSink, childEl);
+            if (item == null) {
+                continue;
+            }
+            int count = Math.max(0, getBlockStatCount(compiler, errorSink, childEl));
+            scene.addManualBlockStatsEntry(item, count);
+            manualEntries = true;
+        }
+        if (manualEntries) {
+            scene.setBlockStatsMode(BlockStatsMode.MANUAL);
+        }
+    }
+
+    private static int getBlockStatCount(PageCompiler compiler, LytErrorSink errorSink, MdxJsxElementFields el) {
+        return Math.round(Math.max(0f, MdxAttrs.getFloat(compiler, errorSink, el, "count", 0f)));
+    }
+
+    private static ItemStack getBlockStatItemStack(PageCompiler compiler, LytErrorSink errorSink,
+        MdxJsxElementFields el) {
+        if (el.getAttribute("item") != null && el.getAttribute("id") == null) {
+            String item = MdxAttrs.getString(compiler, errorSink, el, "item", null);
+            if (item == null || item.trim()
+                .isEmpty()) {
+                errorSink.appendError(compiler, "Missing item attribute.", el);
+                return null;
+            }
+            ItemStack stack = IdUtils.resolveItemStack(
+                item.trim(),
+                compiler.getPageId()
+                    .getResourceDomain());
+            if (stack == null) {
+                errorSink.appendError(compiler, "Missing item: " + item, el);
+            }
+            return stack;
+        }
+        var result = MdxAttrs.getRequiredItemStackAndId(compiler, errorSink, el);
+        return result != null ? result.getRight() : null;
     }
 
     private void rebuildSceneForStructureLibSelection(LytGuidebookScene scene, PageCompiler compiler,
@@ -312,6 +409,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
         scene.setStructureLibSceneMetadata(null);
         scene.setPendingStructureLibPreviewSelection(selection);
         scene.setLevel(new GuidebookLevel());
+        scene.resetBlockStatsConfiguration();
         try {
             compileSceneChildren(scene, compiler, NOOP_ERROR_SINK, flow);
             scene.initializePonderTimelineBaseline();

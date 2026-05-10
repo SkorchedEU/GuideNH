@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentMap;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -1009,6 +1010,68 @@ public class ForgeMultipartHelpers {
 
     public static final String MICRO_MATERIAL_REGISTRY_CLASS = "codechicken.microblock.MicroMaterialRegistry";
     public static final String MICRO_MATERIAL_REGISTRY_OBJECT_CLASS = "codechicken.microblock.MicroMaterialRegistry$";
+
+    public static void appendMultipartStatStacks(@Nullable TileEntity tileEntity, List<ItemStack> output) {
+        if (tileEntity == null || output == null || !Mods.ForgeMultipart.isModLoaded()) {
+            return;
+        }
+        Object partList = resolvePartList(tileEntity);
+        if (partList == null) {
+            return;
+        }
+        try {
+            Method iterator = partList.getClass()
+                .getMethod("iterator");
+            Object it = iterator.invoke(partList);
+            Method hasNext = it.getClass()
+                .getMethod("hasNext");
+            Method next = it.getClass()
+                .getMethod("next");
+            while (Boolean.TRUE.equals(hasNext.invoke(it))) {
+                Object part = next.invoke(it);
+                appendPartDrops(part, output);
+            }
+        } catch (Throwable t) {
+            warnOnce(
+                "append-part-stats-fail:" + tileEntity.getClass()
+                    .getName(),
+                "Failed to collect ForgeMultipart stat drops from {}: {}",
+                tileEntity.getClass()
+                    .getName(),
+                t.toString());
+        }
+    }
+
+    private static void appendPartDrops(@Nullable Object part, List<ItemStack> output) {
+        if (part == null) {
+            return;
+        }
+        Object drops = invokeMethodIfPresent(part, "getDrops");
+        if (drops == null || drops == INVOCATION_MISSING) {
+            return;
+        }
+        appendDropObject(drops, output);
+    }
+
+    private static void appendDropObject(@Nullable Object value, List<ItemStack> output) {
+        if (value instanceof ItemStack stack) {
+            appendStackCopy(stack, output);
+        } else if (value instanceof Iterable<?>iterable) {
+            for (Object element : iterable) {
+                appendDropObject(element, output);
+            }
+        } else if (value instanceof Object[]array) {
+            for (Object element : array) {
+                appendDropObject(element, output);
+            }
+        }
+    }
+
+    private static void appendStackCopy(ItemStack stack, List<ItemStack> output) {
+        if (stack.getItem() != null) {
+            output.add(stack.copy());
+        }
+    }
 
     @Nullable
     public static String resolvePrimaryMicroblockId(@Nullable TileEntity tileEntity) {

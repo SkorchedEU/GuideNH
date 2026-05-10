@@ -33,6 +33,34 @@ Block rendering, TileEntity, and non-full-block tests inside `<GameScene>`.
     <Block id="minecraft:redstone_lamp" x="3" y="1" />
 </GameScene>
 
+## Block Statistics Overlay
+
+Automatic mode counts the blocks already present in the scene and places the semi-transparent
+list inside the selected corner.
+It also expands supported compound blocks such as AE2 cable bus parts and facades,
+ForgeMultipart parts, and Carpenters' Blocks covers or overlays.
+
+<GameScene zoom={4} interactive={true}>
+    <Block id="minecraft:stone" />
+    <Block id="minecraft:stone" x="1" />
+    <Block id="minecraft:stone" x="2" />
+    <Block id="minecraft:furnace" x="1" y="1" />
+    <Block id="minecraft:torch" x="2" y="1" />
+    <BlockStats visible={true} corner="topRight" maxWidth={160} maxHeight={96} />
+</GameScene>
+
+Manual mode can show a planned material list instead of the literal scene contents.
+
+<GameScene zoom={4} interactive={true}>
+    <Block id="minecraft:furnace" />
+    <Block id="minecraft:cobblestone" x="1" />
+    <Block id="minecraft:cobblestone" x="-1" />
+    <BlockStats visible={true} mode="manual" corner="bottomRight" maxWidth={160} maxHeight={96}>
+        <BlockStat item="minecraft:cobblestone" count={8} />
+        <BlockStat item="minecraft:furnace" count={1} />
+    </BlockStats>
+</GameScene>
+
 ## BlockAnnotationTemplate
 
 Applies a `<DiamondAnnotation>` to every instance of the given block id in the scene.

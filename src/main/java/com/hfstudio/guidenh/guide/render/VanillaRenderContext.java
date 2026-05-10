@@ -285,9 +285,9 @@ public class VanillaRenderContext implements RenderContext {
             if (drawOverlay) {
                 ITEM_RENDERER.renderItemOverlayIntoGUI(fontRenderer, mc.getTextureManager(), stack, x, y);
             }
-            ITEM_RENDERER.zLevel = 0f;
             RenderHelper.disableStandardItemLighting();
         } finally {
+            ITEM_RENDERER.zLevel = 0f;
             OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glDisable(GL11.GL_LIGHTING);

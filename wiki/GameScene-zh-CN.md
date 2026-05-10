@@ -25,6 +25,39 @@
 | `gridButtonEnabled` | boolean | `true` | 是否显示地板网格切换按钮 |
 | `showGrid` | boolean | `false` | 地板网格的初始可见性 |
 
+## 方块统计框
+
+添加 `<BlockStats>` 子标签会在场景内部显示一个半透明的紧凑统计列表。列表只会在场景方块、
+Ponder 时间线状态、StructureLib 选择或统计配置发生变化时重建；普通渲染帧会复用已经准备好的行数据。
+列表会受 `maxWidth` 和 `maxHeight` 限制，内容过宽或过高时会出现可拖拽滚动条；鼠标在统计框上时滚轮会滚动列表，按住 Shift 可以横向滚动。
+
+自动模式会扫描场景中的非空气方块，并尽量解析成玩家通常看到的物品显示。一个坐标内包含多个可见组件的方块可以贡献多个物品，
+例如安装对应模组时的 AE2 cable bus 部件和 facade、ForgeMultipart 部件掉落、Carpenters' Blocks cover 或 overlay。
+统计会按 `item:meta` 分组、按数量排序。
+
+可以用过滤器隐藏常见方块，或者只显示指定方块：
+
+````md
+<GameScene>
+  <Block id="minecraft:stone" />
+  <Block id="minecraft:furnace" x="1" />
+  <BlockStats visible={true} corner="topRight" filterMode="blacklist" filter="minecraft:air minecraft:stone"
+    maxWidth={160} maxHeight={96} />
+</GameScene>
+````
+
+如果想展示规划材料表，而不是场景真实内容，可以使用手动模式：
+
+````md
+<GameScene>
+  <Block id="minecraft:furnace" />
+  <BlockStats visible={true} mode="manual" corner="topRight" maxWidth={160} maxHeight={96}>
+    <BlockStat item="minecraft:cobblestone" count={8} />
+    <BlockStat item="minecraft:furnace" count={1} />
+  </BlockStats>
+</GameScene>
+````
+
 ## Debug 模式叠加层
 
 在 GuideNH Mod 配置中启用 `enableDebugMode` 选项后，3D 场景预览将提供以下额外叠加层。
@@ -137,12 +170,49 @@ GuideNH 当前注册了以下场景子标签：
 - `<ImportStructure>`
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
+- `<BlockStats>`
 - `<RemoveBlocks>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - 各类注解标签，例如 `<BoxAnnotation>` 和 `<LineAnnotation>`
+
+## `<BlockStats>` 和 `<BlockStat>`
+
+声明方块统计叠加框。场景中只有加入 `<BlockStats>` 后才会启用统计功能；如果包含 `<BlockStat>` 子项，则切换到手动统计模式。
+
+`<BlockStats>` 属性：
+
+| 属性 | 必需 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `visible` | 否 | config | 初始是否显示统计框 |
+| `buttonEnabled` | 否 | config | 是否显示方块统计切换按钮 |
+| `mode` | 否 | `auto` | `auto` 或 `manual`；子 `<BlockStat>` 会强制手动模式 |
+| `corner` | 否 | `topRight` | 统计框角落：`topRight`、`topLeft`、`bottomRight` 或 `bottomLeft` |
+| `filterMode` | 否 | `blacklist` | `blacklist` 或 `whitelist` |
+| `filter` | 否 | 空 | 物品键，例如 `minecraft:stone` 或 `minecraft:stone:0`，可用空格、逗号或分号分隔 |
+| `maxWidth` | 否 | `140` | 统计框最大宽度，超出后出现水平滚动条 |
+| `maxHeight` | 否 | `96` | 统计框最大高度，超出后出现垂直滚动条 |
+
+`<BlockStat>` 属性：
+
+| 属性 | 必需 | 含义 |
+| --- | --- | --- |
+| `item` | 是，除非使用 `id` | 列表中显示的物品 id |
+| `id` | 是，除非使用 `item` | 既有物品栈属性写法 |
+| `count` | 否 | 显示数量，默认 `0` |
+
+示例：
+
+````md
+<GameScene>
+  <BlockStats visible={true} corner="bottomRight" maxWidth={160} maxHeight={96}>
+    <BlockStat item="minecraft:stone" count={16} />
+    <BlockStat item="minecraft:torch" count={4} />
+  </BlockStats>
+</GameScene>
+````
 
 ## `<Block>`
 

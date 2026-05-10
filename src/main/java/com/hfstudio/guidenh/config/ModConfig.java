@@ -116,6 +116,14 @@ public class ModConfig {
         @DefaultBoolean(true)
         public boolean sceneLayerSliderEnabled = true;
 
+        @Comment("Whether 3D scene previews show the block statistics overlay by default.")
+        @DefaultBoolean(false)
+        public boolean sceneBlockStatsVisible = false;
+
+        @Comment("Whether 3D scene previews show the block statistics toggle button by default.")
+        @DefaultBoolean(true)
+        public boolean sceneBlockStatsButtonEnabled = true;
+
         @Comment("Whether the guide screen editor mode starts enabled.")
         @DefaultBoolean(false)
         public boolean guideEditorEnabled = false;

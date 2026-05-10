@@ -407,6 +407,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     @Override
     public void initGui() {
         super.initGui();
+        Keyboard.enableRepeatEvents(true);
         syncGuideEditorStateFromConfig();
         recomputePanelBounds();
         if (document == null) {
@@ -426,6 +427,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         for (LytGuidebookScene scene : registeredScenes) {
             scene.ponderTick();
         }
+        tickGuideEditorPreviewScenes();
         updateGuideEditorAutosave();
         int guideHotkey = OpenGuideHotkey.OPEN_GUIDE_KEY.getKeyCode();
         if (guideHotkey > 0 && OpenGuideHotkey.isKeyHeld() && hoveredItemStack != null) {
@@ -522,13 +524,14 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
 
         String language = currentParsedPage.getLanguage();
-        ResourceLocation newPageId = resolveGuideEditorNewPageId(language);
         String titleText = resolveGuideEditorNewPageTitle();
         ResourceLocation parentId = resolveGuideEditorNewPageParent(currentParsedPage);
+        ResourceLocation sourcePageId = resolveGuideEditorNewPageSource(currentParsedPage);
+        ResourceLocation newPageId = resolveGuideEditorNewPageId(language, sourcePageId);
         String pageText = buildGuideEditorNewPageText(titleText, parentId);
 
         try {
-            guideEditorFileStore.savePage(guide, newPageId, language, pageText);
+            guideEditorFileStore.savePage(guide, newPageId, language, pageText, sourcePageId);
             ParsedGuidePage parsedNewPage = PageCompiler
                 .parse(currentParsedPage.getSourcePack(), language, newPageId, pageText);
             applyGuideEditorPageWithoutReload(parsedNewPage);
@@ -541,7 +544,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
     }
 
-    private ResourceLocation resolveGuideEditorNewPageId(String language) {
+    private ResourceLocation resolveGuideEditorNewPageId(String language, @Nullable ResourceLocation sourcePageId) {
         String sourcePath = currentAnchor.pageId()
             .getResourcePath();
         int slash = sourcePath.lastIndexOf('/');
@@ -550,7 +553,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         String candidate = folder.isEmpty() ? baseName + ".md" : folder + "/" + baseName + ".md";
         int index = 2;
         while (guideEditorFileStore
-            .hasPage(guide, new ResourceLocation(guide.getDefaultNamespace(), candidate), language)) {
+            .hasPage(guide, new ResourceLocation(guide.getDefaultNamespace(), candidate), language, sourcePageId)) {
             String suffix = "-" + index++;
             candidate = folder.isEmpty() ? baseName + suffix + ".md" : folder + "/" + baseName + suffix + ".md";
         }
@@ -568,6 +571,19 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
                 .parent();
         }
         return guide.getStartPage();
+    }
+
+    private ResourceLocation resolveGuideEditorNewPageSource(ParsedGuidePage currentParsedPage) {
+        if (currentParsedPage.getFrontmatter() != null && currentParsedPage.getFrontmatter()
+            .navigationEntry() != null
+            && currentParsedPage.getFrontmatter()
+                .navigationEntry()
+                .parent() != null) {
+            return currentParsedPage.getFrontmatter()
+                .navigationEntry()
+                .parent();
+        }
+        return currentParsedPage.getId();
     }
 
     private String resolveGuideEditorNewPageTitle() {
@@ -749,6 +765,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             if (guideEditorPreviewPage != null && guideEditorPreviewPage.document() != null) {
                 guideEditorPreviewPage.document()
                     .updateLayout(new LayoutContext(layoutFontMetrics), Math.max(1, previewWidth));
+                guideEditorPreviewPage.prepareForDisplay();
             }
             guideEditorPreviewDirty = false;
             guideEditorDraftPage = parsedDraft;
@@ -837,8 +854,12 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             return;
         }
         try {
-            guideEditorFileStore
-                .savePage(guide, currentAnchor.pageId(), guideEditorDraftPage.getLanguage(), guideEditorDraftSource);
+            guideEditorFileStore.savePage(
+                guide,
+                currentAnchor.pageId(),
+                guideEditorDraftPage.getLanguage(),
+                guideEditorDraftSource,
+                currentAnchor.pageId());
             ParsedGuidePage parsedDraft = PageCompiler.parse(
                 guideEditorDraftPage.getSourcePack(),
                 guideEditorDraftPage.getLanguage(),
@@ -1593,6 +1614,15 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
     }
 
+    private void tickGuideEditorPreviewScenes() {
+        if (!isGuideEditorActive() || guideEditorPreviewPage == null) {
+            return;
+        }
+        for (LytGuidebookScene scene : guideEditorPreviewPage.scenes()) {
+            scene.ponderTick();
+        }
+    }
+
     private float resolveCurrentZoom() {
         float global = Math.max(0.1f, ModConfig.ui.contentZoom);
         float perPage = currentPage != null && currentPage.pageMeta() != null ? currentPage.pageMeta()
@@ -1717,24 +1747,37 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         ensureLayout();
         clampScroll();
 
+        int navX = panelX;
+        int navY = panelY + TOOLBAR_H + 1;
+        int bottomBarH = hasBottomBar() ? TOOLBAR_H : 0;
+        int navH = Math.max(20, panelH - TOOLBAR_H - 1 - bottomBarH);
+        navBar.setBounds(navX, navY, navH);
+        navBar.update(mouseX, mouseY, guide.getNavigationTree());
+        int contentMouseX = mouseX;
+        int contentMouseY = mouseY;
+        if (navBar.isOpen() && navBar.contains(mouseX, mouseY)) {
+            contentMouseX = Integer.MIN_VALUE;
+            contentMouseY = Integer.MIN_VALUE;
+        }
+
         drawRect(panelX, panelY, panelX + panelW, panelY + panelH, BG_COLOR);
         drawBorder(panelX, panelY, panelW, panelH, BG_BORDER);
 
         drawRect(panelX, panelY + TOOLBAR_H, panelX + panelW, panelY + TOOLBAR_H + 1, 0xFF2A2A2A);
 
         if (!isGuideEditorActive()) {
-            updateSceneHover(mouseX, mouseY);
+            updateSceneHover(contentMouseX, contentMouseY);
         }
 
         if (isGuideEditorActive()) {
-            drawGuideEditorScreen(mouseX, mouseY);
+            drawGuideEditorScreen(contentMouseX, contentMouseY);
         } else {
             var activeDocument = getActiveDocument();
             if (activeDocument != null) {
                 if (isCenteredSearchStateDocument(activeDocument)) {
                     drawCenteredSearchStateMessage(activeDocument);
                 } else {
-                    renderDocument(mouseX, mouseY);
+                    renderDocument(contentMouseX, contentMouseY);
                 }
             } else {
                 drawPageMissingMessage();
@@ -1747,14 +1790,6 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             drawBottomBar();
         }
 
-        int navX = panelX;
-        int navY = panelY + TOOLBAR_H + 1;
-        int bottomBarH = hasBottomBar() ? TOOLBAR_H : 0;
-        int navH = Math.max(20, panelH - TOOLBAR_H - 1 - bottomBarH);
-        navBar.setBounds(navX, navY, navH);
-        navBar.update(mouseX, mouseY, guide.getNavigationTree());
-        navBar.render(mc, currentAnchor != null ? currentAnchor.pageId() : null, mouseX, mouseY, guide);
-
         drawRect(panelX, panelY, panelX + panelW, panelY + TOOLBAR_H, BG_COLOR);
         drawRect(panelX, panelY + TOOLBAR_H, panelX + panelW, panelY + TOOLBAR_H + 1, 0xFF2A2A2A);
         drawPageTitle();
@@ -1762,7 +1797,8 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             drawSearchField();
         }
 
-        super.drawScreen(mouseX, mouseY, partialTicks);
+        super.drawScreen(contentMouseX, contentMouseY, partialTicks);
+        navBar.render(mc, currentAnchor != null ? currentAnchor.pageId() : null, mouseX, mouseY, guide);
         if (isGuideEditorActive()) {
             drawGuideEditorContextMenu(mouseX, mouseY);
         }
@@ -2677,6 +2713,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             }
             return;
         }
+        if (navBar.isOpen() && navBar.contains(mouseX, mouseY)) return;
         for (var b : this.buttonList) {
             if (b instanceof GuideIconButton icon && icon.visible
                 && mouseX >= icon.xPosition
@@ -2693,7 +2730,6 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             drawTooltipText(sceneButtonHit.role.tooltip(), mouseX, mouseY, interaction);
             return;
         }
-        if (navBar.isOpen() && navBar.contains(mouseX, mouseY)) return;
         if (interaction != null) {
             drawDocumentHoverTooltip(interaction, mouseX, mouseY);
         }
@@ -3235,6 +3271,26 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             clampScroll();
             lastPageWheelScrollAtMillis = now;
         }
+    }
+
+    @Override
+    public void handleKeyboardInput() {
+        if (isCommittedCharacterEventForFocusedTextInput()) {
+            keyTyped(Keyboard.getEventCharacter(), Keyboard.getEventKey());
+            mc.func_152348_aa();
+            return;
+        }
+        super.handleKeyboardInput();
+    }
+
+    private boolean isCommittedCharacterEventForFocusedTextInput() {
+        return isFocusedTextInputReadyForCommittedCharacter() && Keyboard.getEventKey() == 0
+            && Character.isDefined(Keyboard.getEventCharacter());
+    }
+
+    private boolean isFocusedTextInputReadyForCommittedCharacter() {
+        return isGuideEditorActive() && guideEditorTextArea != null && guideEditorTextArea.isFocused()
+            || searchField != null && searchField.isFocused();
     }
 
     private boolean isSceneWheelInteractionBlocked(long now) {
@@ -3785,6 +3841,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
         document = null;
         layoutDocument = null;
         currentPage = null;

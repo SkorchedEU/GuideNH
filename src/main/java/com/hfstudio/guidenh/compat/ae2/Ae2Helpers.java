@@ -1,8 +1,14 @@
 package com.hfstudio.guidenh.compat.ae2;
 
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
@@ -12,10 +18,18 @@ import net.minecraftforge.common.util.ForgeDirection;
 import org.jetbrains.annotations.Nullable;
 
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
+import com.hfstudio.guidenh.guide.scene.snapshot.ExportBlockContext;
+import com.hfstudio.guidenh.guide.scene.snapshot.ExportSession;
+import com.hfstudio.guidenh.guide.scene.snapshot.GuidebookLevelStructureExportAccess;
+import com.hfstudio.guidenh.guide.scene.snapshot.ServerPreviewSupplementNbt;
+import com.hfstudio.guidenh.guide.scene.snapshot.StructureExportAccess;
+import com.hfstudio.guidenh.guide.scene.snapshot.StructureExportPipeline;
 
 import appeng.api.AEApi;
 import appeng.api.networking.IGridHost;
+import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPart;
+import appeng.api.parts.PartItemStack;
 import appeng.api.util.AECableType;
 import appeng.me.helpers.AENetworkProxy;
 import appeng.me.helpers.IGridProxyable;
@@ -37,6 +51,8 @@ public final class Ae2Helpers {
 
     /** Low six bits of PartCable stream {@code cs}: {@link ForgeDirection#VALID_DIRECTIONS} only. */
     private static final int CS_DIRECTION_MASK = 0x3F;
+    private static final String CABLE_BUS_TILE_ID = "BlockCableBus";
+    private static final String CABLE_BUS_BLOCK_ID = "appliedenergistics2:tile.BlockCableBus";
 
     private Ae2Helpers() {}
 
@@ -50,6 +66,55 @@ public final class Ae2Helpers {
      * inert
      * preview grid / proxy and overrides that state (channels, TileSecurity connectivity, …).
      */
+    @Optional.Method(modid = "appliedenergistics2")
+    @Nullable
+    public static Block resolvePonderBlock(@Nullable NBTTagCompound tileTag) {
+        if (tileTag == null || !CABLE_BUS_TILE_ID.equals(tileTag.getString("id"))) {
+            return null;
+        }
+        Block block = (Block) Block.blockRegistry.getObject(CABLE_BUS_BLOCK_ID);
+        return block != null && block != Blocks.air ? block : null;
+    }
+
+    @Optional.Method(modid = "appliedenergistics2")
+    public static Map<String, byte[]> capturePonderPreviewSupplements(GuidebookLevel level, int x, int y, int z,
+        @Nullable Block block, int meta) {
+        if (level == null || block == null || block == Blocks.air) {
+            return Collections.emptyMap();
+        }
+        TileEntity tileEntity = level.getTileEntity(x, y, z);
+        if (!(tileEntity instanceof TileCableBus)) {
+            return Collections.emptyMap();
+        }
+        NBTTagCompound structureBlockTag = new NBTTagCompound();
+        structureBlockTag.setIntArray("pos", new int[] { x, y, z });
+        StructureExportAccess access = new GuidebookLevelStructureExportAccess(level);
+        ExportSession session = new ExportSession(access, x, y, z, x, y, z, 1, 1, 1);
+        StructureExportPipeline.beginExport(session);
+        try {
+            StructureExportPipeline
+                .contributeBlock(new ExportBlockContext(session, x, y, z, block, meta, tileEntity, structureBlockTag));
+        } finally {
+            StructureExportPipeline.endExport(session);
+        }
+        return readPreviewSupplements(structureBlockTag);
+    }
+
+    private static Map<String, byte[]> readPreviewSupplements(@Nullable NBTTagCompound tag) {
+        if (tag == null || !tag.hasKey(ServerPreviewSupplementNbt.TAG_ROOT, 10)) {
+            return Collections.emptyMap();
+        }
+        NBTTagCompound root = tag.getCompoundTag(ServerPreviewSupplementNbt.TAG_ROOT);
+        Map<String, byte[]> result = new LinkedHashMap<>();
+        for (String supplementId : root.func_150296_c()) {
+            byte[] payload = ServerPreviewSupplementNbt.readSupplement(tag, supplementId);
+            if (payload != null && payload.length > 0) {
+                result.put(supplementId, payload);
+            }
+        }
+        return result.isEmpty() ? Collections.emptyMap() : result;
+    }
+
     @Optional.Method(modid = "appliedenergistics2")
     public static boolean suppressMarkBlockForUpdateDescriptionResync(@Nullable TileEntity te, GuidebookLevel level) {
         if (te == null || level == null) {
@@ -238,6 +303,64 @@ public final class Ae2Helpers {
                 cableBusTile.validate();
             }
         }
+    }
+
+    @Optional.Method(modid = "appliedenergistics2")
+    public static void appendCableBusStatStacks(@Nullable TileEntity tileEntity, List<ItemStack> output) {
+        if (!(tileEntity instanceof TileCableBus cableBusTile) || output == null) {
+            return;
+        }
+        for (ForgeDirection direction : ForgeDirection.values()) {
+            appendPartStatStack(cableBusTile.getPart(direction), output);
+            if (direction != ForgeDirection.UNKNOWN) {
+                appendFacadeStatStack(cableBusTile, direction, output);
+            }
+        }
+    }
+
+    private static void appendPartStatStack(@Nullable IPart part, List<ItemStack> output) {
+        if (part == null) {
+            return;
+        }
+        ItemStack stack = safePartStack(part, PartItemStack.Break);
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.World);
+        }
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.Pick);
+        }
+        if (stack == null) {
+            stack = safePartStack(part, PartItemStack.Network);
+        }
+        appendCopy(output, stack);
+    }
+
+    @Nullable
+    private static ItemStack safePartStack(IPart part, PartItemStack type) {
+        try {
+            ItemStack stack = part.getItemStack(type);
+            return stack != null ? stack.copy() : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static void appendFacadeStatStack(TileCableBus cableBusTile, ForgeDirection direction,
+        List<ItemStack> output) {
+        try {
+            IFacadePart facade = cableBusTile.getFacadeContainer()
+                .getFacade(direction);
+            if (facade != null) {
+                appendCopy(output, facade.getItemStack());
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private static void appendCopy(List<ItemStack> output, @Nullable ItemStack stack) {
+        if (stack == null || stack.getItem() == null) {
+            return;
+        }
+        output.add(stack.copy());
     }
 
     @Optional.Method(modid = "appliedenergistics2")

@@ -33,6 +33,32 @@ navigation:
     <Block id="minecraft:redstone_lamp" x="3" y="1" />
 </GameScene>
 
+## 方块统计框
+
+自动模式会统计场景中已经存在的方块，并把半透明列表放在指定角落。
+它也会展开受支持的复合方块，例如 AE2 cable bus 部件和 facade、ForgeMultipart 部件、Carpenters' Blocks cover 或 overlay。
+
+<GameScene zoom={4} interactive={true}>
+    <Block id="minecraft:stone" />
+    <Block id="minecraft:stone" x="1" />
+    <Block id="minecraft:stone" x="2" />
+    <Block id="minecraft:furnace" x="1" y="1" />
+    <Block id="minecraft:torch" x="2" y="1" />
+    <BlockStats visible={true} corner="topRight" maxWidth={160} maxHeight={96} />
+</GameScene>
+
+手动模式可以显示规划材料表，而不是场景内真实方块数量。
+
+<GameScene zoom={4} interactive={true}>
+    <Block id="minecraft:furnace" />
+    <Block id="minecraft:cobblestone" x="1" />
+    <Block id="minecraft:cobblestone" x="-1" />
+    <BlockStats visible={true} mode="manual" corner="bottomRight" maxWidth={160} maxHeight={96}>
+        <BlockStat item="minecraft:cobblestone" count={8} />
+        <BlockStat item="minecraft:furnace" count={1} />
+    </BlockStats>
+</GameScene>
+
 ## BlockAnnotationTemplate
 
 对场景内所有匹配 id 的方块应用 `<DiamondAnnotation>`：

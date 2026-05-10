@@ -38,6 +38,26 @@ public final class GuidebookPreviewAuthorityStore {
         byPos.remove(packedPos);
     }
 
+    public void restoreAt(long packedPos, Map<String, byte[]> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            clearAt(packedPos);
+            return;
+        }
+        HashMap<String, byte[]> restored = new HashMap<>();
+        for (Map.Entry<String, byte[]> entry : snapshot.entrySet()) {
+            String supplementId = entry.getKey();
+            byte[] payload = entry.getValue();
+            if (supplementId != null && payload != null && payload.length > 0) {
+                restored.put(supplementId, payload.clone());
+            }
+        }
+        if (restored.isEmpty()) {
+            clearAt(packedPos);
+            return;
+        }
+        byPos.put(packedPos, restored);
+    }
+
     @Nullable
     public byte[] get(long packedPos, String supplementId) {
         HashMap<String, byte[]> slot = byPos.get(packedPos);
@@ -51,6 +71,16 @@ public final class GuidebookPreviewAuthorityStore {
     /** For diagnostics only. */
     public Map<String, byte[]> snapshotAt(long packedPos) {
         HashMap<String, byte[]> slot = byPos.get(packedPos);
-        return slot != null ? new HashMap<>(slot) : Collections.emptyMap();
+        if (slot == null || slot.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        HashMap<String, byte[]> snapshot = new HashMap<>();
+        for (Map.Entry<String, byte[]> entry : slot.entrySet()) {
+            byte[] payload = entry.getValue();
+            if (payload != null && payload.length > 0) {
+                snapshot.put(entry.getKey(), payload.clone());
+            }
+        }
+        return snapshot.isEmpty() ? Collections.emptyMap() : snapshot;
     }
 }

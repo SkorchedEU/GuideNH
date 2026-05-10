@@ -321,7 +321,8 @@ public enum GuidebookText implements LocalizationEnum {
     PonderPrevKeyframe,
     PonderPlayPause,
     PonderRestart,
-    ToggleGrid;
+    ToggleGrid,
+    ToggleBlockStats;
 
     @Override
     public String getTranslationKey() {
