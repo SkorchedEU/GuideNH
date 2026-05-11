@@ -16,6 +16,7 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.Entity;
@@ -39,11 +40,6 @@ import org.joml.Vector3f;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import com.hfstudio.guidenh.compat.Mods;
-import com.hfstudio.guidenh.compat.ae2.Ae2Helpers;
-import com.hfstudio.guidenh.compat.structurelib.StructureLibPreviewSelection;
-import com.hfstudio.guidenh.compat.structurelib.StructureLibSceneMetadata;
-import com.hfstudio.guidenh.compat.structurelib.StructureLibTooltipContentBuilder;
 import com.hfstudio.guidenh.config.ModConfig;
 import com.hfstudio.guidenh.guide.color.ConstantColor;
 import com.hfstudio.guidenh.guide.document.DefaultStyles;
@@ -88,6 +84,11 @@ import com.hfstudio.guidenh.guide.scene.support.GuideDebugLog;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityRayPicker;
 import com.hfstudio.guidenh.guide.scene.support.GuideGregTechTileSupport;
 import com.hfstudio.guidenh.guide.style.ResolvedTextStyle;
+import com.hfstudio.guidenh.integration.Mods;
+import com.hfstudio.guidenh.integration.ae2.Ae2Helpers;
+import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
+import com.hfstudio.guidenh.integration.structurelib.StructureLibSceneMetadata;
+import com.hfstudio.guidenh.integration.structurelib.StructureLibTooltipContentBuilder;
 
 public class LytGuidebookScene extends LytBlock {
 
@@ -143,6 +144,7 @@ public class LytGuidebookScene extends LytBlock {
     private int ponderCurrentTick = 0;
     private boolean ponderPaused = false;
     private boolean ponderFinished = false;
+    private boolean ponderExportLayerOverrideEnabled;
     private float ponderCamZoom = 1f;
     private float ponderCamRotX = 0f;
     private float ponderCamRotY = 0f;
@@ -213,6 +215,7 @@ public class LytGuidebookScene extends LytBlock {
     // Reuse annotation partitions instead of allocating new lists every frame.
     private final List<InWorldAnnotation> inWorldScratch = new ArrayList<>();
     private final List<OverlayAnnotation> overlayScratch = new ArrayList<>();
+    private final List<GuideBlockStatsStackResolver.ResolvedStack> blockStatsStackScratch = new ArrayList<>(4);
     private final List<InWorldBlockFaceOverlayAnnotation> structureLibHatchOverlayAnnotations = new ArrayList<>();
     @Nullable
     private SceneFloorGridAnnotation cachedFloorGridAnnotation;
@@ -379,6 +382,27 @@ public class LytGuidebookScene extends LytBlock {
             this.bounds = bounds;
             this.hitResult = hitResult;
             this.distanceSq = distanceSq;
+        }
+    }
+
+    public static class PonderTimelineKeyframe {
+
+        private final int time;
+        @Nullable
+        private final String label;
+
+        public PonderTimelineKeyframe(int time, @Nullable String label) {
+            this.time = Math.max(0, time);
+            this.label = label;
+        }
+
+        public int getTime() {
+            return time;
+        }
+
+        @Nullable
+        public String getLabel() {
+            return label;
         }
     }
 
@@ -735,6 +759,34 @@ public class LytGuidebookScene extends LytBlock {
         markBlockStatsDirty();
     }
 
+    public List<SceneBlockStatsEntry> getBlockStatsEntriesForExport() {
+        if (!blockStatsEnabled) {
+            return Collections.emptyList();
+        }
+        if (blockStatsDirty) {
+            rebuildBlockStatsEntries();
+        }
+        return Collections.unmodifiableList(new ArrayList<>(cachedBlockStatsEntries));
+    }
+
+    public boolean shouldExportBlockStats() {
+        return blockStatsEnabled && !getBlockStatsEntriesForExport().isEmpty();
+    }
+
+    public BlockStatsLayoutState getBlockStatsLayoutStateForExport() {
+        return new BlockStatsLayoutState(
+            blockStatsVisible,
+            blockStatsMode,
+            blockStatsCorner,
+            blockStatsDock,
+            blockStatsShowNames,
+            blockStatsMaxWidth,
+            blockStatsMaxHeight,
+            width,
+            height,
+            buttonColumnReserve());
+    }
+
     private void invalidateDocumentLayout() {
         var document = getDocument();
         if (document != null) {
@@ -796,7 +848,7 @@ public class LytGuidebookScene extends LytBlock {
 
     @Nullable
     private Integer resolveVisibleLayerY() {
-        if (ponderSceneData != null && !ponderPaused && !ponderFinished) {
+        if (ponderSceneData != null && ((!ponderPaused && !ponderFinished) || ponderExportLayerOverrideEnabled)) {
             // During active playback the keyframe layer takes precedence.
             int activeIdx = ponderSceneData.resolveActiveKeyframeIndex(ponderCurrentTick);
             if (activeIdx >= 0) {
@@ -819,6 +871,11 @@ public class LytGuidebookScene extends LytBlock {
             return null;
         }
         return getVisibleLayerMinY() + currentLayer - 1;
+    }
+
+    @Nullable
+    public Integer getVisibleLayerYForExport() {
+        return resolveVisibleLayerY();
     }
 
     private boolean isBlockVisibleForCurrentLayer(int y) {
@@ -1165,6 +1222,10 @@ public class LytGuidebookScene extends LytBlock {
     /** Horizontal space the floating button column steals from the row when interactive. */
     private int buttonColumnReserve() {
         return interactive && sceneButtonsVisible ? (BTN_OUTSIDE_GAP + BTN_SIZE) : 0;
+    }
+
+    public int getSceneButtonColumnReserveForExport() {
+        return buttonColumnReserve();
     }
 
     private int blockStatsDockLengthForLayout(boolean horizontal) {
@@ -1682,9 +1743,8 @@ public class LytGuidebookScene extends LytBlock {
                 if (pos == null || pos.length < 3) {
                     continue;
                 }
-                List<GuideBlockStatsStackResolver.ResolvedStack> entries = GuideBlockStatsStackResolver
-                    .resolveEntries(level, pos[0], pos[1], pos[2]);
-                for (GuideBlockStatsStackResolver.ResolvedStack entry : entries) {
+                GuideBlockStatsStackResolver.resolveEntriesInto(level, pos[0], pos[1], pos[2], blockStatsStackScratch);
+                for (GuideBlockStatsStackResolver.ResolvedStack entry : blockStatsStackScratch) {
                     addBlockStatsStack(byKey, entry.stack(), pos[0], pos[1], pos[2], entry.bounds());
                 }
             }
@@ -2215,7 +2275,7 @@ public class LytGuidebookScene extends LytBlock {
         context.fillRect(thumb, 0xCCEAF6FF);
     }
 
-    public static final class BlockStatsHitRegion {
+    public static class BlockStatsHitRegion {
 
         private int x0;
         private int y0;
@@ -3139,11 +3199,27 @@ public class LytGuidebookScene extends LytBlock {
         }
         if (dragButton < 0) return;
         if (isPonderPlaying()) return;
-        int dx = mouseX - dragLastX;
-        int dy = mouseY - dragLastY;
         dragLastX = mouseX;
         dragLastY = mouseY;
+    }
 
+    public void pollDrag() {
+        if (!isCameraDragActive()) {
+            return;
+        }
+        float dx = getScaledMouseDeltaX();
+        float dy = getScaledMouseDeltaY();
+        if (dx == 0f && dy == 0f) {
+            return;
+        }
+        updateDragLastPositionFromMouse();
+        applyCameraDrag(dx, dy);
+    }
+
+    private void applyCameraDrag(float dx, float dy) {
+        if (dx == 0f && dy == 0f) {
+            return;
+        }
         // Route to ponderCam* so changes are visible when ponder is active (paused or playing).
         if (ponderSceneData != null) {
             if (isPanButton(dragButton)) {
@@ -3162,6 +3238,46 @@ public class LytGuidebookScene extends LytBlock {
                 camera.setRotationX(camera.getRotationX() + dy * DRAG_ROTATE_SENSITIVITY);
             }
         }
+    }
+
+    private boolean isCameraDragActive() {
+        return dragButton >= 0 && !isPonderPlaying()
+            && !draggingBlockStatsHorizontalScrollbar
+            && !draggingBlockStatsVerticalScrollbar
+            && !draggingPonderBar
+            && !draggingStructureLibTierSlider
+            && !draggingVisibleLayerSlider
+            && draggingStructureLibChannelId == null;
+    }
+
+    private static float getScaledMouseDeltaX() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
+            return Mouse.getDX();
+        }
+        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        return Mouse.getDX() * scaledResolution.getScaledWidth() / (float) mc.displayWidth;
+    }
+
+    private static float getScaledMouseDeltaY() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
+            return -Mouse.getDY();
+        }
+        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        return -Mouse.getDY() * scaledResolution.getScaledHeight() / (float) mc.displayHeight;
+    }
+
+    private void updateDragLastPositionFromMouse() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
+            return;
+        }
+        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+        dragLastX = Mouse.getX() * scaledResolution.getScaledWidth() / mc.displayWidth;
+        dragLastY = scaledResolution.getScaledHeight()
+            - Mouse.getY() * scaledResolution.getScaledHeight() / mc.displayHeight
+            - 1;
     }
 
     public void endDrag() {
@@ -3319,6 +3435,27 @@ public class LytGuidebookScene extends LytBlock {
         return ponderSceneData != null;
     }
 
+    public int getPonderCurrentTickForExport() {
+        return ponderCurrentTick;
+    }
+
+    public int getPonderTotalTimeForExport() {
+        return ponderSceneData != null ? ponderSceneData.getTotalTime() : 0;
+    }
+
+    public List<PonderTimelineKeyframe> getPonderTimelineKeyframesForExport() {
+        if (ponderSceneData == null) {
+            return Collections.emptyList();
+        }
+        ArrayList<PonderTimelineKeyframe> keyframes = new ArrayList<>();
+        for (PonderKeyframe keyframe : ponderSceneData.getKeyframes()) {
+            if (keyframe != null) {
+                keyframes.add(new PonderTimelineKeyframe(keyframe.getTime(), keyframe.getLabel()));
+            }
+        }
+        return Collections.unmodifiableList(keyframes);
+    }
+
     public boolean isPonderPlaying() {
         return ponderSceneData != null && !ponderPaused && !ponderFinished;
     }
@@ -3435,9 +3572,20 @@ public class LytGuidebookScene extends LytBlock {
         ponderCurrentTick = Math.max(0, Math.min(ponderSceneData.getTotalTime(), tick));
         ponderPaused = true;
         ponderFinished = ponderCurrentTick >= ponderSceneData.getTotalTime();
+        ponderExportLayerOverrideEnabled = false;
         draggingPonderBar = false;
         ponderAnnotationFadeTick = 5;
         updatePonderState();
+    }
+
+    public void seekToTickForExport(int tick) {
+        seekToTick(tick);
+        ponderExportLayerOverrideEnabled = true;
+    }
+
+    public void restorePonderTickAfterExport(int tick) {
+        seekToTick(tick);
+        ponderExportLayerOverrideEnabled = false;
     }
 
     private void applyPonderBarAt(int mouseAbsX) {
@@ -4159,7 +4307,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     /** Compact holder for the initial block state at a ponder-changed position. */
-    private static final class PonderBlockInfo {
+    private static class PonderBlockInfo {
 
         final int x;
         final int y;
@@ -4197,7 +4345,7 @@ public class LytGuidebookScene extends LytBlock {
         return result.isEmpty() ? Collections.emptyMap() : result;
     }
 
-    private static final class PonderEntityRuntime {
+    private static class PonderEntityRuntime {
 
         private int entityId;
         private final String entityTypeId;
@@ -4212,6 +4360,74 @@ public class LytGuidebookScene extends LytBlock {
             this.entityTypeId = entityTypeId;
             this.playerName = playerName;
             this.playerUuid = playerUuid;
+        }
+    }
+
+    public static class BlockStatsLayoutState {
+
+        private final boolean visible;
+        private final BlockStatsMode mode;
+        private final BlockStatsCorner corner;
+        private final BlockStatsDock dock;
+        private final boolean showNames;
+        private final int maxWidth;
+        private final int maxHeight;
+        private final int sceneWidth;
+        private final int sceneHeight;
+        private final int buttonColumnReserve;
+
+        public BlockStatsLayoutState(boolean visible, BlockStatsMode mode, BlockStatsCorner corner, BlockStatsDock dock,
+            boolean showNames, int maxWidth, int maxHeight, int sceneWidth, int sceneHeight, int buttonColumnReserve) {
+            this.visible = visible;
+            this.mode = mode != null ? mode : BlockStatsMode.AUTO;
+            this.corner = corner != null ? corner : BlockStatsCorner.TOP_RIGHT;
+            this.dock = dock != null ? dock : BlockStatsDock.INSIDE;
+            this.showNames = showNames;
+            this.maxWidth = Math.max(BLOCK_STATS_MIN_WIDTH, maxWidth);
+            this.maxHeight = Math.max(BLOCK_STATS_MIN_HEIGHT, maxHeight);
+            this.sceneWidth = Math.max(16, sceneWidth);
+            this.sceneHeight = Math.max(16, sceneHeight);
+            this.buttonColumnReserve = Math.max(0, buttonColumnReserve);
+        }
+
+        public boolean visible() {
+            return visible;
+        }
+
+        public BlockStatsMode mode() {
+            return mode;
+        }
+
+        public BlockStatsCorner corner() {
+            return corner;
+        }
+
+        public BlockStatsDock dock() {
+            return dock;
+        }
+
+        public boolean showNames() {
+            return showNames;
+        }
+
+        public int maxWidth() {
+            return maxWidth;
+        }
+
+        public int maxHeight() {
+            return maxHeight;
+        }
+
+        public int sceneWidth() {
+            return sceneWidth;
+        }
+
+        public int sceneHeight() {
+            return sceneHeight;
+        }
+
+        public int buttonColumnReserve() {
+            return buttonColumnReserve;
         }
     }
 

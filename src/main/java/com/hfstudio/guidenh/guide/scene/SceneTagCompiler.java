@@ -10,7 +10,6 @@ import java.util.Set;
 
 import net.minecraft.item.ItemStack;
 
-import com.hfstudio.guidenh.compat.structurelib.StructureLibPreviewSelection;
 import com.hfstudio.guidenh.config.ModConfig;
 import com.hfstudio.guidenh.guide.compiler.IdUtils;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
@@ -22,6 +21,7 @@ import com.hfstudio.guidenh.guide.extensions.ExtensionCollection;
 import com.hfstudio.guidenh.guide.scene.annotation.compiler.AnnotationTagCompiler;
 import com.hfstudio.guidenh.guide.scene.element.SceneElementTagCompiler;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
+import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxFlowElement;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstAnyContent;
@@ -332,14 +332,26 @@ public class SceneTagCompiler extends BlockTagCompiler {
             .isEmpty()) {
             return filter;
         }
-        String[] parts = raw.split("[,;\\s]+");
-        for (String part : parts) {
-            String normalized = LytGuidebookScene.normalizeBlockStatsKey(part);
-            if (normalized != null) {
-                filter.add(normalized);
+        int start = -1;
+        for (int index = 0, length = raw.length(); index <= length; index++) {
+            char current = index < length ? raw.charAt(index) : ',';
+            if (isBlockStatsFilterSeparator(current)) {
+                if (start >= 0) {
+                    String normalized = LytGuidebookScene.normalizeBlockStatsKey(raw.substring(start, index));
+                    if (normalized != null) {
+                        filter.add(normalized);
+                    }
+                    start = -1;
+                }
+            } else if (start < 0) {
+                start = index;
             }
         }
         return filter;
+    }
+
+    private static boolean isBlockStatsFilterSeparator(char value) {
+        return value == ',' || value == ';' || Character.isWhitespace(value);
     }
 
     private void compileBlockStatsElement(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,

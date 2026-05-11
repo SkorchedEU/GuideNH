@@ -27,7 +27,6 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import com.hfstudio.guidenh.compat.structurelib.StructureLibPreviewSelection;
 import com.hfstudio.guidenh.config.ModConfig;
 import com.hfstudio.guidenh.guide.color.LightDarkMode;
 import com.hfstudio.guidenh.guide.document.LytRect;
@@ -88,6 +87,7 @@ import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 import com.hfstudio.guidenh.guide.scene.SavedCameraSettings;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockDisplayResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityDisplayResolver;
+import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
 
 public class SceneEditorScreen extends GuiScreen {
 
@@ -484,6 +484,12 @@ public class SceneEditorScreen extends GuiScreen {
         processPendingMarkdownLiveSync();
     }
 
+    private void pollActivePreviewSceneDrag() {
+        if (activePreviewScene != null) {
+            activePreviewScene.pollDrag();
+        }
+    }
+
     @Override
     protected void actionPerformed(GuiButton button) {
         if (button.id == CLOSE_BUTTON_ID) {
@@ -600,6 +606,7 @@ public class SceneEditorScreen extends GuiScreen {
             addElementButton.visible = !rightPanelCollapsed;
         }
         syncToolbarToggleState();
+        pollActivePreviewSceneDrag();
 
         drawTiledBackground();
         drawCenterPanel(mouseX, mouseY);
@@ -1945,6 +1952,10 @@ public class SceneEditorScreen extends GuiScreen {
         if (preserveCurrentView && previewScene != null) {
             savedCamera = previewScene.getCamera()
                 .save();
+        }
+        if (activePreviewScene != null) {
+            activePreviewScene.endDrag();
+            activePreviewScene = null;
         }
         previewScene = previewBridge.buildScene(session, previewStructureLibSelectionOverride);
         bindPreviewScene(previewScene);
