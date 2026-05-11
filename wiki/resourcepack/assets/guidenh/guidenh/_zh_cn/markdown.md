@@ -1,7 +1,10 @@
 ---
 navigation:
-  title: Markdown 测试
+  title: Markdown 基础
+  parent: index.md
   position: 10
+categories:
+  - markdown
 ---
 
 # Markdown 测试

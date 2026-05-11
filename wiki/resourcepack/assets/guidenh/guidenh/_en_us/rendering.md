@@ -1,8 +1,11 @@
 ---
-title: "Rendering Demo"
+title: Rendering Demo
 navigation:
-  title: "Rendering Demo"
-  position: 20
+  title: Rendering Demo
+  parent: index.md
+  position: 80
+categories:
+  - other
 ---
 
 # Rendering Demo

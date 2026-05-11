@@ -1,7 +1,10 @@
 ---
 navigation:
-  title: Debug Test Page
-  position: 99
+  title: Debug
+  parent: index.md
+  position: 200
+categories:
+  - other
 ---
 
 # Debug Test Page

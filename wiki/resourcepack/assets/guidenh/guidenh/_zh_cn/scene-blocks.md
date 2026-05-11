@@ -2,6 +2,9 @@
 navigation:
   title: 方块场景
   parent: index.md
+  position: 30
+categories:
+  - scenes
 ---
 
 # 方块场景

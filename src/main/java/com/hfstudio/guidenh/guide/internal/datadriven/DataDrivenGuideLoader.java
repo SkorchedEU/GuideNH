@@ -29,6 +29,7 @@ public class DataDrivenGuideLoader {
 
     public static final String AUTO_GUIDE_FOLDER = "guidenh";
     public static final String LANGUAGE_FOLDER_PREFIX = "_";
+    public static final ResourceLocation MERGED_GUIDE_ID = new ResourceLocation("guidenh", "guide");
 
     private DataDrivenGuideLoader() {}
 
@@ -39,28 +40,134 @@ public class DataDrivenGuideLoader {
             scanResourcePack(resourcePack, discoveredLanguages);
         }
 
-        var guides = new LinkedHashMap<ResourceLocation, MutableGuide>();
-        for (var entry : discoveredLanguages.entrySet()) {
-            var guideId = entry.getKey();
-            var builder = Guide.builder(guideId)
-                .register(false)
-                .folder(AUTO_GUIDE_FOLDER)
-                .defaultLanguage(selectDefaultLanguage(entry.getValue()));
-            guides.put(guideId, (MutableGuide) builder.build());
-        }
+        var mergedLanguages = mergeLanguages(discoveredLanguages);
+        var builder = Guide.builder(MERGED_GUIDE_ID)
+            .register(false)
+            .folder(AUTO_GUIDE_FOLDER)
+            .defaultLanguage(selectDefaultLanguage(mergedLanguages));
+        var guide = (MutableGuide) builder.build();
 
+        var guides = new LinkedHashMap<ResourceLocation, MutableGuide>();
+        guides.put(MERGED_GUIDE_ID, guide);
         return guides;
     }
 
-    public static Set<String> discoverPagePaths(ResourceLocation guideId, String folder) {
-        var pagePaths = new LinkedHashSet<String>();
-        var prefix = toFolderPrefix(guideId.getResourceDomain(), folder);
+    public static LinkedHashMap<String, LinkedHashSet<String>> discoverPagePaths(String folder) {
+        var pagePaths = new LinkedHashMap<String, LinkedHashSet<String>>();
 
         for (var resourcePack : getActiveResourcePacks()) {
-            scanPagePaths(resourcePack, prefix, pagePaths);
+            scanPagePathsAllNamespaces(resourcePack, folder, pagePaths);
         }
 
         return pagePaths;
+    }
+
+    private static void scanPagePathsAllNamespaces(IResourcePack resourcePack, String folder,
+        LinkedHashMap<String, LinkedHashSet<String>> pagePaths) {
+        var resourcePackFile = getResourcePackFile(resourcePack);
+        if (resourcePackFile == null || !resourcePackFile.exists()) {
+            return;
+        }
+
+        if (!resourcePackFile.isDirectory()) {
+            scanZipPagePathsAllNamespaces(resourcePackFile, folder, pagePaths);
+            return;
+        }
+
+        var assetsDir = new File(resourcePackFile, "assets");
+        var namespaceDirs = assetsDir.listFiles(File::isDirectory);
+        if (namespaceDirs == null) {
+            return;
+        }
+
+        for (var namespaceDir : namespaceDirs) {
+            var guideRootDir = new File(namespaceDir, folder);
+            if (!guideRootDir.isDirectory()) {
+                continue;
+            }
+
+            var namespace = namespaceDir.getName();
+            var prefix = toFolderPrefix(namespace, folder);
+            var paths = pagePaths.computeIfAbsent(namespace, k -> new LinkedHashSet<>());
+            scanFolderPagePaths(resourcePackFile, prefix, paths);
+        }
+    }
+
+    private static void scanZipPagePathsAllNamespaces(File resourcePackFile, String folder,
+        LinkedHashMap<String, LinkedHashSet<String>> pagePaths) {
+        var prefix = "assets/";
+        try (var zip = new ZipFile(resourcePackFile)) {
+            var entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                var entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    continue;
+                }
+
+                var path = entry.getName();
+                if (!path.startsWith(prefix) || !path.endsWith(".md")) {
+                    continue;
+                }
+
+                // path format: assets/<namespace>/<folder>/_<lang>/<pagePath>.md
+                var afterAssets = path.substring(prefix.length());
+                var firstSlash = afterAssets.indexOf('/');
+                if (firstSlash <= 0) {
+                    continue;
+                }
+
+                var namespace = afterAssets.substring(0, firstSlash);
+                var afterNamespace = afterAssets.substring(firstSlash + 1);
+
+                // Check that afterNamespace starts with folder/
+                if (!afterNamespace.startsWith(folder + "/")) {
+                    continue;
+                }
+
+                var afterFolder = afterNamespace.substring(folder.length() + 1);
+                var slashIndex = afterFolder.indexOf('/');
+                if (slashIndex <= 0) {
+                    continue;
+                }
+
+                var language = afterFolder.substring(0, slashIndex);
+                if (!isLanguageFolder(language)) {
+                    continue;
+                }
+
+                var pagePath = afterFolder.substring(slashIndex + 1);
+                if (!pagePath.isEmpty()) {
+                    pagePaths.computeIfAbsent(namespace, k -> new LinkedHashSet<>())
+                        .add(pagePath);
+                }
+            }
+        } catch (IOException e) {
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [DataDrivenGuideLoader] Failed to scan guide pages from resource pack {}",
+                    resourcePackFile.getAbsolutePath(),
+                    e);
+        }
+    }
+
+    private static LinkedHashSet<String> mergeLanguages(
+        LinkedHashMap<ResourceLocation, LinkedHashSet<String>> discoveredLanguages) {
+        var merged = new LinkedHashSet<String>();
+        for (var languages : discoveredLanguages.values()) {
+            merged.addAll(languages);
+        }
+        return merged;
+    }
+
+    /** @deprecated Use {@link #discoverPagePaths(String)} instead. */
+    @Deprecated
+    public static Set<String> discoverPagePaths(ResourceLocation guideId, String folder) {
+        var result = new LinkedHashSet<String>();
+        var allPaths = discoverPagePaths(folder);
+        for (var paths : allPaths.values()) {
+            result.addAll(paths);
+        }
+        return result;
     }
 
     public static List<IResourcePack> getActiveResourcePacks() {

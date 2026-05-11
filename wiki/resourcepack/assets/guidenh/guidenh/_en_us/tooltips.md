@@ -2,6 +2,9 @@
 navigation:
   title: Tooltips
   parent: index.md
+  position: 60
+categories:
+  - widgets
 ---
 
 # Tooltips

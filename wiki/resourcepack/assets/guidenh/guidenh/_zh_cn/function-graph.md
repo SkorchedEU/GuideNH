@@ -2,6 +2,10 @@
 navigation:
   title: 函数图
   parent: index.md
+  position: 20
+categories:
+  - markdown
+  - charts
 ---
 
 # 函数图

@@ -1,7 +1,10 @@
 ---
 navigation:
-  title: 调试测试页
-  position: 99
+  title: 调试
+  parent: index.md
+  position: 200
+categories:
+  - other
 ---
 
 # 调试测试页

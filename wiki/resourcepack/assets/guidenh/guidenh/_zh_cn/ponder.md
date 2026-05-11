@@ -2,6 +2,9 @@
 navigation:
   title: 思索动画
   parent: index.md
+  position: 40
+categories:
+  - scenes
 ---
 
 # 思索动画

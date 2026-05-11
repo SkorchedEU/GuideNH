@@ -2,6 +2,9 @@
 navigation:
   title: Entity Scenes
   parent: index.md
+  position: 32
+categories:
+  - scenes
 ---
 
 # Entity Scenes

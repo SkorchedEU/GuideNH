@@ -1,7 +1,10 @@
 ---
 navigation:
-  title: Recipes But Test Yes
+  title: Recipes
   parent: index.md
+  position: 50
+categories:
+  - widgets
 ---
 
 # Recipes

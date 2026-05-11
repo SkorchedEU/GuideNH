@@ -2,6 +2,9 @@
 navigation:
   title: Block Scenes
   parent: index.md
+  position: 30
+categories:
+  - scenes
 ---
 
 # Block Scenes

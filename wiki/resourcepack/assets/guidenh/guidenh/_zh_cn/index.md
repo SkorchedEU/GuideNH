@@ -2,15 +2,15 @@
 item_ids:
   - guidenh:guide
 navigation:
-  title: 首页
-  icon_texture: test1.png
-author: GuideNH 示例
+  title: GuideNH 示例
+  position: 0
+author: GuideNH
 date: 2024-01-01
 ---
 
-# 起始页
+# GuideNH 示例
 
-## 导航
+欢迎使用 GuideNH 演示指南。本指南展示了作者可用的渲染、布局和场景能力。参见 [导航与索引](./navigation-guide.md) 了解如何构建你自己的指南页面。
 
 | 分类 | 页面 |
 |---|---|
@@ -24,16 +24,22 @@ date: 2024-01-01
 
 缺失配方（回退文字）：<Recipe id="minecraft:missingrecipe" fallbackText="该物品无法合成。" />
 
-玩家名：<PlayerName />
+欢迎来到 <ItemImage id="minecraft:stone" /> 的世界，<PlayerName />！
 
-按键绑定：<KeyBind action="key.attack" />
+按键测试：跳跃 = <KeyBind id="key.jump" />，攻击 = <KeyBind id="key.attack" />，GuideNH 热键 = <KeyBind id="key.guidenh.open_guide" />。
 
-注释（不渲染）：<Comment>这里是注释，不会显示在页面上。</Comment>
+注释测试：可见之前。{/* 隐藏的行内注释 */} 可见之后。
 
-颜色：<Color color="#FF5555">红色文字</Color> / <Color color="#55FF55">绿色文字</Color> / <Color color="#5555FF">蓝色文字</Color>
+注释块测试：
+{/*
+整个块被解析器忽略。
+*/}
+多行注释之后仍然可见。
 
-命令链接：<CommandLink command="/say 你好，世界！">点击发送命令</CommandLink>
+你可能 ~~需要~~ 一扇 <Color color="#ff0000">门</Color> <Color id="RED">门</Color>！
 
-方块图（行内）：<BlockImage id="minecraft:stone" /> 石头 · <BlockImage id="minecraft:iron_block" /> 铁块 · <BlockImage id="minecraft:gold_block" /> 金块
+<CommandLink command="/tp @s 0 90 0" title="提示" close={true}>传送！</CommandLink>
 
-物品链接：<ItemLink id="minecraft:diamond" /> · <ItemLink id="minecraft:emerald" /> · <ItemLink id="minecraft:nether_star" />
+<BlockImage id="minecraft:crafting_table" />
+
+<ItemLink id="minecraft:stick" />

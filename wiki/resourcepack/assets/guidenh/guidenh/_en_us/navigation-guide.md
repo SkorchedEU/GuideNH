@@ -1,0 +1,175 @@
+---
+navigation:
+  title: Navigation & Index
+  parent: index.md
+  position: 5
+categories:
+  - markdown
+---
+
+# Navigation & Content Index
+
+GuideNH uses YAML frontmatter to declare navigation structure — no `index.md` hardcoding, no manifest files. Every page controls where it appears in the sidebar through its own frontmatter.
+
+## Quick Example
+
+```yaml
+---
+navigation:
+  title: Advanced IO Bus
+  parent: aae_intro/aae_intro-index.md
+  icon: advanced_ae:advanced_io_bus_part
+categories:
+  - advanced items
+item_ids:
+  - advanced_ae:advanced_io_bus_part
+---
+```
+
+## Navigation Fields
+
+### `navigation.title`
+
+Display title in the sidebar. Required for the page to appear in navigation.
+
+### `navigation.parent`
+
+Page ID of the parent node. A relative path (e.g., `getting-started.md`) resolves against the page's own namespace. Omit to make this page a top-level root node.
+
+```yaml
+# Root node (no parent)
+navigation:
+  title: Getting Started
+
+# Child of another page
+navigation:
+  title: Advanced IO Bus
+  parent: aae_intro/aae_intro-index.md
+```
+
+### `navigation.position`
+
+Integer sort order within siblings. Lower numbers appear first. Ties are broken by `title` alphabetically.
+
+```yaml
+navigation:
+  title: Markdown Basics
+  parent: index.md
+  position: 10
+```
+
+### `navigation.icon`
+
+An item ID shown next to the page title in the sidebar.
+
+```yaml
+navigation:
+  title: Recipes
+  icon: minecraft:crafting_table
+```
+
+### `navigation.icon_texture`
+
+A PNG texture path (relative to the guide assets folder) used as the navigation icon.
+
+```yaml
+navigation:
+  title: Home
+  icon_texture: my_icon.png
+```
+
+### `navigation.icons`
+
+A list of item IDs that cycle in the sidebar. The icon changes periodically.
+
+```yaml
+navigation:
+  title: Color Demo
+  icons:
+    - minecraft:wool:1
+    - minecraft:wool:4
+    - minecraft:wool:14
+```
+
+### `navigation.icon_textures`
+
+A list of texture paths that cycle as the navigation icon.
+
+```yaml
+navigation:
+  title: Slideshow
+  icon_textures:
+    - frame_1.png
+    - frame_2.png
+```
+
+## Content Indexing Fields
+
+### `categories`
+
+A list of category tags. Pages with the same category are grouped together by `<CategoryIndex>`.
+
+```yaml
+categories:
+  - markdown
+  - charts
+```
+
+On the parent page, use `<CategoryIndex category="markdown"></CategoryIndex>` to auto-generate a list of all pages in that category.
+
+### `item_ids`
+
+Links items to this page for G-key lookup and right-click navigation. Format: `namespace:name` or `namespace:name:meta`. Append `#anchor` to jump to a specific heading.
+
+```yaml
+item_ids:
+  - minecraft:crafting_table
+  - appliedenergistics2:item.ItemMultiMaterial:1
+  - minecraft:diamond#Usage
+```
+
+### `required_mods`
+
+Hide this page from navigation and indices unless all listed mods are loaded.
+
+```yaml
+navigation:
+  title: AE2 Integration
+required_mods:
+  - appliedenergistics2
+```
+
+## Optional Meta Fields
+
+| Field | Description |
+|-------|-------------|
+| `title` | Page heading override (shown in the top-left of the guide screen) |
+| `author` | Author attribution shown in the page footer |
+| `date` | Creation date shown in the page footer |
+| `updated` | Last-modified date shown in the page footer |
+
+## Complete Example
+
+```yaml
+---
+title: Advanced IO Bus
+navigation:
+  title: Advanced IO Bus
+  parent: getting-started.md
+  position: 10
+  icon: advanced_ae:advanced_io_bus_part
+categories:
+  - advanced items
+item_ids:
+  - advanced_ae:advanced_io_bus_part
+  - advanced_ae:advanced_io_bus_part:1
+required_mods:
+  - advanced_ae
+author: pedroksl
+date: 2025-01-01
+---
+
+# Advanced IO Bus
+
+The Advanced IO Bus provides faster item transfer...
+```

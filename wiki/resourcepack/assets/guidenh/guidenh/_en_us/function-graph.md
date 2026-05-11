@@ -1,7 +1,11 @@
 ---
 navigation:
   title: Function Graphs
-  parent: markdown.md
+  parent: index.md
+  position: 20
+categories:
+  - markdown
+  - charts
 ---
 
 # Function Graphs

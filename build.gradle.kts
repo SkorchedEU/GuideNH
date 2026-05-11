@@ -5,7 +5,7 @@ plugins {
 }
 
 minecraft {
-    extraRunJvmArguments.addAll("-Xmx8G", "-Xms8G", "-Dgtnhlib.dumpkeys=true")
+    extraRunJvmArguments.addAll("-Xmx4G", "-Xms512m", "-Dgtnhlib.dumpkeys=true")
 }
 
 tasks.withType<JavaCompile>().configureEach {

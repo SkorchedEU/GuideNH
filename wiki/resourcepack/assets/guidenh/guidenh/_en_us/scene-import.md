@@ -2,6 +2,9 @@
 navigation:
   title: Import Structure
   parent: index.md
+  position: 38
+categories:
+  - scenes
 ---
 
 # Import Structure

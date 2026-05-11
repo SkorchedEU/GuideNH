@@ -1,7 +1,11 @@
 ---
 navigation:
   title: Charts
-  parent: markdown.md
+  parent: index.md
+  position: 15
+categories:
+  - markdown
+  - charts
 ---
 
 # Charts

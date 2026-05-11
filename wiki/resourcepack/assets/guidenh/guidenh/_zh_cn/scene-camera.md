@@ -2,6 +2,9 @@
 navigation:
   title: 镜头与视口
   parent: index.md
+  position: 34
+categories:
+  - scenes
 ---
 
 # 镜头与视口

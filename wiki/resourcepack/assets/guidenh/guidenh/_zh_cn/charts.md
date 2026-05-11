@@ -2,6 +2,10 @@
 navigation:
   title: 图表
   parent: index.md
+  position: 15
+categories:
+  - markdown
+  - charts
 ---
 
 # 图表

@@ -2,6 +2,9 @@
 navigation:
   title: Ponder Animations
   parent: index.md
+  position: 40
+categories:
+  - scenes
 ---
 
 # Ponder Animations

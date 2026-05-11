@@ -1,8 +1,11 @@
 ---
-title: "渲染示例"
+title: 渲染示例
 navigation:
-  title: "渲染示例"
-  position: 20
+  title: 渲染示例
+  parent: index.md
+  position: 80
+categories:
+  - other
 ---
 
 # 渲染示例

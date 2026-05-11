@@ -2,6 +2,9 @@
 navigation:
   title: 导入结构
   parent: index.md
+  position: 38
+categories:
+  - scenes
 ---
 
 # 导入结构

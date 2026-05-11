@@ -2,6 +2,9 @@
 navigation:
   title: Annotations
   parent: index.md
+  position: 36
+categories:
+  - scenes
 ---
 
 # Annotations

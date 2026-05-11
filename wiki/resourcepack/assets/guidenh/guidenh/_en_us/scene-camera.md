@@ -2,6 +2,9 @@
 navigation:
   title: Camera & Viewport
   parent: index.md
+  position: 34
+categories:
+  - scenes
 ---
 
 # Camera & Viewport

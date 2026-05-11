@@ -2,6 +2,9 @@
 navigation:
   title: 实体场景
   parent: index.md
+  position: 32
+categories:
+  - scenes
 ---
 
 # 实体场景

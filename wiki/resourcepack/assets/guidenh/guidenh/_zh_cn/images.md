@@ -2,7 +2,10 @@
 navigation:
   title: 图片
   parent: index.md
+  position: 55
   icon: minecraft:wool:1
+categories:
+  - widgets
   # 循环图标示例——取消注释即可启用：
   # icons:
   #   - minecraft:wool:1

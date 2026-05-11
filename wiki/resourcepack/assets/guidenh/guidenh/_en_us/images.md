@@ -2,7 +2,10 @@
 navigation:
   title: Images
   parent: index.md
+  position: 55
   icon: minecraft:wool:1
+categories:
+  - widgets
   # Cycling icons example — uncomment to enable:
   # icons:
   #   - minecraft:wool:1

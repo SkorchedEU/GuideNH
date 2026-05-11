@@ -2,7 +2,10 @@
 navigation:
   title: 内容嵌入
   parent: index.md
+  position: 65
   icon: minecraft:wool:3
+categories:
+  - widgets
 ---
 
 # 内容嵌入与文字环绕

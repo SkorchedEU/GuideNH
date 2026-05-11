@@ -2,23 +2,31 @@
 item_ids:
   - guidenh:guide
 navigation:
-  title: Root
-  icon_texture: test1.png
-author: GuideNH Example
+  title: GuideNH Examples
+  position: 0
+author: GuideNH
 date: 2024-01-01
 ---
 
-# Start Page
+# GuideNH Examples
 
-## Navigation
+Welcome to the GuideNH demo guide. This showcases the rendering, layout, and scene capabilities available to guide authors. See [Navigation & Index](./navigation-guide.md) for how to structure your own guide pages.
 
-| Category | Pages |
-|---|---|
-| Markdown | [Markdown Basics](./markdown.md) · [Charts](./charts.md) · [Function Graphs](./function-graph.md) |
-| 3D Scenes | [Block Scenes](./scene-blocks.md) · [Entity Scenes](./scene-entities.md) · [Camera & Viewport](./scene-camera.md) |
-| Annotations | [Annotations](./scene-annotations.md) · [Import Structure](./scene-import.md) · [Ponder Animations](./ponder.md) |
-| Widgets | [Recipes](./recipes.md) · [Images](./images.md) · [Tooltips](./tooltips.md) · [Content Embedding](./content-embed.md) |
-| Other | [Rendering Demo](./rendering.md) · [Debug](./debug.md) |
+## Markdown
+
+<CategoryIndex category="markdown"></CategoryIndex>
+
+## Scenes
+
+<CategoryIndex category="scenes"></CategoryIndex>
+
+## Widgets
+
+<CategoryIndex category="widgets"></CategoryIndex>
+
+## Other
+
+<CategoryIndex category="other"></CategoryIndex>
 
 ## Inline Elements
 

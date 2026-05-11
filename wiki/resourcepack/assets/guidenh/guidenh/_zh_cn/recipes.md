@@ -1,7 +1,10 @@
 ---
 navigation:
-  title: 配方（导航树标题）
+  title: 配方
   parent: index.md
+  position: 50
+categories:
+  - widgets
 ---
 
 # 配方（页面左上角标题）

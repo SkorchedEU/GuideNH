@@ -2,7 +2,10 @@
 navigation:
   title: Content Embedding
   parent: index.md
+  position: 65
   icon: minecraft:wool:3
+categories:
+  - widgets
 ---
 
 # Content Embedding and Text Wrapping

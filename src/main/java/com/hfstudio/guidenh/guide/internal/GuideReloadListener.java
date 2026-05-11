@@ -67,38 +67,42 @@ public class GuideReloadListener implements IResourceManagerReloadListener {
     private Map<ResourceLocation, ParsedGuidePage> loadPages(IResourceManager resourceManager, ResourceLocation guideId,
         String folder, String defaultLanguage, @Nullable String currentLanguage) {
         var pages = new HashMap<ResourceLocation, ParsedGuidePage>();
-        var pagePaths = DataDrivenGuideLoader.discoverPagePaths(guideId, folder);
-        String namespace = guideId.getResourceDomain();
-        String sourcePack = "resources:" + namespace;
+        var pagePathsByNamespace = DataDrivenGuideLoader.discoverPagePaths(folder);
         String lang = currentLanguage != null ? currentLanguage : defaultLanguage;
 
-        for (var pagePath : pagePaths) {
-            ResourceLocation pageId = new ResourceLocation(namespace, pagePath);
+        for (var nsEntry : pagePathsByNamespace.entrySet()) {
+            String sourceNamespace = nsEntry.getKey();
+            String sourcePack = "resources:" + sourceNamespace;
 
-            ParsedGuidePage parsed = tryLoadPage(
-                resourceManager,
-                sourcePack,
-                lang,
-                namespace,
-                folder,
-                pagePath,
-                pageId);
-            if (parsed == null && !lang.equals(defaultLanguage)) {
-                parsed = tryLoadPage(resourceManager, sourcePack, defaultLanguage, namespace, folder, pagePath, pageId);
-            }
-            if (parsed == null) {
-                parsed = tryParsePage(
+            for (var pagePath : nsEntry.getValue()) {
+                ResourceLocation pageId = new ResourceLocation(sourceNamespace, pagePath);
+
+                ParsedGuidePage parsed = tryLoadPage(
                     resourceManager,
                     sourcePack,
-                    defaultLanguage,
-                    pageId,
-                    new ResourceLocation(namespace, folder + "/" + pagePath));
-            }
-            if (parsed != null) {
-                pages.put(pageId, parsed);
-            } else {
-                FMLLog.getLogger()
-                    .warn("[GuideNH] [GuideReloadListener] Failed to load guide page {}", pageId);
+                    lang,
+                    sourceNamespace,
+                    folder,
+                    pagePath,
+                    pageId);
+                if (parsed == null && !lang.equals(defaultLanguage)) {
+                    parsed = tryLoadPage(resourceManager, sourcePack, defaultLanguage, sourceNamespace, folder, pagePath,
+                        pageId);
+                }
+                if (parsed == null) {
+                    parsed = tryParsePage(
+                        resourceManager,
+                        sourcePack,
+                        defaultLanguage,
+                        pageId,
+                        new ResourceLocation(sourceNamespace, folder + "/" + pagePath));
+                }
+                if (parsed != null) {
+                    pages.put(pageId, parsed);
+                } else {
+                    FMLLog.getLogger()
+                        .warn("[GuideNH] [GuideReloadListener] Failed to load guide page {}", pageId);
+                }
             }
         }
 
