@@ -259,7 +259,8 @@ public class GuideSourceWatcher implements AutoCloseable {
     private synchronized void pageChanged(Path path) {
         var pageKey = getPageLangKey(path);
         if (pageKey == null) {
-            return; // Probably not a page
+            resourceChanged(path);
+            return;
         }
 
         var language = pageKey.sourceLang() != null ? pageKey.sourceLang() : defaultLanguage;
@@ -280,7 +281,8 @@ public class GuideSourceWatcher implements AutoCloseable {
     private synchronized void pageDeleted(Path path) {
         var pageKey = getPageLangKey(path);
         if (pageKey == null) {
-            return; // Probably not a page
+            resourceChanged(path);
+            return;
         }
 
         var fallbackPage = loadFallbackPage(pageKey, path);
@@ -295,10 +297,31 @@ public class GuideSourceWatcher implements AutoCloseable {
         deletedPages.add(pageKey);
     }
 
+    public static boolean isGuideResourcePathForSourcePath(Path sourceFolder, String namespace,
+        String contentRootFolder, Path path) {
+        GuideDevelopmentSourceLayout sourceLayout = detectSourceLayout(sourceFolder, contentRootFolder);
+        return getGuideRelativePath(sourceFolder, sourceLayout, namespace, contentRootFolder, path) != null;
+    }
+
+    private synchronized void resourceChanged(Path path) {
+        if (!isGuideResourcePath(path)) {
+            return;
+        }
+        for (ParsedGuidePage page : loadAll()) {
+            changedPages.put(new PageLangKey(page.getLanguage(), page.getId()), page);
+            deletedPages.remove(new PageLangKey(page.getLanguage(), page.getId()));
+        }
+    }
+
     @Nullable
     public ResourceLocation getPageId(Path path) {
         String relativePath = getGuideRelativePath(sourceFolder, sourceLayout, namespace, contentRootFolder, path);
         return parseGuideRelativePageId(relativePath);
+    }
+
+    private boolean isGuideResourcePath(Path path) {
+        String relativePath = getGuideRelativePath(sourceFolder, sourceLayout, namespace, contentRootFolder, path);
+        return relativePath != null;
     }
 
     @Nullable

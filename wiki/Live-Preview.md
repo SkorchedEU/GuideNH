@@ -14,6 +14,7 @@ This is especially useful for:
 - navigation changes
 - page-local images
 - guide-root assets such as imported structures
+- Ponder JSON files referenced by `<ImportPonder>`
 
 ## Supported System Properties
 
@@ -86,6 +87,7 @@ GuideNH does not poll guide files every frame.
 
 - development source watching is only registered when at least one guide actually enables development sources
 - guide watcher processing is throttled to once every `20` client ticks
+- non-Markdown guide assets trigger page reparsing, so external files such as Ponder JSON can update live
 - startup guide opening and validation run only once after the title screen appears
 
 This keeps the live preview workflow responsive without introducing unnecessary high-frequency client work.
