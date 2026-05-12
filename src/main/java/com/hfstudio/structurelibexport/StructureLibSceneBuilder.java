@@ -7,6 +7,7 @@ import net.minecraft.init.Blocks;
 
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookPreviewBlockPlacer;
+import com.hfstudio.guidenh.integration.gregtech.GregTechHelpers;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibImportRequest;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibImportResult;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
@@ -38,10 +39,16 @@ public class StructureLibSceneBuilder {
 
     public StructureLibSceneBuildResult build(StructureLibExportTaskSpec task, BuildContext context,
         GuidebookLevel targetLevel) {
+        boolean useSurvivalConstruct = task.isGtPlaceHatches() || GregTechHelpers.getMachineControllerBaseMeta(
+            task.getController()
+                .getBlock(),
+            task.getController()
+                .getMeta())
+            != null;
         StructureLibPreviewSelection selection = new StructureLibPreviewSelection(task.getTier(), task.getChannels())
             .withIntegrationOption(GREGTECH_ACTIVE_CONTROLLER_OPTION, task.isGtActiveController())
             .withIntegrationOption(GREGTECH_PLACE_HATCHES_OPTION, task.isGtPlaceHatches())
-            .withIntegrationOption(StructureLibPreviewSelection.SURVIVAL_CONSTRUCT_OPTION, task.isGtPlaceHatches());
+            .withIntegrationOption(StructureLibPreviewSelection.SURVIVAL_CONSTRUCT_OPTION, useSurvivalConstruct);
         StructureLibImportRequest request = new StructureLibImportRequest(
             task.getController()
                 .getControllerArgument(),

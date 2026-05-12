@@ -8,10 +8,15 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.gtnewhorizon.structurelib.alignment.IAlignment;
 import com.gtnewhorizon.structurelib.alignment.constructable.IConstructable;
+import com.gtnewhorizon.structurelib.alignment.enumerable.ExtendedFacing;
+import com.gtnewhorizon.structurelib.alignment.enumerable.Flip;
+import com.gtnewhorizon.structurelib.alignment.enumerable.Rotation;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibControllerCandidate;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibControllerDiscoveryIntegration;
@@ -78,13 +83,24 @@ public class GregTechStructureLibControllerIntegration implements StructureLibCo
             return null;
         }
         GregTechHelpers.initializeMachineControllerTile(placedTile, controller.getMeta(), null);
-        GregTechHelpers.applyPreviewControllerFacing(placedTile);
+        if (canUseGregTechPreviewFacing(placedTile)) {
+            GregTechHelpers.applyPreviewControllerFacing(placedTile);
+        }
         level.setExplicitBlockId(
             StructureLibRuntimeFacade.CONTROLLER_X,
             StructureLibRuntimeFacade.CONTROLLER_Y,
             StructureLibRuntimeFacade.CONTROLLER_Z,
             controller.getBlockId());
         return placedTile;
+    }
+
+    private boolean canUseGregTechPreviewFacing(TileEntity tileEntity) {
+        IAlignment alignment = StructureLibRuntimeFacade.resolveAlignment(tileEntity);
+        if (alignment == null) {
+            return true;
+        }
+        return alignment.getAlignmentLimits()
+            .isNewExtendedFacingValid(ExtendedFacing.of(ForgeDirection.SOUTH, Rotation.NORMAL, Flip.NONE));
     }
 
     @Override

@@ -25,7 +25,7 @@ public class StructureExportCommand extends CommandBase {
 
     @Override
     public String getCommandName() {
-        return "exportStructure";
+        return "exportstructure";
     }
 
     @Override

@@ -332,6 +332,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
                 "Failed to create a controller tile for " + request.getController() + " in the preview world.");
         }
 
+        applyDefaultAlignment(controllerTile);
         applyRequestedAlignment(controllerTile, request, warnings);
         fakePlayer.configureForControllerFacing(resolveControllerFacing(controllerTile));
         IConstructable constructable = resolveConstructable(controllerTile);
@@ -472,6 +473,23 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
         if (!alignment.checkedSetExtendedFacing(requestedFacing)) {
             warnings.add(
                 "Requested StructureLib facing/rotation/flip is not valid for this controller; preview used the default alignment.");
+        }
+    }
+
+    public static void applyDefaultAlignment(TileEntity controllerTile) {
+        IAlignment alignment = resolveAlignment(controllerTile);
+        if (alignment == null) {
+            return;
+        }
+        ExtendedFacing currentFacing = alignment.getExtendedFacing();
+        if (currentFacing != null && alignment.getAlignmentLimits()
+            .isNewExtendedFacingValid(currentFacing)) {
+            return;
+        }
+        for (ExtendedFacing facing : ExtendedFacing.VALUES) {
+            if (alignment.checkedSetExtendedFacing(facing)) {
+                return;
+            }
         }
     }
 
