@@ -17,6 +17,8 @@ import net.minecraft.client.resources.IResourcePack;
 import net.minecraft.util.ResourceLocation;
 
 import com.hfstudio.guidenh.guide.Guide;
+import com.hfstudio.guidenh.guide.internal.GuideDevelopmentResourcePack;
+import com.hfstudio.guidenh.guide.internal.GuideDevelopmentResourcePacks;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.mixins.early.fml.AccessorFMLClientHandler;
@@ -181,6 +183,7 @@ public class DataDrivenGuideLoader {
 
     public static List<IResourcePack> getActiveResourcePacks() {
         var resourcePacks = new LinkedHashSet<IResourcePack>();
+        resourcePacks.addAll(GuideDevelopmentResourcePacks.getConfiguredPacks());
 
         try {
             var accessor = (AccessorFMLClientHandler) FMLClientHandler.instance();
@@ -237,6 +240,11 @@ public class DataDrivenGuideLoader {
     }
 
     public static File getResourcePackFile(IResourcePack resourcePack) {
+        if (resourcePack instanceof GuideDevelopmentResourcePack) {
+            return ((GuideDevelopmentResourcePack) resourcePack).getRoot()
+                .toFile();
+        }
+
         if (!(resourcePack instanceof AbstractResourcePack)) {
             return null;
         }

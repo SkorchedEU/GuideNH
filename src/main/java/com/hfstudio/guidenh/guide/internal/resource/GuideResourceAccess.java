@@ -11,11 +11,18 @@ import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.hfstudio.guidenh.guide.internal.GuideDevelopmentResourcePacks;
+
 public class GuideResourceAccess {
 
     private GuideResourceAccess() {}
 
     public static @Nullable byte[] readBytes(IResourceManager resourceManager, ResourceLocation id) {
+        byte[] developmentBytes = GuideDevelopmentResourcePacks.readBytes(id);
+        if (developmentBytes != null) {
+            return developmentBytes;
+        }
+
         try {
             IResource resource = resourceManager.getResource(id);
             try (var input = resource.getInputStream()) {

@@ -22,6 +22,8 @@ This is especially useful for:
 | --- | --- |
 | `guideme.<guide_namespace>.<guide_path>.sources` | local folder used as the development source root |
 | `guideme.<guide_namespace>.<guide_path>.sourcesNamespace` | optional namespace override for files loaded from that folder |
+| `guideme.resourcePacks.sources` | standard resource-pack root to load and watch as an ordered development overlay; may be repeated |
+| `guideme.resourcePack.sources` | alias of `guideme.resourcePacks.sources`; may be repeated |
 | `guideme.showOnStartup` | optional guide or page to open automatically on the title screen |
 | `guideme.validateAtStartup` | optional comma-separated guide ids to validate once on startup |
 
@@ -50,6 +52,28 @@ The data-driven guide remains a single merged guide. When multiple namespaces co
 namespace is preserved in the page id, so `assets/gregtech/guidenh/_zh_cn/index.md` and
 `assets/appliedenergistics2/guidenh/_zh_cn/index.md` become `gregtech:index.md` and
 `appliedenergistics2:index.md` instead of overwriting each other.
+
+## Multi-Pack Live Preview
+
+Use `guideme.resourcePacks.sources` when you want one or more folders to behave like normal resource packs and be
+watched for all GuideNH content under `assets/<modid>/guidenh/...`.
+
+```text
+-Dguideme.resourcePacks.sources=E:/packs/base
+-Dguideme.resourcePacks.sources=E:/packs/override
+```
+
+The property is intentionally repeatable. GuideNH reads the JVM input arguments in the order they appear, because Java
+system properties would otherwise collapse repeated `-D` keys into a single final value.
+
+Conflict rules are resource-pack-like but deterministic for live preview:
+
+- different mod ids are isolated by namespace, so `gregtech:index.md` and `appliedenergistics2:index.md` are separate pages
+- for the same mod id, language, and markdown path, the earlier `guideme.resourcePacks.sources` entry wins
+- if the same page also exists in regular loaded resource packs, the development resource-pack roots win
+
+Changing markdown, Ponder JSON, images, or other files under these development resource-pack roots triggers a client
+resource reload so the merged guide and scene content refresh together.
 
 ## `showOnStartup` Formats
 
@@ -86,6 +110,7 @@ Typical usage:
 GuideNH does not poll guide files every frame.
 
 - development source watching is only registered when at least one guide actually enables development sources
+- multi-pack live preview watching is only registered when at least one `guideme.resourcePacks.sources` root exists
 - guide watcher processing is throttled to once every `20` client ticks
 - non-Markdown guide assets trigger page reparsing, so external files such as Ponder JSON can update live
 - startup guide opening and validation run only once after the title screen appears
