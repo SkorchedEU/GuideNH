@@ -400,6 +400,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             } else {
                 developmentPages.remove(pageId);
             }
+            removeCompiledPage(pageId);
 
             changes.set(i, new GuidePageChange(change.language(), pageId, initialPages.get(pageId), newPage));
         }
@@ -501,14 +502,19 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         }
         ResourceLocation pageId = parsedPage.getId();
         developmentPages.put(pageId, parsedPage);
-        synchronized (compiledPages) {
-            compiledPages.remove(parsedPage);
-        }
+        removeCompiledPage(pageId);
         if (parsedPage.hasParseFailure()) {
             recordParseFailure(parsedPage);
         } else {
             clearCompileFailure(pageId);
             clearParseFailure(pageId);
+        }
+    }
+
+    private void removeCompiledPage(ResourceLocation pageId) {
+        synchronized (compiledPages) {
+            compiledPages.keySet()
+                .removeIf(page -> page != null && pageId.equals(page.getId()));
         }
     }
 

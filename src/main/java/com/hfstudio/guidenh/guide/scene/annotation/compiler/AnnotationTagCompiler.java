@@ -1,5 +1,7 @@
 package com.hfstudio.guidenh.guide.scene.annotation.compiler;
 
+import java.util.List;
+
 import org.jetbrains.annotations.Nullable;
 
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
@@ -12,6 +14,7 @@ import com.hfstudio.guidenh.guide.scene.annotation.SceneAnnotation;
 import com.hfstudio.guidenh.guide.scene.element.SceneElementTagCompiler;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstAnyContent;
 
 public abstract class AnnotationTagCompiler implements SceneElementTagCompiler {
 
@@ -32,13 +35,20 @@ public abstract class AnnotationTagCompiler implements SceneElementTagCompiler {
     }
 
     static void applyTooltip(PageCompiler compiler, SceneAnnotation annotation, MdxJsxElementFields el) {
-        var children = el.children();
+        boolean lineAnnotation = "LineAnnotation".equals(el.name());
+        List<? extends MdAstAnyContent> children = lineAnnotation
+            ? LineAnnotationElementCompiler.tooltipChildren(compiler, el)
+            : el.children();
         if (children == null || children.isEmpty()) {
             return;
         }
 
         var contentBox = new LytVBox();
-        compiler.compileBlockTagChildren(el, contentBox);
+        if (lineAnnotation) {
+            compiler.compileBlockContextInSourceContext(children, contentBox);
+        } else {
+            compiler.compileBlockTagChildren(el, contentBox);
+        }
         if (!contentBox.getChildren()
             .isEmpty()) {
             annotation.setTooltip(new ContentTooltip(contentBox));

@@ -15,7 +15,7 @@ fade-in transitions — all declared in a JSON file.
 
 ## Full Feature Demo
 
-The scene below demonstrates every supported feature: six annotation types, multi-line text,
+The scene below demonstrates every supported feature: seven annotation types, multi-line text,
 independent (screen-space) text, text with a highlight box, block changes between keyframes,
 and modifier + item input annotations.
 
@@ -86,7 +86,7 @@ that set them. The runtime interpolates between consecutive keyframes using an e
 
 ## Annotation Types
 
-All six annotation types are supported. Fields not relevant to the type are ignored.
+All seven annotation types are supported. Fields not relevant to the type are ignored.
 
 ### `diamond` — World-space marker
 
@@ -113,6 +113,24 @@ All six annotation types are supported. Fields not relevant to the type are igno
 }
 ```
 
+### `block` - Whole-block box
+
+Use `block` when you want the Ponder JSON equivalent of a regular
+`<BlockAnnotation pos="x y z">`.
+
+```json
+{
+  "type": "block",
+  "pos": [1, 1, 1],
+  "color": "0xFFFF8833",
+  "lineWidth": 1.5,
+  "alwaysOnTop": true
+}
+```
+
+`blockBox` and `block_box` are accepted aliases. Coordinates may be written as
+`pos: [x, y, z]`, `pos: "x y z"`, as `x/y/z`, or as the legacy `blockX/blockY/blockZ` fields.
+
 ### `line` — Line segment
 
 ```json
@@ -131,10 +149,13 @@ All six annotation types are supported. Fields not relevant to the type are igno
 ```json
 {
   "type": "blockface",
-  "blockX": 1, "blockY": 1, "blockZ": 1,
+  "pos": [1, 1, 1],
   "color": "0x60FF8833"
 }
 ```
+
+`blockFace` and `block_face` are accepted aliases. Coordinates may be written as
+`pos: [x, y, z]`, `pos: "x y z"`, as `x/y/z`, or as `blockX/blockY/blockZ`.
 
 ### `text` — Speech-bubble label
 

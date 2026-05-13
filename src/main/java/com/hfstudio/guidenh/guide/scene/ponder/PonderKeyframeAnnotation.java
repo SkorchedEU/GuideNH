@@ -2,6 +2,7 @@ package com.hfstudio.guidenh.guide.scene.ponder;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.google.gson.JsonElement;
 import com.hfstudio.guidenh.guide.scene.annotation.InWorldBoxAnnotation;
 
 /**
@@ -9,9 +10,12 @@ import com.hfstudio.guidenh.guide.scene.annotation.InWorldBoxAnnotation;
  * The {@code type} field controls which fields are meaningful:
  * <ul>
  * <li>{@code diamond} - pos (x,y,z), color, tooltip, alwaysOnTop</li>
+ * <li>{@code block}/{@code blockBox} - block position (pos array, x/y/z, or blockX/blockY/blockZ), color, lineWidth,
+ * alwaysOnTop</li>
  * <li>{@code box} - min (minX,minY,minZ), max (maxX,maxY,maxZ), color, lineWidth, alwaysOnTop</li>
  * <li>{@code line} - from (fromX,fromY,fromZ), to (toX,toY,toZ), color, lineWidth, alwaysOnTop</li>
- * <li>{@code blockface} - block (blockX,blockY,blockZ), color, alwaysOnTop</li>
+ * <li>{@code blockface}/{@code blockFace} - block position (pos array, x/y/z, or blockX/blockY/blockZ), color,
+ * alwaysOnTop</li>
  * <li>{@code text} - pos (x,y,z), text, color (border), backgroundAlpha, maxWidth (wrap width px),
  * independent, yOffset; optional highlight box via hlMinX/hlMinY/hlMinZ/hlMaxX/hlMaxY/hlMaxZ and
  * highlightColor</li>
@@ -29,6 +33,8 @@ public class PonderKeyframeAnnotation {
     private Float y;
     @Nullable
     private Float z;
+    @Nullable
+    private JsonElement pos;
 
     @Nullable
     private Float minX;
@@ -167,15 +173,48 @@ public class PonderKeyframeAnnotation {
     }
 
     public int getBlockX(int def) {
-        return blockX != null ? blockX : def;
+        return blockX != null ? blockX : getPosBlockCoordinate(0, x, def);
     }
 
     public int getBlockY(int def) {
-        return blockY != null ? blockY : def;
+        return blockY != null ? blockY : getPosBlockCoordinate(1, y, def);
     }
 
     public int getBlockZ(int def) {
-        return blockZ != null ? blockZ : def;
+        return blockZ != null ? blockZ : getPosBlockCoordinate(2, z, def);
+    }
+
+    private int getPosBlockCoordinate(int index, @Nullable Float coordinate, int def) {
+        Float posCoordinate = getPosCoordinate(index);
+        if (posCoordinate != null) {
+            return (int) Math.floor(posCoordinate);
+        }
+        return coordinate != null ? (int) Math.floor(coordinate) : def;
+    }
+
+    @Nullable
+    private Float getPosCoordinate(int index) {
+        if (pos == null || pos.isJsonNull()) {
+            return null;
+        }
+        try {
+            if (pos.isJsonArray() && pos.getAsJsonArray()
+                .size() > index) {
+                return pos.getAsJsonArray()
+                    .get(index)
+                    .getAsFloat();
+            }
+            if (pos.isJsonPrimitive() && pos.getAsJsonPrimitive()
+                .isString()) {
+                String[] parts = pos.getAsString()
+                    .trim()
+                    .split("[,\\s]+");
+                if (parts.length > index && !parts[index].isEmpty()) {
+                    return Float.parseFloat(parts[index]);
+                }
+            }
+        } catch (RuntimeException ignored) {}
+        return null;
     }
 
     @Nullable

@@ -49,9 +49,11 @@ categories:
 
 - `BoxAnnotation` 用 `min="x y z"` / `max="x y z"` 描述任意 AABB（支持小数）。
 - `BlockAnnotation` 用 `pos="x y z"`（整数）选中某个方块，等价于 1x1x1 的盒子。
-- `LineAnnotation` 用 `from="x y z"` / `to="x y z"` 画一条线段（支持小数）。
+- `LineAnnotation` 用 `from="x y z"` / `to="x y z"` 画一条线段（支持小数），也可以用
+  `points="x y z; x y z; ..."` 画多段折线。
 
 所有三种都支持 `color="#AARRGGBB" 或 "#RRGGBB"`、`thickness`（线宽，单位：像素，默认 `1`）以及 `alwaysOnTop`（始终绘制在最前）。子节点是富文本，会作为悬停 tooltip 显示。
+`LineAnnotation` 还可以用 `arrow="start"` 或 `arrow="end"` 在端点绘制 3D 箭头。点标记默认隐藏；可以用 `showPoints={true}` 显示所有点，或用 `<LinePoint index="..." show color="#RRGGBB" size="..."/>` 单独配置某个点。
 
 <GameScene width="384" height="224" zoom={4} interactive={true}>
   <Block id="minecraft:iron_block" />
@@ -85,6 +87,17 @@ categories:
       <DiamondAnnotation pos="0.5 1.2 0.5" color="#ffd24c">连接点 A</DiamondAnnotation>
       <DiamondAnnotation pos="1.5 1.2 0.5" color="#ee3333">连接点 B</DiamondAnnotation>
     </GameScene>
+  </LineAnnotation>
+
+  <LineAnnotation
+    color="#66ccff"
+    points="0.5 1.8 2.5; 1.5 2.25 1.5; 2.5 1.8 0.5"
+    thickness="0.08"
+    arrow="end"
+  >
+    <LinePoint index="0" show color="#66ccff" />
+    <LinePoint index="1" show color="#ff8844" size="0.12" />
+    **折线注解**：终点箭头是 3D 箭头头部，任意点都可以单独显示为立方体标记。
   </LineAnnotation>
 </GameScene>
 

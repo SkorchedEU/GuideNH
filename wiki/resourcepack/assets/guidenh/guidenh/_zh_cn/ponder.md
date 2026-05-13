@@ -14,7 +14,7 @@ categories:
 
 ## 完整功能演示
 
-下方场景展示了所有已支持功能：六种标注类型、多行文本、独立（屏幕空间）文本、
+下方场景展示了所有已支持功能：七种标注类型、多行文本、独立（屏幕空间）文本、
 带高亮框的文本、关键帧间的方块变换，以及带修饰键和物品图标的输入标注。
 
 <GameScene width="420" height="280" zoom={2.5} interactive={true}>
@@ -84,7 +84,7 @@ categories:
 
 ## 标注类型
 
-所有六种标注类型均已支持，与当前关键帧无关的字段将被忽略。
+所有七种标注类型均已支持，与当前关键帧无关的字段将被忽略。
 
 ### `diamond` — 世界空间标记
 
@@ -110,6 +110,23 @@ categories:
 }
 ```
 
+### `block` - 整方块线框
+
+当你想在 Ponder JSON 中使用和普通 `<BlockAnnotation pos="x y z">` 一样的整方块标注时，使用 `block`。
+
+```json
+{
+  "type": "block",
+  "pos": [1, 1, 1],
+  "color": "0xFFFF8833",
+  "lineWidth": 1.5,
+  "alwaysOnTop": true
+}
+```
+
+`blockBox` 和 `block_box` 也可以作为别名。坐标可以写成 `pos: [x, y, z]`、
+`pos: "x y z"`，也可以写成 `x/y/z`，或兼容旧风格的 `blockX/blockY/blockZ`。
+
 ### `line` — 线段
 
 ```json
@@ -128,10 +145,13 @@ categories:
 ```json
 {
   "type": "blockface",
-  "blockX": 1, "blockY": 1, "blockZ": 1,
+  "pos": [1, 1, 1],
   "color": "0x60FF8833"
 }
 ```
+
+`blockFace` 和 `block_face` 也可以作为别名。坐标可以写成 `pos: [x, y, z]`、
+`pos: "x y z"`，也可以写成 `x/y/z`，或 `blockX/blockY/blockZ`。
 
 ### `text` — 气泡文字标注
 

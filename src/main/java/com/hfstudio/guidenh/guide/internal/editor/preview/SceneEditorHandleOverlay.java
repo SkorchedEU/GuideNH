@@ -71,9 +71,7 @@ public class SceneEditorHandleOverlay {
     private final Vector3f handleWorldScratch = new Vector3f();
     private final Vector3f planeArmAScratch = new Vector3f();
     private final Vector3f planeArmBScratch = new Vector3f();
-    private final Vector3f axisBoundsCenterScratch = new Vector3f();
     private final Vector3f axisBoundsTipScratch = new Vector3f();
-    private final AxisArrowGeometry axisArrowScratch = new AxisArrowGeometry();
 
     public boolean supportsPointHandle(@Nullable SceneEditorElementModel element) {
         return getHandleIds(element).length > 0;
@@ -327,18 +325,9 @@ public class SceneEditorHandleOverlay {
 
     private LytRect getAxisHandleBounds(SceneEditorElementModel element, CameraSettings camera, LytRect viewport,
         String handleId) {
-        Vector3f center = projectHandlePoint(element, camera, viewport, CENTER_HANDLE_ID, axisBoundsCenterScratch);
         Vector3f tip = projectHandlePoint(element, camera, viewport, handleId, axisBoundsTipScratch);
-        AxisArrowGeometry geometry = createAxisArrowGeometry(center, tip, axisArrowScratch);
-        float minX = Math.min(tip.x, Math.min(geometry.leftX, geometry.rightX));
-        float minY = Math.min(tip.y, Math.min(geometry.leftY, geometry.rightY));
-        float maxX = Math.max(tip.x, Math.max(geometry.leftX, geometry.rightX));
-        float maxY = Math.max(tip.y, Math.max(geometry.leftY, geometry.rightY));
-        return new LytRect(
-            (int) Math.floor(minX) - 2,
-            (int) Math.floor(minY) - 2,
-            Math.max(AXIS_HANDLE_DIAMETER, (int) Math.ceil(maxX - minX) + 5),
-            Math.max(AXIS_HANDLE_DIAMETER, (int) Math.ceil(maxY - minY) + 5));
+        int radius = Math.max(AXIS_HANDLE_RADIUS, Math.round(ARROW_LENGTH));
+        return new LytRect(Math.round(tip.x) - radius, Math.round(tip.y) - radius, radius * 2 + 1, radius * 2 + 1);
     }
 
     private Vector3f projectPlaneHandlePoint(SceneEditorElementModel element, CameraSettings camera, LytRect viewport,
@@ -433,38 +422,32 @@ public class SceneEditorHandleOverlay {
     }
 
     private void drawAxisArrow(Vector3f from, Vector3f to, int color) {
-        AxisArrowGeometry geometry = createAxisArrowGeometry(from, to, axisArrowScratch);
-        drawFilledTriangle(to.x, to.y, geometry.leftX, geometry.leftY, geometry.rightX, geometry.rightY, color);
-    }
-
-    private AxisArrowGeometry createAxisArrowGeometry(Vector3f from, Vector3f to, AxisArrowGeometry dest) {
         float dx = to.x - from.x;
         float dy = to.y - from.y;
         float length = (float) Math.sqrt(dx * dx + dy * dy);
         if (length < 1e-4f) {
-            return dest.set(to.x, to.y, to.x, to.y, to.x, to.y);
+            return;
         }
         float ux = dx / length;
         float uy = dy / length;
         float px = -uy;
         float py = ux;
         float arrowLength = Math.min(ARROW_LENGTH, Math.max(3f, length * 0.55f));
-        if (arrowLength > length) {
-            arrowLength = length;
-        }
+        arrowLength = Math.min(arrowLength, length);
         float arrowHalfWidth = Math.min(ARROW_HALF_WIDTH, Math.max(2f, arrowLength * 0.5f));
         float baseX = to.x - ux * arrowLength;
         float baseY = to.y - uy * arrowLength;
-        return dest.set(
-            baseX + px * arrowHalfWidth,
-            baseY + py * arrowHalfWidth,
-            baseX - px * arrowHalfWidth,
-            baseY - py * arrowHalfWidth,
-            baseX,
-            baseY);
-    }
+        float tipZ = 0.08f;
+        float baseZ = -0.08f;
+        float leftX = baseX + px * arrowHalfWidth;
+        float leftY = baseY + py * arrowHalfWidth;
+        float rightX = baseX - px * arrowHalfWidth;
+        float rightY = baseY - py * arrowHalfWidth;
+        float upX = baseX + ux * arrowHalfWidth * 0.35f;
+        float upY = baseY + uy * arrowHalfWidth * 0.35f;
+        float downX = baseX - ux * arrowHalfWidth * 0.35f;
+        float downY = baseY - uy * arrowHalfWidth * 0.35f;
 
-    private void drawFilledTriangle(float ax, float ay, float bx, float by, float cx, float cy, int color) {
         float a = ((color >>> 24) & 0xFF) / 255f;
         float r = ((color >>> 16) & 0xFF) / 255f;
         float g = ((color >>> 8) & 0xFF) / 255f;
@@ -477,14 +460,22 @@ public class SceneEditorHandleOverlay {
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GL11.glColor4f(r, g, b, a);
             GL11.glBegin(GL11.GL_TRIANGLES);
-            GL11.glVertex3f(ax, ay, 0f);
-            GL11.glVertex3f(bx, by, 0f);
-            GL11.glVertex3f(cx, cy, 0f);
+            drawTriangle(to.x, to.y, tipZ, leftX, leftY, baseZ, upX, upY, 0f);
+            drawTriangle(to.x, to.y, tipZ, upX, upY, 0f, rightX, rightY, baseZ);
+            drawTriangle(to.x, to.y, tipZ, rightX, rightY, baseZ, downX, downY, 0f);
+            drawTriangle(to.x, to.y, tipZ, downX, downY, 0f, leftX, leftY, baseZ);
             GL11.glEnd();
         } finally {
             GL11.glPopAttrib();
             GL11.glColor4f(1f, 1f, 1f, 1f);
         }
+    }
+
+    private void drawTriangle(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy,
+        float cz) {
+        GL11.glVertex3f(ax, ay, az);
+        GL11.glVertex3f(bx, by, bz);
+        GL11.glVertex3f(cx, cy, cz);
     }
 
     private void drawLine(Vector3f from, Vector3f to, int color, float lineWidth) {
@@ -509,27 +500,4 @@ public class SceneEditorHandleOverlay {
         }
     }
 
-    public static class AxisArrowGeometry {
-
-        private float leftX;
-        private float leftY;
-        private float rightX;
-        private float rightY;
-        @SuppressWarnings("unused")
-        private float baseX;
-        @SuppressWarnings("unused")
-        private float baseY;
-
-        private AxisArrowGeometry() {}
-
-        private AxisArrowGeometry set(float leftX, float leftY, float rightX, float rightY, float baseX, float baseY) {
-            this.leftX = leftX;
-            this.leftY = leftY;
-            this.rightX = rightX;
-            this.rightY = rightY;
-            this.baseX = baseX;
-            this.baseY = baseY;
-            return this;
-        }
-    }
 }

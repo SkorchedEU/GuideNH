@@ -55,11 +55,23 @@ public class BlockAnnotationTemplateExpander {
         }
 
         if (templateAnnotation instanceof InWorldLineAnnotation lineAnnotation) {
+            List<Vector3f> translatedPoints = new ArrayList<>(
+                lineAnnotation.points()
+                    .size());
+            for (Vector3f point : lineAnnotation.points()) {
+                translatedPoints.add(new Vector3f(point).add(x, y, z));
+            }
             InWorldLineAnnotation translated = new InWorldLineAnnotation(
-                new Vector3f(lineAnnotation.from()).add(x, y, z),
-                new Vector3f(lineAnnotation.to()).add(x, y, z),
+                translatedPoints,
                 lineAnnotation.color(),
                 lineAnnotation.thickness());
+            translated.setArrow(lineAnnotation.arrow());
+            translated.setShowPoints(lineAnnotation.showPoints());
+            translated.setPointColor(lineAnnotation.pointColor());
+            translated.setPointSize(lineAnnotation.pointSize());
+            for (InWorldLineAnnotation.PointStyle style : lineAnnotation.pointStyles()) {
+                translated.addPointStyle(style);
+            }
             copyInWorldState(lineAnnotation, translated);
             return translated;
         }

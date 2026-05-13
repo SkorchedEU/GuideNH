@@ -152,6 +152,37 @@ public final class GuideSiteSceneAnnotationSerializer {
             itemIconResolver);
         data.put("from", toVector(line.from()));
         data.put("to", toVector(line.to()));
+        data.put("points", toVectors(line.points()));
+        if (line.arrow() != InWorldLineAnnotation.Arrow.NONE) {
+            data.put(
+                "arrow",
+                line.arrow()
+                    .serializedName());
+        }
+        if (line.showPoints()) {
+            data.put("showPoints", true);
+        }
+        data.put("pointColor", toCssColor(line.pointColor()));
+        data.put("pointSize", line.pointSize());
+        if (!line.pointStyles()
+            .isEmpty()) {
+            List<Map<String, Object>> pointStyles = new ArrayList<>();
+            for (InWorldLineAnnotation.PointStyle style : line.pointStyles()) {
+                Map<String, Object> pointStyle = new LinkedHashMap<>();
+                pointStyle.put("index", style.index());
+                if (style.show() != null) {
+                    pointStyle.put("show", style.show());
+                }
+                if (style.color() != null) {
+                    pointStyle.put("color", toCssColor(style.color()));
+                }
+                if (style.size() != null) {
+                    pointStyle.put("size", style.size());
+                }
+                pointStyles.add(pointStyle);
+            }
+            data.put("pointStyles", pointStyles);
+        }
         return data;
     }
 
@@ -253,6 +284,14 @@ public final class GuideSiteSceneAnnotationSerializer {
 
     private static float[] toVector(Vector3f vector) {
         return new float[] { vector.x, vector.y, vector.z };
+    }
+
+    private static List<float[]> toVectors(List<Vector3f> vectors) {
+        List<float[]> result = new ArrayList<>(vectors.size());
+        for (Vector3f vector : vectors) {
+            result.add(toVector(vector));
+        }
+        return result;
     }
 
     private static String toCssColor(@Nullable ColorValue color) {

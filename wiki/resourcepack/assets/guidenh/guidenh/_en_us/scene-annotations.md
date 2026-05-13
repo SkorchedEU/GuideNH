@@ -52,9 +52,11 @@ Activated beacon - 3x3 diamond block base, beacon on top; marker tooltip contain
 
 - `BoxAnnotation` accepts `min="x y z"` / `max="x y z"` (floats) for an arbitrary AABB.
 - `BlockAnnotation` accepts a single `pos="x y z"` (integers); shorthand for a 1x1x1 box.
-- `LineAnnotation` accepts `from="x y z"` / `to="x y z"` (floats) for a line segment.
+- `LineAnnotation` accepts `from="x y z"` / `to="x y z"` (floats) for a line segment, or
+  `points="x y z; x y z; ..."` for a polyline.
 
 All three support `color="#AARRGGBB" or "#RRGGBB"`, `thickness` in pixel units (default `1`), and `alwaysOnTop` to draw above other geometry. Children are used as a rich-text hover tooltip.
+`LineAnnotation` can also render a 3D arrow at `arrow="start"` or `arrow="end"`. Point cubes are hidden by default; enable all of them with `showPoints={true}`, or configure individual points with `<LinePoint index="..." show color="#RRGGBB" size="..."/>`.
 
 <GameScene width="384" height="224" zoom={4} interactive={true}>
   <Block id="minecraft:iron_block" />
@@ -88,6 +90,17 @@ All three support `color="#AARRGGBB" or "#RRGGBB"`, `thickness` in pixel units (
       <DiamondAnnotation pos="0.5 1.2 0.5" color="#ffd24c">Endpoint A</DiamondAnnotation>
       <DiamondAnnotation pos="1.5 1.2 0.5" color="#ee3333">Endpoint B</DiamondAnnotation>
     </GameScene>
+  </LineAnnotation>
+
+  <LineAnnotation
+    color="#66ccff"
+    points="0.5 1.8 2.5; 1.5 2.25 1.5; 2.5 1.8 0.5"
+    thickness="0.08"
+    arrow="end"
+  >
+    <LinePoint index="0" show color="#66ccff" />
+    <LinePoint index="1" show color="#ff8844" size="0.12" />
+    **Polyline annotation**: the end arrow is a 3D arrowhead, and individual points can be shown as cubes.
   </LineAnnotation>
 </GameScene>
 

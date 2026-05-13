@@ -284,7 +284,7 @@ changes during playback. Seeking or pausing always shows annotations at full opa
 
 ## Annotation Types
 
-Each entry in the `annotations` array requires a `type` field. Six types are available.
+Each entry in the `annotations` array requires a `type` field. Seven types are available.
 
 ---
 
@@ -338,6 +338,34 @@ Renders a wireframe axis-aligned box from `min` to `max`.
 
 ---
 
+### `block`
+
+Renders a wireframe around one whole block. This is the Ponder JSON equivalent of
+`<BlockAnnotation pos="x y z">` in a regular `GameScene`.
+
+```json
+{
+  "type": "block",
+  "pos": [1, 0, 1],
+  "color": "0xFFFF8800",
+  "lineWidth": 1.5,
+  "alwaysOnTop": true
+}
+```
+
+`"type": "blockBox"` and `"type": "block_box"` are accepted aliases.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pos` | number[3] or string | `[0, 0, 0]` | Block coordinate as `[x, y, z]` or `"x y z"`. |
+| `x`, `y`, `z` | number | `0` | Alternative block coordinate fields. Values are floored. |
+| `blockX/Y/Z` | integer | `0` | Legacy-style block coordinate fields. |
+| `color` | string | `"0xFFFFFFFF"` | ARGB line color. |
+| `lineWidth` | float | default | GL line width. |
+| `alwaysOnTop` | boolean | `false` | Render through blocks. |
+
+---
+
 ### `line`
 
 Renders a line segment between two world positions.
@@ -370,17 +398,19 @@ Highlights all faces of a single block with a translucent solid overlay.
 ```json
 {
   "type": "blockface",
-  "blockX": 1,
-  "blockY": 0,
-  "blockZ": 1,
+  "pos": [1, 0, 1],
   "color": "0x8833FF33",
   "alwaysOnTop": false
 }
 ```
 
+`"type": "blockFace"` and `"type": "block_face"` are accepted aliases.
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `blockX/Y/Z` | integer | `0` | Block coordinate to highlight. |
+| `pos` | number[3] or string | `[0, 0, 0]` | Block coordinate as `[x, y, z]` or `"x y z"`. |
+| `x`, `y`, `z` | number | `0` | Alternative block coordinate fields. Values are floored. |
+| `blockX/Y/Z` | integer | `0` | Legacy-style block coordinate fields. |
 | `color` | string | `"0x80FFFFFF"` | ARGB overlay color. |
 | `alwaysOnTop` | boolean | `false` | Render through blocks. |
 
@@ -616,7 +646,7 @@ assets/mymod/guidebooks/
         },
         {
           "type": "blockface",
-          "blockX": 2, "blockY": 1, "blockZ": 1,
+          "pos": [2, 1, 1],
           "color": "0x8833FF33"
         },
         {

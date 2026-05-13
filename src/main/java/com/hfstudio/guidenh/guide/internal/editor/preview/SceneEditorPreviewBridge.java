@@ -52,6 +52,9 @@ public class SceneEditorPreviewBridge {
         if (scene == null) {
             return;
         }
+        int ponderTick = scene.getPonderCurrentTickForExport();
+        boolean ponderPaused = scene.isPonderPausedForPreviewRestore();
+        boolean ponderFinished = scene.isPonderFinishedForPreviewRestore();
         scene.getAnnotations()
             .clear();
         scene.setHoveredStructureLibHatch(null);
@@ -59,6 +62,7 @@ public class SceneEditorPreviewBridge {
         scene.setHoveredEntity(null);
         scene.clearAnnotationHover();
         scene.setStructureLibSceneMetadata(null);
+        scene.clearPonderDataForPreviewRebuild();
         scene.setLevel(new GuidebookLevel());
         scene.setReserveBottomControlArea(false);
         scene.setForceOriginAxesVisible(true);
@@ -66,6 +70,8 @@ public class SceneEditorPreviewBridge {
             session.getSceneModel()
                 .isAllowLayerSlider() || ModConfig.ui.sceneLayerSliderEnabled);
         sceneNodePreviewApplier.apply(session, scene, structureLibSelectionOverride);
+        scene.initializePonderTimelineBaseline();
+        scene.restorePonderPreviewState(ponderTick, ponderPaused, ponderFinished);
     }
 
     private void applyExportCamera(CameraSettings camera, SceneEditorSceneModel model) {

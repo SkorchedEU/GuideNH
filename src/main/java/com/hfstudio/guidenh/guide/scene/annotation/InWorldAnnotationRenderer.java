@@ -82,12 +82,41 @@ public class InWorldAnnotationRenderer {
                 }
             } else if (a instanceof InWorldLineAnnotation line) {
                 int color = resolve(line.color(), mode, a.isHovered(), occluded);
-                drawLine(line.from(), line.to(), color, line.thickness());
+                drawLineAnnotation(line, mode, color, occluded);
             } else if (a instanceof SceneFloorGridAnnotation grid) {
                 if (!occluded) {
                     drawFloorGrid(grid);
                 }
             }
+        }
+    }
+
+    private static void drawLineAnnotation(InWorldLineAnnotation line, LightDarkMode mode, int color,
+        boolean occluded) {
+        var points = line.points();
+        for (int i = 0; i + 1 < points.size(); i++) {
+            drawLine(points.get(i), points.get(i + 1), color, line.thickness());
+        }
+        if (line.arrow() == InWorldLineAnnotation.Arrow.START) {
+            drawArrowHead(points.get(0), points.get(1), color, line.thickness());
+        } else if (line.arrow() == InWorldLineAnnotation.Arrow.END) {
+            drawArrowHead(points.get(points.size() - 1), points.get(points.size() - 2), color, line.thickness());
+        }
+        drawLinePoints(line, mode, occluded);
+    }
+
+    private static void drawLinePoints(InWorldLineAnnotation line, LightDarkMode mode, boolean occluded) {
+        var points = line.points();
+        for (int i = 0; i < points.size(); i++) {
+            InWorldLineAnnotation.PointStyle style = line.pointStyleFor(i);
+            boolean show = style != null && style.show() != null ? style.show() : line.showPoints();
+            if (!show) {
+                continue;
+            }
+            ColorValue colorValue = style != null && style.color() != null ? style.color() : line.pointColor();
+            float size = style != null && style.size() != null ? style.size() : line.pointSize();
+            int color = resolve(colorValue, mode, line.isHovered(), occluded);
+            drawPointCube(points.get(i), color, size);
         }
     }
 
@@ -173,6 +202,132 @@ public class InWorldAnnotationRenderer {
         fillCuboid(max.x - t, min.y - t, min.z - t, max.x + t, min.y + t, max.z + t, argb);
         fillCuboid(min.x - t, max.y - t, min.z - t, min.x + t, max.y + t, max.z + t, argb);
         fillCuboid(max.x - t, max.y - t, min.z - t, max.x + t, max.y + t, max.z + t, argb);
+        GL11.glEnd();
+    }
+
+    public static void drawPointCube(Vector3f center, int argb, float size) {
+        float half = Math.max(size / 32f, 1f / 256f) * 0.5f;
+        GL11.glBegin(GL11.GL_QUADS);
+        fillCuboid(
+            center.x - half,
+            center.y - half,
+            center.z - half,
+            center.x + half,
+            center.y + half,
+            center.z + half,
+            argb);
+        GL11.glEnd();
+    }
+
+    public static void drawArrowHead(Vector3f tip, Vector3f lineInterior, int argb, float thickness) {
+        float dx = tip.x - lineInterior.x;
+        float dy = tip.y - lineInterior.y;
+        float dz = tip.z - lineInterior.z;
+        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 1e-6f) return;
+        float ix = dx / len, iy = dy / len, iz = dz / len;
+        float t = Math.max(thickness / 32f, 1f / 256f);
+        float arrowLength = Math.max(t * 8f, 0.18f);
+        float arrowRadius = Math.max(t * 3.5f, 0.08f);
+
+        float ux, uy, uz;
+        if (Math.abs(iy) < 0.9f) {
+            ux = 0f;
+            uy = 1f;
+        } else {
+            ux = 1f;
+            uy = 0f;
+        }
+        uz = 0f;
+
+        float n1x = iy * uz - iz * uy;
+        float n1y = iz * ux - ix * uz;
+        float n1z = ix * uy - iy * ux;
+        float n1l = (float) Math.sqrt(n1x * n1x + n1y * n1y + n1z * n1z);
+        n1x /= n1l;
+        n1y /= n1l;
+        n1z /= n1l;
+        float n2x = iy * n1z - iz * n1y;
+        float n2y = iz * n1x - ix * n1z;
+        float n2z = ix * n1y - iy * n1x;
+
+        float bx = tip.x - ix * arrowLength;
+        float by = tip.y - iy * arrowLength;
+        float bz = tip.z - iz * arrowLength;
+        float p1x = bx + n1x * arrowRadius;
+        float p1y = by + n1y * arrowRadius;
+        float p1z = bz + n1z * arrowRadius;
+        float p2x = bx + n2x * arrowRadius;
+        float p2y = by + n2y * arrowRadius;
+        float p2z = bz + n2z * arrowRadius;
+        float p3x = bx - n1x * arrowRadius;
+        float p3y = by - n1y * arrowRadius;
+        float p3z = bz - n1z * arrowRadius;
+        float p4x = bx - n2x * arrowRadius;
+        float p4y = by - n2y * arrowRadius;
+        float p4z = bz - n2z * arrowRadius;
+
+        GL11.glBegin(GL11.GL_TRIANGLES);
+        triangle(
+            argb,
+            n1x + n2x + ix,
+            n1y + n2y + iy,
+            n1z + n2z + iz,
+            tip.x,
+            tip.y,
+            tip.z,
+            p1x,
+            p1y,
+            p1z,
+            p2x,
+            p2y,
+            p2z);
+        triangle(
+            argb,
+            -n1x + n2x + ix,
+            -n1y + n2y + iy,
+            -n1z + n2z + iz,
+            tip.x,
+            tip.y,
+            tip.z,
+            p2x,
+            p2y,
+            p2z,
+            p3x,
+            p3y,
+            p3z);
+        triangle(
+            argb,
+            -n1x - n2x + ix,
+            -n1y - n2y + iy,
+            -n1z - n2z + iz,
+            tip.x,
+            tip.y,
+            tip.z,
+            p3x,
+            p3y,
+            p3z,
+            p4x,
+            p4y,
+            p4z);
+        triangle(
+            argb,
+            n1x - n2x + ix,
+            n1y - n2y + iy,
+            n1z - n2z + iz,
+            tip.x,
+            tip.y,
+            tip.z,
+            p4x,
+            p4y,
+            p4z,
+            p1x,
+            p1y,
+            p1z);
+        GL11.glEnd();
+
+        GL11.glBegin(GL11.GL_QUADS);
+        quad(argb, -ix, -iy, -iz, p1x, p1y, p1z, p4x, p4y, p4z, p3x, p3y, p3z, p2x, p2y, p2z);
         GL11.glEnd();
     }
 
@@ -344,6 +499,14 @@ public class InWorldAnnotationRenderer {
         GL11.glVertex3f(x2, y2, z2);
         GL11.glVertex3f(x3, y3, z3);
         GL11.glVertex3f(x4, y4, z4);
+    }
+
+    public static void triangle(int argb, float nx, float ny, float nz, float x1, float y1, float z1, float x2,
+        float y2, float z2, float x3, float y3, float z3) {
+        applyColor(shadeFaceColor(argb, nx, ny, nz));
+        GL11.glVertex3f(x1, y1, z1);
+        GL11.glVertex3f(x2, y2, z2);
+        GL11.glVertex3f(x3, y3, z3);
     }
 
     /**

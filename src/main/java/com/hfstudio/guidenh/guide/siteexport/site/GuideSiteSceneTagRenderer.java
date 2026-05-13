@@ -97,8 +97,8 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
                 defaultNamespace,
                 background,
                 exportedScene,
-                payload.inWorldJson,
-                payload.overlayJson));
+                payload.inWorldJson(),
+                payload.overlayJson()));
 
         for (String attributeName : FORWARDED_ATTRIBUTES) {
             String attributeValue = readOptional(element, attributeName);
@@ -349,8 +349,9 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
             }
 
             if ("LineAnnotation".equals(name)) {
-                float[] from = parseVector3(readOptional(flowElement, "from"), new float[] { 0f, 0f, 0f });
-                float[] to = parseVector3(readOptional(flowElement, "to"), new float[] { 0f, 0f, 0f });
+                List<float[]> points = parseLinePoints(flowElement);
+                float[] from = points.get(0);
+                float[] to = points.get(points.size() - 1);
                 inWorld.add(
                     buildInWorldAnnotation(
                         "line",
@@ -362,6 +363,28 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
                         readFloat(flowElement, "thickness", 1.0f),
                         createTemplateId(flowElement, defaultNamespace, currentPageId, templates),
                         readBooleanValue(flowElement, "alwaysOnTop", false)));
+                Map<String, Object> data = inWorld.get(inWorld.size() - 1);
+                data.put("points", points);
+                String arrow = readOptional(flowElement, "arrow");
+                if (arrow != null && !arrow.isEmpty()) {
+                    data.put("arrow", arrow);
+                }
+                if (readBooleanValue(flowElement, "showPoints", false)) {
+                    data.put("showPoints", true);
+                }
+                data.put(
+                    "pointColor",
+                    normalizeColor(
+                        readOptional(flowElement, "pointColor"),
+                        data.get("color")
+                            .toString()));
+                data.put(
+                    "pointSize",
+                    readFloat(flowElement, "pointSize", readFloat(flowElement, "thickness", 1.0f) * 1.25f));
+                List<Map<String, Object>> pointStyles = collectLinePointStyles(flowElement);
+                if (!pointStyles.isEmpty()) {
+                    data.put("pointStyles", pointStyles);
+                }
                 continue;
             }
 
@@ -405,6 +428,53 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
         }
         data.put("alwaysOnTop", alwaysOnTop);
         return data;
+    }
+
+    private List<float[]> parseLinePoints(MdxJsxElementFields flowElement) {
+        String rawPoints = readOptional(flowElement, "points");
+        if (rawPoints != null && !rawPoints.trim()
+            .isEmpty()) {
+            List<float[]> points = new ArrayList<>();
+            for (String token : rawPoints.split(";")) {
+                String trimmed = token.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                points.add(parseVector3(trimmed, new float[] { 0f, 0f, 0f }));
+            }
+            if (points.size() >= 2) {
+                return points;
+            }
+        }
+        float[] from = parseVector3(readOptional(flowElement, "from"), new float[] { 0f, 0f, 0f });
+        float[] to = parseVector3(readOptional(flowElement, "to"), new float[] { 0f, 0f, 0f });
+        List<float[]> points = new ArrayList<>(2);
+        points.add(from);
+        points.add(to);
+        return points;
+    }
+
+    private List<Map<String, Object>> collectLinePointStyles(MdxJsxElementFields flowElement) {
+        List<Map<String, Object>> styles = new ArrayList<>();
+        for (MdAstAnyContent child : flowElement.children()) {
+            if (!(child instanceof MdxJsxFlowElement pointElement) || !"LinePoint".equals(pointElement.name())) {
+                continue;
+            }
+            Map<String, Object> style = new LinkedHashMap<>();
+            style.put("index", Math.max(0, Math.round(readFloat(pointElement, "index", 0f))));
+            if (pointElement.hasAttribute("show")) {
+                style.put("show", readBooleanValue(pointElement, "show", true));
+            }
+            String color = readOptional(pointElement, "color");
+            if (color != null) {
+                style.put("color", normalizeColor(color, "#ffffff"));
+            }
+            if (pointElement.hasAttribute("size")) {
+                style.put("size", readFloat(pointElement, "size", 1.25f));
+            }
+            styles.add(style);
+        }
+        return styles;
     }
 
     private String createTemplateId(MdxJsxElementFields element, String defaultNamespace,
@@ -556,21 +626,21 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
         return (element, defaultNamespace, currentPageId, templates, sceneResolver, compiler) -> null;
     }
 
-    private static final class AnnotationPayload {
+    public static class AnnotationPayload {
 
-        private final String inWorldJson;
-        private final String overlayJson;
+        public final String inWorldJson;
+        public final String overlayJson;
 
         private AnnotationPayload(String inWorldJson, String overlayJson) {
             this.inWorldJson = inWorldJson;
             this.overlayJson = overlayJson;
         }
 
-        private String inWorldJson() {
+        public String inWorldJson() {
             return inWorldJson;
         }
 
-        private String overlayJson() {
+        public String overlayJson() {
             return overlayJson;
         }
     }

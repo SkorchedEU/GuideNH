@@ -224,7 +224,7 @@ assets/<modid>/guidebooks/
 
 ## 注释类型
 
-每个注释条目需要一个 `type` 字段，共支持六种类型。
+每个注释条目需要一个 `type` 字段，共支持七种类型。
 
 ---
 
@@ -278,6 +278,34 @@ assets/<modid>/guidebooks/
 
 ---
 
+### `block` - 整方块线框
+
+当你想在 Ponder JSON 中使用和普通 `<BlockAnnotation pos="x y z">` 一样的整方块标注时，使用 `block`。
+
+```json
+{
+  "type": "block",
+  "pos": [1, 0, 1],
+  "color": "0xFFFF8800",
+  "lineWidth": 1.5,
+  "alwaysOnTop": true
+}
+```
+
+`blockBox` 和 `block_box` 也可以作为别名。坐标可以写成 `pos: [x, y, z]`，也可以写成
+`x/y/z`，或兼容旧风格的 `blockX/blockY/blockZ`。
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `pos` | number[3] 或字符串 | `[0, 0, 0]` | 方块坐标，格式为 `[x, y, z]` 或 `"x y z"`。 |
+| `x`, `y`, `z` | number | `0` | 另一种方块坐标写法，会向下取整。 |
+| `blockX/Y/Z` | 整数 | `0` | 旧风格方块坐标字段。 |
+| `color` | 字符串 | `"0xFFFFFFFF"` | ARGB 线框颜色。 |
+| `lineWidth` | float | 默认值 | GL 线宽。 |
+| `alwaysOnTop` | 布尔值 | `false` | 穿透方块渲染。 |
+
+---
+
 ### `line` — 线段
 
 在两个世界坐标之间渲染一条线段。
@@ -310,17 +338,19 @@ assets/<modid>/guidebooks/
 ```json
 {
   "type": "blockface",
-  "blockX": 1,
-  "blockY": 0,
-  "blockZ": 1,
+  "pos": [1, 0, 1],
   "color": "0x8833FF33",
   "alwaysOnTop": false
 }
 ```
 
+`blockFace` 和 `block_face` 也可以作为别名。
+
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `blockX/Y/Z` | 整数 | `0` | 要高亮的方块坐标。 |
+| `pos` | number[3] 或字符串 | `[0, 0, 0]` | 方块坐标，格式为 `[x, y, z]` 或 `"x y z"`。 |
+| `x`, `y`, `z` | number | `0` | 另一种方块坐标写法，会向下取整。 |
+| `blockX/Y/Z` | 整数 | `0` | 旧风格方块坐标字段。 |
 | `color` | 字符串 | `"0x80FFFFFF"` | ARGB 叠层颜色。 |
 | `alwaysOnTop` | 布尔值 | `false` | 穿透方块渲染。 |
 
@@ -468,7 +498,7 @@ assets/<modid>/guidebooks/
 
 ## 完整示例
 
-以下示例展示了所有六种注释类型，跨四个关键帧。
+以下示例展示了所有七种注释类型，跨四个关键帧。
 
 ### 目录结构
 
@@ -541,7 +571,7 @@ assets/mymod/guidebooks/
         },
         {
           "type": "blockface",
-          "blockX": 2, "blockY": 1, "blockZ": 1,
+          "pos": [2, 1, 1],
           "color": "0x8833FF33"
         },
         {

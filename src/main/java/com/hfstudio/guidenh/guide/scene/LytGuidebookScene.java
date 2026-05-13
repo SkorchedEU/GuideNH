@@ -16,7 +16,6 @@ import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.Entity;
@@ -898,7 +897,7 @@ public class LytGuidebookScene extends LytBlock {
             return intersectsVisibleLayer(boxAnnotation.min().y, boxAnnotation.max().y, visibleLayerY);
         }
         if (annotation instanceof InWorldLineAnnotation lineAnnotation) {
-            return intersectsVisibleLayer(lineAnnotation.from().y, lineAnnotation.to().y, visibleLayerY);
+            return lineIntersectsVisibleLayer(lineAnnotation, visibleLayerY);
         }
         if (annotation instanceof InWorldBoxFaceOverlayAnnotation overlayAnnotation) {
             return intersectsVisibleLayer(overlayAnnotation.min().y, overlayAnnotation.max().y, visibleLayerY);
@@ -926,7 +925,7 @@ public class LytGuidebookScene extends LytBlock {
             return intersectsLayerSelection(boxAnnotation.min().y, boxAnnotation.max().y, layerSelection);
         }
         if (annotation instanceof InWorldLineAnnotation lineAnnotation) {
-            return intersectsLayerSelection(lineAnnotation.from().y, lineAnnotation.to().y, layerSelection);
+            return lineIntersectsLayerSelection(lineAnnotation, layerSelection);
         }
         if (annotation instanceof InWorldBoxFaceOverlayAnnotation overlayAnnotation) {
             return intersectsLayerSelection(overlayAnnotation.min().y, overlayAnnotation.max().y, layerSelection);
@@ -1309,16 +1308,46 @@ public class LytGuidebookScene extends LytBlock {
     private boolean lineScreenContains(InWorldLineAnnotation line, LytRect viewport, int mouseX, int mouseY) {
         int cx = viewport.x() + viewport.width() / 2;
         int cy = viewport.y() + viewport.height() / 2;
-        var a = camera.worldToScreen(line.from().x, line.from().y, line.from().z, projectedLineFromScratch);
-        var b = camera.worldToScreen(line.to().x, line.to().y, line.to().z, projectedLineToScratch);
-        float ax = cx + a.x, ay = cy + a.y;
-        float bx = cx + b.x, by = cy + b.y;
-        float dx = bx - ax, dy = by - ay;
-        float lenSq = dx * dx + dy * dy;
-        float t = lenSq < 1e-4f ? 0f : Math.max(0f, Math.min(1f, ((mouseX - ax) * dx + (mouseY - ay) * dy) / lenSq));
-        float px = ax + t * dx, py = ay + t * dy;
-        float ex = mouseX - px, ey = mouseY - py;
-        return ex * ex + ey * ey <= LINE_HOVER_TOLERANCE_PX_SQUARED;
+        var points = line.points();
+        for (int i = 0; i + 1 < points.size(); i++) {
+            var from = points.get(i);
+            var to = points.get(i + 1);
+            var a = camera.worldToScreen(from.x, from.y, from.z, projectedLineFromScratch);
+            var b = camera.worldToScreen(to.x, to.y, to.z, projectedLineToScratch);
+            float ax = cx + a.x, ay = cy + a.y;
+            float bx = cx + b.x, by = cy + b.y;
+            float dx = bx - ax, dy = by - ay;
+            float lenSq = dx * dx + dy * dy;
+            float t = lenSq < 1e-4f ? 0f
+                : Math.max(0f, Math.min(1f, ((mouseX - ax) * dx + (mouseY - ay) * dy) / lenSq));
+            float px = ax + t * dx, py = ay + t * dy;
+            float ex = mouseX - px, ey = mouseY - py;
+            if (ex * ex + ey * ey <= LINE_HOVER_TOLERANCE_PX_SQUARED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean lineIntersectsVisibleLayer(InWorldLineAnnotation line, int visibleLayerY) {
+        float minY = Float.POSITIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        for (var point : line.points()) {
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+        return intersectsVisibleLayer(minY, maxY, visibleLayerY);
+    }
+
+    private boolean lineIntersectsLayerSelection(InWorldLineAnnotation line,
+        GuidebookSceneLayerSelection layerSelection) {
+        float minY = Float.POSITIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        for (var point : line.points()) {
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+        }
+        return intersectsLayerSelection(minY, maxY, layerSelection);
     }
 
     public void clearAnnotationHover() {
@@ -3317,21 +3346,26 @@ public class LytGuidebookScene extends LytBlock {
         }
         if (dragButton < 0) return;
         if (isPonderPlaying()) return;
+        int dx = mouseX - dragLastX;
+        int dy = mouseY - dragLastY;
         dragLastX = mouseX;
         dragLastY = mouseY;
+        applyCameraDrag(dx, dy);
     }
 
     public void pollDrag() {
-        if (!isCameraDragActive()) {
-            return;
+        // Camera movement is driven by explicit mouse drag events. Polling raw Mouse.getDX/Y here
+        // also consumes tiny deltas left by a plain click, which makes a click rotate the scene.
+    }
+
+    public void applyCameraDragForTesting(float dx, float dy, int button) {
+        int previousButton = dragButton;
+        dragButton = button;
+        try {
+            applyCameraDrag(dx, dy);
+        } finally {
+            dragButton = previousButton;
         }
-        float dx = getScaledMouseDeltaX();
-        float dy = getScaledMouseDeltaY();
-        if (dx == 0f && dy == 0f) {
-            return;
-        }
-        updateDragLastPositionFromMouse();
-        applyCameraDrag(dx, dy);
     }
 
     private void applyCameraDrag(float dx, float dy) {
@@ -3356,46 +3390,6 @@ public class LytGuidebookScene extends LytBlock {
                 camera.setRotationX(camera.getRotationX() + dy * DRAG_ROTATE_SENSITIVITY);
             }
         }
-    }
-
-    private boolean isCameraDragActive() {
-        return dragButton >= 0 && !isPonderPlaying()
-            && !draggingBlockStatsHorizontalScrollbar
-            && !draggingBlockStatsVerticalScrollbar
-            && !draggingPonderBar
-            && !draggingStructureLibTierSlider
-            && !draggingVisibleLayerSlider
-            && draggingStructureLibChannelId == null;
-    }
-
-    private static float getScaledMouseDeltaX() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
-            return Mouse.getDX();
-        }
-        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        return Mouse.getDX() * scaledResolution.getScaledWidth() / (float) mc.displayWidth;
-    }
-
-    private static float getScaledMouseDeltaY() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
-            return -Mouse.getDY();
-        }
-        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        return -Mouse.getDY() * scaledResolution.getScaledHeight() / (float) mc.displayHeight;
-    }
-
-    private void updateDragLastPositionFromMouse() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.displayWidth <= 0 || mc.displayHeight <= 0) {
-            return;
-        }
-        ScaledResolution scaledResolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
-        dragLastX = Mouse.getX() * scaledResolution.getScaledWidth() / mc.displayWidth;
-        dragLastY = scaledResolution.getScaledHeight()
-            - Mouse.getY() * scaledResolution.getScaledHeight() / mc.displayHeight
-            - 1;
     }
 
     public void endDrag() {
@@ -3499,6 +3493,10 @@ public class LytGuidebookScene extends LytBlock {
         return visibleTypes;
     }
 
+    public List<SceneAnnotation> getPonderActiveAnnotationsForTesting() {
+        return Collections.unmodifiableList(new ArrayList<>(ponderActiveAnnotations));
+    }
+
     public LytRect getStructureLibChannelSliderRectForTesting() {
         List<StructureLibSceneMetadata.ChannelData> channels = getSelectableStructureLibChannels();
         return channels.isEmpty() ? LytRect.empty()
@@ -3578,6 +3576,14 @@ public class LytGuidebookScene extends LytBlock {
         return ponderSceneData != null && !ponderPaused && !ponderFinished;
     }
 
+    public boolean isPonderPausedForPreviewRestore() {
+        return ponderSceneData != null && ponderPaused;
+    }
+
+    public boolean isPonderFinishedForPreviewRestore() {
+        return ponderSceneData != null && ponderFinished;
+    }
+
     private int structureLibTierSliderAreaHeight() {
         return hasStructureLibTierData() ? SCENE_SLIDER_AREA_HEIGHT : 0;
     }
@@ -3604,6 +3610,40 @@ public class LytGuidebookScene extends LytBlock {
         this.ponderOutgoingAnnotations.clear();
         this.ponderOutgoingFadeTick = 0;
         this.ponderSceneParticles.clear();
+        updatePonderState();
+    }
+
+    public void clearPonderDataForPreviewRebuild() {
+        clearPonderBlockChanges();
+        this.ponderSceneData = null;
+        this.ponderKeyframeAnnotationSets = new ArrayList<>();
+        this.ponderCurrentTick = 0;
+        this.ponderPaused = false;
+        this.ponderFinished = false;
+        this.ponderExportLayerOverrideEnabled = false;
+        this.draggingPonderBar = false;
+        this.ponderLastKeyframeIdx = -2;
+        this.ponderAnnotationFadeTick = 5;
+        this.ponderActiveAnnotations.clear();
+        this.ponderOutgoingAnnotations.clear();
+        this.ponderOutgoingFadeTick = 0;
+        this.ponderSceneParticles.clear();
+    }
+
+    public void restorePonderPreviewState(int tick, boolean paused, boolean finished) {
+        if (ponderSceneData == null) {
+            return;
+        }
+        ponderCurrentTick = Math.max(0, Math.min(ponderSceneData.getTotalTime(), tick));
+        ponderPaused = paused;
+        ponderFinished = finished || ponderCurrentTick >= ponderSceneData.getTotalTime();
+        ponderExportLayerOverrideEnabled = false;
+        draggingPonderBar = false;
+        ponderAnnotationFadeTick = ponderPaused ? 5 : 0;
+        ponderOutgoingAnnotations.clear();
+        ponderOutgoingFadeTick = 0;
+        ponderSceneParticles.clear();
+        ponderLastKeyframeIdx = -2;
         updatePonderState();
     }
 

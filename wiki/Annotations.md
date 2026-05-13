@@ -62,21 +62,46 @@ Example:
 
 ## `<LineAnnotation>`
 
-Draws a line segment in world space.
+Draws a line segment or polyline in world space.
 
 | Attribute | Required | Meaning |
 | --- | --- | --- |
-| `from` | yes | `x y z` start vector |
-| `to` | yes | `x y z` end vector |
+| `from` | yes, unless `points` is set | `x y z` start vector |
+| `to` | yes, unless `points` is set | `x y z` end vector |
+| `points` | no | Semicolon-separated `x y z` points for a polyline; overrides `from` / `to` |
 | `color` | no | annotation color |
 | `thickness` | no | line thickness float |
 | `alwaysOnTop` | no | boolean expression |
+| `arrow` | no | `start` or `end`; omitted means no arrow |
+| `showPoints` | no | boolean expression; shows every point as a small cube |
+| `pointColor` | no | default cube color; omitted uses the line color |
+| `pointSize` | no | default cube size; omitted uses a value slightly larger than `thickness` |
+
+`LineAnnotation` may contain `<LinePoint>` children to override point marker styling. `LinePoint`
+uses `index`, optional `show`, optional `color`, and optional `size`. Points are zero-indexed.
+Arrows can only be placed on the start or end of the line; intermediate polyline points cannot carry
+arrows.
 
 Example:
 
 ````md
 <LineAnnotation from="0.5 1.2 0.5" to="2.5 1.2 2.5" color="#FFD24C" thickness="0.08">
   Signal path.
+</LineAnnotation>
+````
+
+Polyline with a 3D endpoint arrow and selected point markers:
+
+````md
+<LineAnnotation
+  points="0.5 1.2 0.5; 1.5 1.7 0.5; 2.5 1.2 2.5"
+  color="#FFD24C"
+  thickness="0.08"
+  arrow="end"
+>
+  <LinePoint index="0" show color="#66CCFF" />
+  <LinePoint index="1" show color="#FF8844" size="0.12" />
+  Signal path through a bend.
 </LineAnnotation>
 ````
 

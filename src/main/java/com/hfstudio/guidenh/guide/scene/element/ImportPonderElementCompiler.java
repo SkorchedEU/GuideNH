@@ -137,6 +137,23 @@ public class ImportPonderElementCompiler implements SceneElementTagCompiler {
                 ann.setAlwaysOnTop(raw.isAlwaysOnTop());
                 return ann;
             }
+            case "block":
+            case "blockBox":
+            case "blockbox":
+            case "block_box": {
+                int bx = raw.getBlockX(0);
+                int by = raw.getBlockY(0);
+                int bz = raw.getBlockZ(0);
+                int argb = raw.parseColor(0xFFFFFFFF);
+                float lw = raw.getLineWidth(InWorldBoxAnnotation.DEFAULT_THICKNESS);
+                var ann = new InWorldBoxAnnotation(
+                    new Vector3f(bx, by, bz),
+                    new Vector3f(bx + 1f, by + 1f, bz + 1f),
+                    new ConstantColor(argb),
+                    lw);
+                ann.setAlwaysOnTop(raw.isAlwaysOnTop());
+                return ann;
+            }
             case "box": {
                 var min = new Vector3f(raw.getMinX(0f), raw.getMinY(0f), raw.getMinZ(0f));
                 var max = new Vector3f(raw.getMaxX(1f), raw.getMaxY(1f), raw.getMaxZ(1f));
@@ -155,7 +172,9 @@ public class ImportPonderElementCompiler implements SceneElementTagCompiler {
                 ann.setAlwaysOnTop(raw.isAlwaysOnTop());
                 return ann;
             }
-            case "blockface": {
+            case "blockface":
+            case "blockFace":
+            case "block_face": {
                 int bx = raw.getBlockX(0);
                 int by = raw.getBlockY(0);
                 int bz = raw.getBlockZ(0);

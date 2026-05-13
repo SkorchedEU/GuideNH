@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import net.minecraft.item.ItemStack;
 
@@ -269,16 +270,27 @@ public class SceneTagCompiler extends BlockTagCompiler {
 
     private boolean compileSceneChildren(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,
         MdxJsxFlowElement flow) {
-        AnnotationTagCompiler.CURRENT_SCENE.set(scene);
-        try {
+        return withCurrentAnnotationScene(scene, () -> {
             List<? extends MdAstAnyContent> children = compiler.reparseBlockTagChildren(flow);
             boolean[] result = new boolean[1];
             compiler.withBlockTagChildrenSourceContext(
                 flow,
                 () -> result[0] = compileSceneChildren(scene, compiler, errorSink, children));
             return result[0];
+        });
+    }
+
+    static <T> T withCurrentAnnotationScene(LytGuidebookScene scene, Supplier<T> action) {
+        LytGuidebookScene previousScene = AnnotationTagCompiler.CURRENT_SCENE.get();
+        AnnotationTagCompiler.CURRENT_SCENE.set(scene);
+        try {
+            return action.get();
         } finally {
-            AnnotationTagCompiler.CURRENT_SCENE.remove();
+            if (previousScene != null) {
+                AnnotationTagCompiler.CURRENT_SCENE.set(previousScene);
+            } else {
+                AnnotationTagCompiler.CURRENT_SCENE.remove();
+            }
         }
     }
 

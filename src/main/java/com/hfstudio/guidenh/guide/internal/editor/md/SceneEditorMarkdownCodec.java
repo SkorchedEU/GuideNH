@@ -66,8 +66,20 @@ public class SceneEditorMarkdownCodec {
         .unmodifiableSet(new HashSet<>(Arrays.asList("pos", "color", "thickness", "alwaysOnTop", "visible")));
     public static final Set<String> BOX_ATTRIBUTES = Collections
         .unmodifiableSet(new HashSet<>(Arrays.asList("min", "max", "color", "thickness", "alwaysOnTop", "visible")));
-    public static final Set<String> LINE_ATTRIBUTES = Collections
-        .unmodifiableSet(new HashSet<>(Arrays.asList("from", "to", "color", "thickness", "alwaysOnTop", "visible")));
+    public static final Set<String> LINE_ATTRIBUTES = Collections.unmodifiableSet(
+        new HashSet<>(
+            Arrays.asList(
+                "from",
+                "to",
+                "points",
+                "arrow",
+                "color",
+                "thickness",
+                "alwaysOnTop",
+                "visible",
+                "showPoints",
+                "pointColor",
+                "pointSize")));
     public static final Set<String> DIAMOND_ATTRIBUTES = Collections
         .unmodifiableSet(new HashSet<>(Arrays.asList("pos", "color", "alwaysOnTop", "visible")));
     public static final Set<String> TEXT_ATTRIBUTES = Collections.unmodifiableSet(
@@ -241,8 +253,14 @@ public class SceneEditorMarkdownCodec {
         if ("LineAnnotation".equals(tagName)) {
             ensureAllowedAttributes(element, LINE_ATTRIBUTES, tagName);
             SceneEditorElementModel model = new SceneEditorElementModel(SceneEditorElementType.LINE);
-            applyPrimary(model, parseVectorAttribute(element, "from", new float[] { 0f, 0f, 0f }));
-            applySecondary(model, parseVectorAttribute(element, "to", new float[] { 0f, 0f, 0f }));
+            float[][] points = parseLinePointsAttribute(element);
+            if (points != null) {
+                applyPrimary(model, points[0]);
+                applySecondary(model, points[points.length - 1]);
+            } else {
+                applyPrimary(model, parseVectorAttribute(element, "from", new float[] { 0f, 0f, 0f }));
+                applySecondary(model, parseVectorAttribute(element, "to", new float[] { 0f, 0f, 0f }));
+            }
             model.setColorLiteral(parseColorAttribute(element, model.getColorLiteral()));
             model.setThickness(parseFloatAttribute(element, "thickness", model.getThickness()));
             model.setAlwaysOnTop(parseBooleanAttribute(element, "alwaysOnTop", model.isAlwaysOnTop()));
@@ -906,6 +924,31 @@ public class SceneEditorMarkdownCodec {
             throw new InvalidSceneSyntaxException("Attribute '" + name + "' must contain exactly 3 numbers");
         }
         return pieces;
+    }
+
+    private float[][] parseLinePointsAttribute(MdxJsxElementFields element) {
+        String rawValue = getOptionalAttributeValue(element, "points");
+        if (rawValue == null || rawValue.trim()
+            .isEmpty()) {
+            return null;
+        }
+        String[] tokens = rawValue.split(";");
+        List<float[]> points = new ArrayList<>();
+        for (String token : tokens) {
+            String trimmed = token.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            float[] point = MdxAttrs.parseVector3Parts(trimmed);
+            if (point == null) {
+                throw new InvalidSceneSyntaxException("Attribute 'points' must contain semicolon-separated 3D vectors");
+            }
+            points.add(point);
+        }
+        if (points.size() < 2) {
+            throw new InvalidSceneSyntaxException("Attribute 'points' must contain at least two points");
+        }
+        return points.toArray(new float[0][]);
     }
 
     @Nullable

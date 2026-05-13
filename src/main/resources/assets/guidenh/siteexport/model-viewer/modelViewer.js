@@ -217,9 +217,132 @@ function serializeSceneJsonAttribute(value) {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
 
+function vectorFromArray(value) {
+  return Array.isArray(value) && value.length >= 3
+    ? [Number(value[0]) || 0, Number(value[1]) || 0, Number(value[2]) || 0]
+    : [0, 0, 0];
+}
+
+function normalizeLinePoints(annotation) {
+  if (Array.isArray(annotation?.points) && annotation.points.length >= 2) {
+    return annotation.points.map(vectorFromArray);
+  }
+  return [vectorFromArray(annotation?.from), vectorFromArray(annotation?.to)];
+}
+
+function subVector(a, b) {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function addScaledVector(a, b, scale) {
+  return [a[0] + b[0] * scale, a[1] + b[1] * scale, a[2] + b[2] * scale];
+}
+
+function crossVector(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+
+function normalizeVector(value, fallback = [1, 0, 0]) {
+  const len = Math.hypot(value[0], value[1], value[2]);
+  return len > 1e-6 ? [value[0] / len, value[1] / len, value[2] / len] : fallback;
+}
+
+function pointBoxAnnotation(point, color, size, alwaysOnTop) {
+  const half = Math.max(Number(size) || 0, 1 / 256) * 0.5;
+  return {
+    type: "box",
+    minCorner: [point[0] - half, point[1] - half, point[2] - half],
+    maxCorner: [point[0] + half, point[1] + half, point[2] + half],
+    color,
+    thickness: half,
+    alwaysOnTop,
+  };
+}
+
+function arrowLineAnnotations(tip, interior, annotation) {
+  const dir = normalizeVector(subVector(tip, interior));
+  const up = Math.abs(dir[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+  const n1 = normalizeVector(crossVector(dir, up), [0, 0, 1]);
+  const n2 = normalizeVector(crossVector(dir, n1), [0, 1, 0]);
+  const thickness = Number(annotation.thickness) || 1;
+  const scaled = Math.max(thickness / 32, 1 / 256);
+  const length = Math.max(scaled * 8, 0.18);
+  const radius = Math.max(scaled * 3.5, 0.08);
+  const base = addScaledVector(tip, dir, -length);
+  const basePoints = [
+    addScaledVector(base, n1, radius),
+    addScaledVector(base, n2, radius),
+    addScaledVector(base, n1, -radius),
+    addScaledVector(base, n2, -radius),
+  ];
+  return basePoints.map((from) => ({
+    ...annotation,
+    type: "line",
+    from,
+    to: tip,
+    points: undefined,
+    arrow: undefined,
+    showPoints: undefined,
+    pointStyles: undefined,
+    thickness: Math.max(thickness * 0.6, 0.02),
+  }));
+}
+
+function expandLineAnnotation(annotation) {
+  if (annotation?.type !== "line") {
+    return [annotation];
+  }
+  const points = normalizeLinePoints(annotation);
+  const expanded = [];
+  for (let i = 0; i + 1 < points.length; i++) {
+    expanded.push({
+      ...annotation,
+      from: points[i],
+      to: points[i + 1],
+      points: undefined,
+      arrow: undefined,
+      showPoints: undefined,
+      pointStyles: undefined,
+    });
+  }
+  if (annotation.arrow === "start") {
+    expanded.push(...arrowLineAnnotations(points[0], points[1], annotation));
+  } else if (annotation.arrow === "end") {
+    expanded.push(...arrowLineAnnotations(points[points.length - 1], points[points.length - 2], annotation));
+  }
+
+  const styles = Array.isArray(annotation.pointStyles) ? annotation.pointStyles : [];
+  for (let i = 0; i < points.length; i++) {
+    let style = null;
+    for (let styleIndex = styles.length - 1; styleIndex >= 0; styleIndex--) {
+      if (Number(styles[styleIndex]?.index) === i) {
+        style = styles[styleIndex];
+        break;
+      }
+    }
+    const show = style?.show ?? annotation.showPoints ?? false;
+    if (!show) {
+      continue;
+    }
+    expanded.push(
+      pointBoxAnnotation(
+        points[i],
+        style?.color ?? annotation.pointColor ?? annotation.color,
+        style?.size ?? annotation.pointSize ?? (Number(annotation.thickness) || 1) * 1.25,
+        annotation.alwaysOnTop,
+      ),
+    );
+  }
+  return expanded;
+}
+
+function expandSceneAnnotations(annotations) {
+  return annotations.flatMap(expandLineAnnotation);
+}
+
 function mergedGridAnnotations(descriptor, baseAnnotationsJson) {
-  const baseAnnotations = parseSceneJsonAttribute(baseAnnotationsJson, []).filter(
-    (annotation) => annotation?.siteControl !== "floorGrid",
+  const baseAnnotations = expandSceneAnnotations(
+    parseSceneJsonAttribute(baseAnnotationsJson, []).filter((annotation) => annotation?.siteControl !== "floorGrid"),
   );
   if (!descriptor.gridVisible) {
     return baseAnnotations;

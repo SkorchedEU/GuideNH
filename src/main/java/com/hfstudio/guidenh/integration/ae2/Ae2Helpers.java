@@ -476,14 +476,15 @@ public final class Ae2Helpers {
             boolean sourceBlocked = isBlocked(container, dir);
             boolean sourceCanConnect = container.getCableConnectionType(dir) != AECableType.NONE;
             boolean neighborCanConnect;
-            boolean neighborHasSidePart = false;
+            boolean neighborFaceBlockedByPart = false;
             boolean neighborBlocked = false;
             boolean neighborAcceptsSide = true;
 
             if (adjContainer != null) {
                 ForgeDirection opposite = dir.getOpposite();
-                neighborCanConnect = adjContainer.getCableConnectionType(opposite) != AECableType.NONE;
-                neighborHasSidePart = adjContainer.getPart(opposite) != null;
+                neighborCanConnect = canConnectCableBusOnSide(adjContainer, opposite);
+                neighborFaceBlockedByPart = Ae2CableConnectionRules
+                    .facePartBlocksAdjacentCable(adjContainer.getPart(opposite) != null, neighborCanConnect);
                 neighborBlocked = isBlocked(adjContainer, opposite);
             } else if (adj instanceof IGridHost adjHost) {
                 ForgeDirection opposite = dir.getOpposite();
@@ -508,7 +509,7 @@ public final class Ae2Helpers {
                 sourceBlocked,
                 sourceCanConnect,
                 neighborCanConnect,
-                neighborHasSidePart,
+                neighborFaceBlockedByPart,
                 neighborBlocked,
                 neighborAcceptsSide)) {
                 continue;
@@ -527,6 +528,15 @@ public final class Ae2Helpers {
     private static boolean isBlocked(CableBusContainer container, ForgeDirection direction) {
         try {
             return container.isBlocked(direction);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    @Optional.Method(modid = "appliedenergistics2")
+    private static boolean canConnectCableBusOnSide(CableBusContainer container, ForgeDirection direction) {
+        try {
+            return container.getCableConnectionType(direction) != AECableType.NONE;
         } catch (Throwable ignored) {
             return false;
         }

@@ -93,10 +93,15 @@
           "highlightColor": "0x60FF8833"
         },
         {
+          "type": "block",
+          "pos": [1, 1, 1],
+          "color": "0xFFFF8833",
+          "lineWidth": 1.5,
+          "alwaysOnTop": true
+        },
+        {
           "type": "blockface",
-          "blockX": 1,
-          "blockY": 1,
-          "blockZ": 1,
+          "pos": [1, 1, 1],
           "color": "0x60FF8833"
         }
       ]

@@ -64,21 +64,45 @@ GuideNH 会在每个轴上自动交换反向提供的 min/max 坐标。
 
 ## `<LineAnnotation>`
 
-在世界空间中绘制一条线段。
+在世界空间中绘制一条线段或多段折线。
 
 | 属性 | 必需 | 含义 |
 | --- | --- | --- |
-| `from` | 是 | `x y z` 起点向量 |
-| `to` | 是 | `x y z` 终点向量 |
+| `from` | 是，除非设置了 `points` | `x y z` 起点向量 |
+| `to` | 是，除非设置了 `points` | `x y z` 终点向量 |
+| `points` | 否 | 用分号分隔的多个 `x y z` 点，用于折线；设置后会覆盖 `from` / `to` |
 | `color` | 否 | 注解颜色 |
 | `thickness` | 否 | 线宽，float |
 | `alwaysOnTop` | 否 | boolean expression |
+| `arrow` | 否 | `start` 或 `end`；省略时不显示箭头 |
+| `showPoints` | 否 | boolean expression；把所有点显示为小立方体 |
+| `pointColor` | 否 | 默认点颜色；省略时使用线颜色 |
+| `pointSize` | 否 | 默认点大小；省略时比 `thickness` 稍粗 |
+
+`LineAnnotation` 可以包含 `<LinePoint>` 子标签，用于覆盖单个点的显示样式。
+`LinePoint` 支持 `index`、可选的 `show`、可选的 `color` 和可选的 `size`。点编号从 0 开始。
+箭头只能放在起点或终点；折线中间点不能设置箭头。
 
 示例：
 
 ````md
 <LineAnnotation from="0.5 1.2 0.5" to="2.5 1.2 2.5" color="#FFD24C" thickness="0.08">
   Signal path.
+</LineAnnotation>
+````
+
+带 3D 端点箭头和单独点标记的折线：
+
+````md
+<LineAnnotation
+  points="0.5 1.2 0.5; 1.5 1.7 0.5; 2.5 1.2 2.5"
+  color="#FFD24C"
+  thickness="0.08"
+  arrow="end"
+>
+  <LinePoint index="0" show color="#66CCFF" />
+  <LinePoint index="1" show color="#FF8844" size="0.12" />
+  Signal path through a bend.
 </LineAnnotation>
 ````
 
