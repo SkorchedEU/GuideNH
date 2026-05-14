@@ -23,10 +23,12 @@ public final class GuideDevelopmentResourcePackWatcher implements AutoCloseable 
 
     private final List<DirectoryWatcher> watchers = new ArrayList<>();
     private final ExecutorService watchExecutor;
+    private final Runnable reloadAction;
     private final AtomicBoolean reloadRequested = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    private GuideDevelopmentResourcePackWatcher() {
+    private GuideDevelopmentResourcePackWatcher(Runnable reloadAction) {
+        this.reloadAction = reloadAction;
         this.watchExecutor = Executors.newSingleThreadExecutor(r -> {
             Thread thread = new Thread(r, "GuideNH-DevResourcePackWatcher");
             thread.setDaemon(true);
@@ -39,7 +41,7 @@ public final class GuideDevelopmentResourcePackWatcher implements AutoCloseable 
             return;
         }
 
-        var watcher = new GuideDevelopmentResourcePackWatcher();
+        var watcher = new GuideDevelopmentResourcePackWatcher(GuideLightweightReloadService::reloadDevelopmentGuides);
         watcher.start(GuideDevelopmentResourcePacks.getConfiguredPacks());
         if (!watcher.isWatching()) {
             watcher.close();
@@ -52,8 +54,13 @@ public final class GuideDevelopmentResourcePackWatcher implements AutoCloseable 
             .register(watcher);
     }
 
-    static GuideDevelopmentResourcePackWatcher createForTests(List<GuideDevelopmentResourcePack> packs) {
-        var watcher = new GuideDevelopmentResourcePackWatcher();
+    public static GuideDevelopmentResourcePackWatcher createForTests(List<GuideDevelopmentResourcePack> packs) {
+        return createForTests(packs, () -> {});
+    }
+
+    public static GuideDevelopmentResourcePackWatcher createForTests(List<GuideDevelopmentResourcePack> packs,
+        Runnable reloadAction) {
+        var watcher = new GuideDevelopmentResourcePackWatcher(reloadAction);
         watcher.start(packs);
         return watcher;
     }
@@ -92,7 +99,7 @@ public final class GuideDevelopmentResourcePackWatcher implements AutoCloseable 
             return;
         }
 
-        GuideME.PROXY.reloadResources();
+        reloadAction.run();
     }
 
     @Override
@@ -124,6 +131,16 @@ public final class GuideDevelopmentResourcePackWatcher implements AutoCloseable 
     private void requestReload() {
         if (!closed.get()) {
             reloadRequested.set(true);
+        }
+    }
+
+    public void requestReloadForTests() {
+        requestReload();
+    }
+
+    public void processPendingReloadForTests() {
+        if (!closed.get() && reloadRequested.getAndSet(false)) {
+            reloadAction.run();
         }
     }
 

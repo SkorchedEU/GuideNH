@@ -145,6 +145,10 @@ public class ModConfig {
         @DefaultBoolean(false)
         public boolean guideEditorAdvancedToolbarVisible = false;
 
+        @Comment("Whether the guide editor saves shortly after edits and when closing the screen.")
+        @DefaultBoolean(true)
+        public boolean guideEditorAutosaveEnabled = true;
+
         @Comment("Guide editor layout mode: 0 split, 1 editor only, 2 preview only.")
         public int guideEditorLayoutMode = 0;
 

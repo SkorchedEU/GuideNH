@@ -28,6 +28,15 @@ public final class GuideScreenEditorState {
         ModConfig.save();
     }
 
+    public static boolean isAutosaveEnabled() {
+        return ModConfig.ui.guideEditorAutosaveEnabled;
+    }
+
+    public static void setAutosaveEnabled(boolean enabled) {
+        ModConfig.ui.guideEditorAutosaveEnabled = enabled;
+        ModConfig.save();
+    }
+
     public static GuideScreenEditorLayoutMode getLayoutMode() {
         return GuideScreenEditorLayoutMode.fromConfig(ModConfig.ui.guideEditorLayoutMode);
     }

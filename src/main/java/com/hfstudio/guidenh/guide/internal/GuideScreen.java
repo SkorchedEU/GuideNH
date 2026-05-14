@@ -144,14 +144,16 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     private int dragLastMouseY = 0;
 
     private GuideIconButton btnSearch, btnBack, btnForward, btnFullWidth, btnClose;
-    private GuideIconButton btnGuideEditorToggle, btnGuideEditorNewPage, btnGuideEditorLayoutSplit,
-        btnGuideEditorLayoutEditorOnly, btnGuideEditorLayoutPreviewOnly, btnGuideEditorAdvancedToggle;
+    private GuideIconButton btnGuideEditorToggle, btnGuideEditorNewPage, btnGuideEditorAutosave, btnGuideEditorSave,
+        btnGuideEditorLayoutSplit, btnGuideEditorLayoutEditorOnly, btnGuideEditorLayoutPreviewOnly,
+        btnGuideEditorAdvancedToggle;
     public static final int TOOLBAR_H = 16;
     public static final int TOOLBAR_GAP = 3;
     private static final int GUIDE_EDITOR_TOOLBAR_H = 16;
     private static final int GUIDE_EDITOR_MIN_SPLIT_PANE_W = 15;
     private static final int SCROLLBAR_W = SceneEditorMultilineTextArea.SCROLLBAR_SIZE;
     private static final int GUIDE_EDITOR_DIVIDER_HOVER_DELAY_MILLIS = 1000;
+    private static final long GUIDE_EDITOR_SAFETY_AUTOSAVE_INTERVAL_MILLIS = 5L * 60L * 1000L;
     private boolean fullWidth;
 
     private final GuideNavBar navBar = new GuideNavBar();
@@ -235,6 +237,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     private boolean guideEditorDirty;
     private boolean guideEditorPreviewDirty = true;
     private long guideEditorNextSaveAtMillis;
+    private long guideEditorNextSafetySaveAtMillis;
     private long guideEditorNextPreviewCompileAtMillis;
     private long guideEditorNextExternalCheckAtMillis;
     private boolean guideEditorDraggingDivider;
@@ -542,6 +545,13 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         rebuildToolbar();
     }
 
+    private void toggleGuideEditorAutosave() {
+        boolean enabled = !GuideScreenEditorState.isAutosaveEnabled();
+        GuideScreenEditorState.setAutosaveEnabled(enabled);
+        scheduleGuideEditorSaveAfterEdit();
+        updateToolbarButtonState();
+    }
+
     private void createGuideEditorPage() {
         if (!isGuideEditorActive()) {
             return;
@@ -741,6 +751,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         guideEditorDirty = false;
         guideEditorPreviewDirty = true;
         guideEditorNextSaveAtMillis = 0L;
+        guideEditorNextSafetySaveAtMillis = 0L;
         guideEditorNextPreviewCompileAtMillis = 0L;
         guideEditorNextExternalCheckAtMillis = 0L;
         if (guideEditorTextArea != null && !preserveHistory) {
@@ -773,7 +784,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         guideEditorUndoHistory
             .push(text, guideEditorTextArea.getSelectionStart(), guideEditorTextArea.getSelectionEnd());
         long now = System.currentTimeMillis();
-        guideEditorNextSaveAtMillis = now + GuideScreenEditorState.getAutosaveDelayMillis();
+        scheduleGuideEditorSaveAfterEdit(now);
         guideEditorNextPreviewCompileAtMillis = now + 100L;
     }
 
@@ -799,9 +810,20 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         guideEditorDirty = !Objects.equals(guideEditorDraftSource, guideEditorSavedSource);
         guideEditorPreviewDirty = true;
         long now = System.currentTimeMillis();
-        guideEditorNextSaveAtMillis = now + GuideScreenEditorState.getAutosaveDelayMillis();
+        scheduleGuideEditorSaveAfterEdit(now);
         guideEditorNextPreviewCompileAtMillis = now + 100L;
         syncGuideEditorPreviewScrollFromEditor();
+    }
+
+    private void scheduleGuideEditorSaveAfterEdit() {
+        scheduleGuideEditorSaveAfterEdit(System.currentTimeMillis());
+    }
+
+    private void scheduleGuideEditorSaveAfterEdit(long now) {
+        guideEditorNextSaveAtMillis = GuideScreenEditorState.isAutosaveEnabled()
+            ? now + GuideScreenEditorState.getAutosaveDelayMillis()
+            : 0L;
+        guideEditorNextSafetySaveAtMillis = now + GUIDE_EDITOR_SAFETY_AUTOSAVE_INTERVAL_MILLIS;
     }
 
     private void runGuideEditorTextMutation(Runnable mutation) {
@@ -832,10 +854,11 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         if (now >= guideEditorNextPreviewCompileAtMillis && guideEditorPreviewDirty) {
             rebuildGuideEditorPreview();
         }
-        if (now < guideEditorNextSaveAtMillis) {
-            return;
+        boolean saveDue = guideEditorNextSaveAtMillis > 0L && now >= guideEditorNextSaveAtMillis;
+        boolean safetySaveDue = guideEditorNextSafetySaveAtMillis > 0L && now >= guideEditorNextSafetySaveAtMillis;
+        if (saveDue || safetySaveDue) {
+            saveGuideEditorDraft();
         }
-        saveGuideEditorDraft();
     }
 
     private void rebuildGuideEditorPreview() {
@@ -942,6 +965,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         if (!isGuideEditorActive() || guideEditorDraftSource == null || guideEditorDraftPage == null) {
             return;
         }
+        updateGuideEditorTextFromArea();
         try {
             guideEditorFileStore.savePage(
                 guide,
@@ -962,8 +986,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             guideEditorExternalFileCheckEnabled = guideEditorFileStore
                 .hasWritablePage(guide, currentAnchor.pageId(), parsedDraft.getLanguage());
             guideEditorNextSaveAtMillis = 0L;
+            guideEditorNextSafetySaveAtMillis = 0L;
             guideEditorNextPreviewCompileAtMillis = 0L;
             guideEditorNextExternalCheckAtMillis = System.currentTimeMillis() + 250L;
+            updateToolbarButtonState();
             startBackgroundIndexRefresh();
         } catch (Throwable t) {
             FMLLog.warning("Failed to autosave guide editor page {}", currentAnchor.pageId(), t);
@@ -1033,6 +1059,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         guideEditorDirty = false;
         guideEditorPreviewDirty = true;
         guideEditorNextSaveAtMillis = 0L;
+        guideEditorNextSafetySaveAtMillis = 0L;
         guideEditorNextPreviewCompileAtMillis = 0L;
         guideEditorNextExternalCheckAtMillis = System.currentTimeMillis() + 250L;
         guideEditorUndoHistory.reset(safeSource, selectionStart, selectionEnd);
@@ -1186,9 +1213,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         guideEditorPreviewDirty = true;
         long now = System.currentTimeMillis();
         if (guideEditorDirty) {
-            guideEditorNextSaveAtMillis = now + GuideScreenEditorState.getAutosaveDelayMillis();
+            scheduleGuideEditorSaveAfterEdit(now);
         } else {
             guideEditorNextSaveAtMillis = 0L;
+            guideEditorNextSafetySaveAtMillis = 0L;
         }
         guideEditorNextPreviewCompileAtMillis = now + 100L;
         syncGuideEditorPreviewScrollFromEditor();
@@ -1420,6 +1448,8 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             btnGuideEditorLayoutEditorOnly = null;
             btnGuideEditorLayoutPreviewOnly = null;
             btnGuideEditorAdvancedToggle = null;
+            btnGuideEditorAutosave = null;
+            btnGuideEditorSave = null;
             return;
         }
 
@@ -1445,6 +1475,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         btnGuideEditorLayoutSplit = addEditorModeButton(102, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_LAYOUT_SPLIT);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
         btnGuideEditorNewPage = addEditorModeButton(101, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_NEW_PAGE);
+        x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
+        btnGuideEditorAutosave = addEditorModeButton(106, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_AUTOSAVE);
+        x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
+        btnGuideEditorSave = addEditorModeButton(107, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_SAVE);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
         btnGuideEditorToggle = addEditorModeButton(100, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_TOGGLE);
         rebuildGuideEditorActionButtons();
@@ -1637,6 +1671,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
             toggleGuideEditorEnabled();
         } else if (btn == btnGuideEditorNewPage) {
             createGuideEditorPage();
+        } else if (btn == btnGuideEditorAutosave) {
+            toggleGuideEditorAutosave();
+        } else if (btn == btnGuideEditorSave) {
+            saveGuideEditorDraft();
         } else if (btn == btnGuideEditorLayoutSplit) {
             setGuideEditorLayoutMode(GuideScreenEditorLayoutMode.SPLIT);
         } else if (btn == btnGuideEditorLayoutEditorOnly) {
@@ -3264,6 +3302,12 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         if (btnSearch != null) {
             btnSearch.enabled = canSearchCurrentView();
         }
+        if (btnGuideEditorAutosave != null) {
+            btnGuideEditorAutosave.setActive(GuideScreenEditorState.isAutosaveEnabled());
+        }
+        if (btnGuideEditorSave != null) {
+            btnGuideEditorSave.enabled = isGuideEditorActive() && guideEditorDirty;
+        }
     }
 
     private boolean canSearchCurrentView() {
@@ -3958,6 +4002,9 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
+        if (GuideScreenEditorState.isAutosaveEnabled() && guideEditorDirty) {
+            saveGuideEditorDraft();
+        }
         Keyboard.enableRepeatEvents(false);
         document = null;
         layoutDocument = null;

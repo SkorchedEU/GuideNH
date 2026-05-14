@@ -57,6 +57,8 @@ public enum GuidebookText implements LocalizationEnum {
     GuideEditorNewPagePromptTitle,
     GuideEditorNewPagePath,
     GuideEditorNewPageCreate,
+    GuideEditorAutosave,
+    GuideEditorSave,
     GuideEditorLayoutSplit,
     GuideEditorLayoutEditorOnly,
     GuideEditorLayoutPreviewOnly,
