@@ -23,6 +23,7 @@ navigation:
 | `title` | 必填，显示标题 |
 | `parent` | 可选，父页面 id；解析规则与指南页面链接相同 |
 | `position` | 可选，同级排序提示 |
+| `priority` | 可选，同路径页面覆盖时的加载优先级；默认 `0` |
 | `icon` | 可选，物品图标 |
 | `icon_texture` | 可选，从指南资源中解析的纹理图标 |
 | `icon_components` | 会被解析，但当前内置渲染尚未使用 |
@@ -50,6 +51,28 @@ navigation:
 ```
 
 两个键可以同时使用；只有列出的所有模组都已加载，页面才会显示。
+
+## 加载优先级
+
+当多个已加载资源包提供同一条 guide 页面路径时，GuideNH 会先读取页面 frontmatter，
+然后选择 `navigation.priority` 最高的候选页面。
+
+```yaml
+navigation:
+  title: 整合包覆盖页面
+  parent: index.md
+  priority: 100
+```
+
+规则：
+
+- 未写 `priority` 时按 `0` 处理
+- 取值为 Java int，最大 `2147483647`
+- 数值更高者胜出
+- 优先级相同时，后处理的资源包条目覆盖先处理的，保持 Minecraft 资源包覆盖顺序
+- priority 只在同一页面路径、同一语言/回退层级的候选之间生效
+
+这适合模组自带基础指南页面、整合包又希望稳定覆盖它的场景，不必只依赖资源包排序。
 
 ## 图标来源
 

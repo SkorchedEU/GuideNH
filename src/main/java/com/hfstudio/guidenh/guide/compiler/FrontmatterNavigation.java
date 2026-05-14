@@ -19,4 +19,4 @@ import com.github.bsideup.jabel.Desugar;
 public record FrontmatterNavigation(String title, @Nullable ResourceLocation parent, int position,
     @Nullable String iconItemId, int iconItemMeta, @Nullable Map<?, ?> iconComponents,
     @Nullable ResourceLocation iconTextureId, @Nullable List<NavigationIconEntry> iconEntries,
-    @Nullable List<ResourceLocation> iconTextureEntries, @Nullable List<String> requiredMods) {}
+    @Nullable List<ResourceLocation> iconTextureEntries, @Nullable List<String> requiredMods, int loadPriority) {}

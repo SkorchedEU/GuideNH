@@ -67,6 +67,18 @@ navigation:
   position: 10
 ```
 
+### `navigation.priority`
+
+用于控制同一路径页面在多个模组/资源包中同时存在时的加载优先级。未写时为 `0`；数值更高者胜出。
+如果两个候选页面优先级相同，则后处理的资源包条目覆盖先处理的，保持 Minecraft 常规资源包顺序。
+
+```yaml
+navigation:
+  title: 整合包覆盖页面
+  parent: index.md
+  priority: 100
+```
+
 ### `navigation.icon`
 
 显示在侧边栏页面标题旁的一个物品图标。

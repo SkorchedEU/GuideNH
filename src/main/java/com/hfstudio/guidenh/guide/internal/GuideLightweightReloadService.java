@@ -8,10 +8,12 @@ import java.util.function.Function;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.IResourceManager;
+import net.minecraft.client.resources.IResourcePack;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.datadriven.DataDrivenGuideLoader;
@@ -146,8 +148,7 @@ public final class GuideLightweightReloadService {
     @Nullable
     private static ParsedGuidePage tryLoadPage(IResourceManager resourceManager, String sourcePack, String language,
         String namespace, String folder, String pagePath, ResourceLocation pageId) {
-        return tryParsePage(
-            resourceManager,
+        return tryParsePageCandidate(
             sourcePack,
             language,
             pageId,
@@ -157,15 +158,73 @@ public final class GuideLightweightReloadService {
     @Nullable
     private static ParsedGuidePage tryParsePage(IResourceManager resourceManager, String sourcePack, String language,
         ResourceLocation pageId, ResourceLocation sourceId) {
-        try (var stream = GuideResourceAccess.openStream(resourceManager, sourceId)) {
-            if (stream == null) {
-                return null;
-            }
-            return PageCompiler.parse(sourcePack, language, pageId, stream);
+        byte[] bytes = selectPageCandidate(sourceId);
+        if (bytes == null) {
+            bytes = GuideResourceAccess.readBytes(resourceManager, sourceId);
+        }
+        if (bytes == null) {
+            return null;
+        }
+        try {
+            return PageCompiler
+                .parse(sourcePack, language, pageId, new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception ex) {
             FMLLog.getLogger()
                 .error("[GuideNH] [GuideLightweightReloadService] Error parsing page {} from {}", pageId, sourceId, ex);
             return null;
+        }
+    }
+
+    @Nullable
+    private static ParsedGuidePage tryParsePageCandidate(String sourcePack, String language, ResourceLocation pageId,
+        ResourceLocation sourceId) {
+        byte[] bytes = selectPageCandidate(sourceId);
+        if (bytes == null) {
+            return null;
+        }
+        try {
+            return PageCompiler
+                .parse(sourcePack, language, pageId, new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ex) {
+            FMLLog.getLogger()
+                .error("[GuideNH] [GuideLightweightReloadService] Error parsing page {} from {}", pageId, sourceId, ex);
+            return null;
+        }
+    }
+
+    static @Nullable byte[] selectPageCandidate(ResourceLocation sourceId) {
+        return selectPageCandidate(sourceId, DataDrivenGuideLoader.getActiveResourcePacks());
+    }
+
+    static @Nullable byte[] selectPageCandidate(ResourceLocation sourceId,
+        Iterable<? extends IResourcePack> resourcePacks) {
+        PageCandidate winner = null;
+        int order = 0;
+        for (IResourcePack resourcePack : resourcePacks) {
+            byte[] bytes = DataDrivenGuideLoader.readBytes(resourcePack, sourceId);
+            if (bytes == null) {
+                continue;
+            }
+            PageCandidate candidate = new PageCandidate(bytes, readLoadPriority(sourceId, bytes), order++);
+            if (winner == null || candidate.shouldReplace(winner)) {
+                winner = candidate;
+            }
+        }
+        return winner != null ? winner.bytes() : null;
+    }
+
+    static int readLoadPriority(ResourceLocation sourceId, byte[] bytes) {
+        String source = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        var frontmatter = PageCompiler.parseFrontmatterFromSource(sourceId, PageCompiler.normalizeLineEndings(source));
+        var navigation = frontmatter.navigationEntry();
+        return navigation != null ? navigation.loadPriority() : 0;
+    }
+
+    @Desugar
+    private record PageCandidate(byte[] bytes, int priority, int order) {
+
+        boolean shouldReplace(PageCandidate previous) {
+            return priority > previous.priority || priority == previous.priority && order > previous.order;
         }
     }
 }

@@ -271,6 +271,23 @@ public class DataDrivenGuideLoader {
         }
     }
 
+    public static byte[] readBytes(IResourcePack resourcePack, ResourceLocation resourceLocation) {
+        if (!resourcePack.resourceExists(resourceLocation)) {
+            return null;
+        }
+        try (var input = resourcePack.getInputStream(resourceLocation)) {
+            return com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess.readFully(input);
+        } catch (IOException e) {
+            FMLLog.getLogger()
+                .warn(
+                    "[GuideNH] [DataDrivenGuideLoader] Failed to read resource {} from resource pack {}",
+                    resourceLocation,
+                    resourcePack.getPackName(),
+                    e);
+            return null;
+        }
+    }
+
     public static void scanResourcePackFolder(File resourcePackRoot,
         Map<ResourceLocation, LinkedHashSet<String>> discoveredLanguages) {
         var assetsDir = new File(resourcePackRoot, "assets");

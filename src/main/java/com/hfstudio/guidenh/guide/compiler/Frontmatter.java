@@ -44,6 +44,10 @@ public record Frontmatter(@Nullable FrontmatterNavigation navigationEntry, Map<S
             if (navigationMap.containsKey("position")) {
                 position = getInt(navigationMap, "position");
             }
+            int loadPriority = 0;
+            if (navigationMap.containsKey("priority")) {
+                loadPriority = getInt(navigationMap, "priority");
+            }
             var iconIdStr = getString(navigationMap, "icon");
             var iconTextureStr = getString(navigationMap, "icon_texture");
             Map<?, ?> iconComponents = getCompound(navigationMap, "icon_components");
@@ -168,7 +172,8 @@ public record Frontmatter(@Nullable FrontmatterNavigation navigationEntry, Map<S
                 iconTextureId,
                 iconEntries,
                 iconTextureEntries,
-                requiredMods);
+                requiredMods,
+                loadPriority);
         }
 
         return new Frontmatter(navigation, Collections.unmodifiableMap(new HashMap<>(data)));

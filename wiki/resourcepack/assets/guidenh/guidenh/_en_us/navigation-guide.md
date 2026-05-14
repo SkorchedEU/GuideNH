@@ -67,6 +67,19 @@ navigation:
   position: 10
 ```
 
+### `navigation.priority`
+
+Load priority for same-path page overrides across mods and resource packs. Missing priority is `0`; higher values
+win. If two candidates have the same priority, the later resource pack entry wins, matching normal Minecraft
+resource-pack order.
+
+```yaml
+navigation:
+  title: Pack Override Page
+  parent: index.md
+  priority: 100
+```
+
 ### `navigation.icon`
 
 An item ID shown next to the page title in the sidebar.

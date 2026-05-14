@@ -65,8 +65,7 @@ public final class GuideDevelopmentResourcePack implements IResourcePack {
         return "GuideNH Development Resources (" + root + ")";
     }
 
-    @Nullable
-    byte[] readBytes(ResourceLocation resourceLocation) {
+    public @Nullable byte[] readBytes(ResourceLocation resourceLocation) {
         Path resourcePath = resolveResourcePath(resourceLocation);
         if (!Files.isRegularFile(resourcePath)) {
             return null;

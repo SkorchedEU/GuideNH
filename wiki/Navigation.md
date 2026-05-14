@@ -21,6 +21,7 @@ navigation:
 | `title` | Required display title |
 | `parent` | Optional parent page id, resolved like a guide page link |
 | `position` | Optional sibling ordering hint |
+| `priority` | Optional load priority for same-path page overrides; default `0` |
 | `icon` | Optional item icon |
 | `icon_texture` | Optional texture icon resolved from guide assets |
 | `icon_components` | Parsed but not currently used by built-in rendering |
@@ -48,6 +49,29 @@ navigation:
 ```
 
 Both keys may be combined; the page is only shown when every listed mod is present.
+
+## Load Priority
+
+When several loaded resource packs provide the same guide page path, GuideNH reads the page
+frontmatter first and chooses the candidate with the highest `navigation.priority`.
+
+```yaml
+navigation:
+  title: Pack Override
+  parent: index.md
+  priority: 100
+```
+
+Rules:
+
+- missing `priority` is `0`
+- values are signed Java integers up to `2147483647`
+- higher priority wins
+- if priorities are equal, the later processed resource pack entry wins, matching Minecraft resource-pack override order
+- priority only decides between candidates for the same page path and language/fallback layer
+
+This is useful when a mod ships a baseline guide page and a pack wants to replace it without relying only on
+resource-pack ordering.
 
 ## Icon Sources
 
