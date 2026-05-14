@@ -82,6 +82,23 @@ categories:
   </ImageAnnotation>
 </FloatingImage>
 
+## 图片音效
+
+&[内联音效动作](sound:guidenh:guide.sample_click)
+
+<SoundLink sound="guidenh:guide.sample_click" volume="0.8">
+  **富文本音效链接**
+</SoundLink>
+
+<FloatingImage src="test1.png" align="left" width="128" sound="guidenh:guide.sample_click">
+  <SoundArea x="0" y="0" w="64" h="128" sound="guidenh:guide.sample_left" />
+  <SoundArea x="64" y="0" w="64" h="128" sound="guidenh:guide.sample_hover" trigger="hover" />
+  <ImageAnnotation x="16" y="16" w="32" h="32" border borderColor="#FFFFCC44"
+    sound="guidenh:guide.sample_click">
+    这个注解同时拥有 tooltip 和点击音效。
+  </ImageAnnotation>
+</FloatingImage>
+
 ## ItemImage 缩放
 
 <Row>

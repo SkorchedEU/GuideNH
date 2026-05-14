@@ -100,6 +100,7 @@ The `src` attribute accepts both relative and absolute IDs:
 | `cameraEaseTicks` | integer or null | No | How many ticks the camera takes to ease from the **previous** keyframe to this one. `null` (default) = ease over the full segment. `0` = instant snap. `N > 0` = ease over N ticks, then hold at the target position. |
 | `layer` | integer or null | No | Visible layer override. `null` (or omitted) shows all layers. 1-based index. |
 | `annotations` | array | No | List of annotation objects shown while this keyframe is active. |
+| `sounds` | array | No | List of sounds played once when this keyframe becomes active during forward playback. |
 | `blockChanges` | array | No | List of block replacements applied when this keyframe first becomes active. |
 | `mergeTileNBT` | array | No | Merge SNBT compounds into tile entities at block positions. |
 | `modifyTileNBT` | array | No | Set one tile-entity NBT path to an SNBT value. |
@@ -168,6 +169,36 @@ The displayed structure is always correct regardless of seek direction.
 
 > **Note on particles:** Block-texture particles fire once, only during forward playback when the
 > keyframe first becomes active. They are cleared on seek, restart, or initial load.
+
+## Keyframe Sounds
+
+Add a `sounds` array to a keyframe to play one or more guide sounds when the keyframe becomes active
+during forward playback. Seeking and initial load do not play keyframe sounds; restart clears the
+play history so the sounds can fire again.
+
+```json
+{
+  "time": 130,
+  "label": "Furnace lights up",
+  "sounds": [
+    { "sound": "guidenh:machine.start", "volume": 0.8 },
+    { "src": "guidenh:sounds/machine/hum.ogg", "volume": 0.4, "x": 1.5, "y": 1.5, "z": 1.5 }
+  ]
+}
+```
+
+Sound fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `sound` | string | - | Sound event id, e.g. `guidenh:machine.start`. |
+| `src` | string | - | Sound file id or path; `guidenh:sounds/machine/start.ogg` becomes `guidenh:machine.start`. |
+| `volume` | float | `1.0` | Playback volume before attenuation. |
+| `pitch` | float | `1.0` | Playback pitch. |
+| `cooldown` | integer | `250` | Minimum milliseconds before the same sound can play again. |
+| `x`, `y`, `z` | float | none | Optional scene-space source position for screen-space attenuation. |
+| `radius` | float | scene short side * 0.75 | Attenuation radius in screen pixels. |
+| `minVolume` | float | `0.15` | Minimum attenuation factor. |
 
 ---
 

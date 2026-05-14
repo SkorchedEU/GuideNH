@@ -22,6 +22,18 @@ categories:
   <ImportPonder src="/assets/ponder_demo.json" />
 </GameScene>
 
+## Keyframe Sounds
+
+```json
+"sounds": [
+  { "sound": "guidenh:guide.sample_click", "volume": 0.75 },
+  { "src": "guidenh:sounds/guide/sample_hover.ogg", "volume": 0.35, "x": 1.5, "y": 1.5, "z": 1.5 }
+]
+```
+
+`sound` uses a sound event id. `src` points to an `.ogg` path and is converted to the matching
+sound event id, so `guidenh:sounds/guide/sample_hover.ogg` becomes `guidenh:guide.sample_hover`.
+
 点击 ▶ 播放，或拖动时间轴。时间轴上的关键帧节点可快速跳转到关键时刻。
 
 ---

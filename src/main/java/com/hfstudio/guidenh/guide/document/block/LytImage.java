@@ -15,6 +15,10 @@ import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.render.GuiAssets;
 import com.hfstudio.guidenh.guide.render.GuidePageTexture;
 import com.hfstudio.guidenh.guide.render.RenderContext;
+import com.hfstudio.guidenh.guide.sound.GuideSoundPlayback;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
+import com.hfstudio.guidenh.guide.ui.GuideUiHost;
 
 public class LytImage extends LytBlock implements InteractiveElement {
 
@@ -27,6 +31,8 @@ public class LytImage extends LytBlock implements InteractiveElement {
     private int explicitHeight = -1;
 
     private final List<ImageRegionAnnotation> annotations = new ArrayList<>();
+    @Nullable
+    private ImageRegionAnnotation hoveredSoundAnnotation;
 
     public ResourceLocation getImageId() {
         return imageId;
@@ -109,6 +115,11 @@ public class LytImage extends LytBlock implements InteractiveElement {
     protected void onLayoutMoved(int deltaX, int deltaY) {}
 
     @Override
+    public void onMouseLeave() {
+        hoveredSoundAnnotation = null;
+    }
+
+    @Override
     public void render(RenderContext context) {
         if (texture == null) {
             context.fillIcon(getBounds(), GuiAssets.MISSING_TEXTURE);
@@ -186,6 +197,7 @@ public class LytImage extends LytBlock implements InteractiveElement {
 
     @Override
     public Optional<GuideTooltip> getTooltip(float x, float y) {
+        playHoverSound(x, y);
         if (annotations.isEmpty()) {
             return Optional.empty();
         }
@@ -215,5 +227,84 @@ public class LytImage extends LytBlock implements InteractiveElement {
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public boolean mouseClicked(GuideUiHost screen, int x, int y, int button, boolean doubleClick) {
+        if (button != 0) {
+            return false;
+        }
+        ImageRegionAnnotation annotation = findSoundAnnotation(x, y, GuideSoundTrigger.CLICK);
+        if (annotation == null) {
+            return false;
+        }
+        return GuideSoundPlayback.play(annotation.getSound());
+    }
+
+    private void playHoverSound(float x, float y) {
+        ImageRegionAnnotation annotation = findSoundAnnotation(x, y, GuideSoundTrigger.HOVER);
+        if (annotation == hoveredSoundAnnotation) {
+            return;
+        }
+        hoveredSoundAnnotation = annotation;
+        if (annotation != null) {
+            GuideSoundPlayback.play(annotation.getSound());
+        }
+    }
+
+    @Nullable
+    private ImageRegionAnnotation findSoundAnnotation(float x, float y, GuideSoundTrigger trigger) {
+        if (annotations.isEmpty()) {
+            return null;
+        }
+        ImagePoint point = toImagePoint(x, y);
+        if (point == null) {
+            return null;
+        }
+        for (int i = annotations.size() - 1; i >= 0; i--) {
+            ImageRegionAnnotation annotation = annotations.get(i);
+            GuideSoundSpec sound = annotation.getSound();
+            if (sound == null || annotation.getSoundTrigger() != trigger) {
+                continue;
+            }
+            if (annotation.containsImagePoint(point.x, point.y)) {
+                return annotation;
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private ImagePoint toImagePoint(float x, float y) {
+        var bounds = getBounds();
+        if (texture == null || texture.isMissing()) {
+            return null;
+        }
+        int dispW = bounds.width();
+        int dispH = bounds.height();
+        if (dispW <= 0 || dispH <= 0
+            || x < bounds.x()
+            || x >= bounds.right()
+            || y < bounds.y()
+            || y >= bounds.bottom()) {
+            return null;
+        }
+        var size = texture.getSize();
+        int natW = Math.max(1, size.width());
+        int natH = Math.max(1, size.height());
+        float localX = x - bounds.x();
+        float localY = y - bounds.y();
+        return new ImagePoint(localX * natW / dispW, localY * natH / dispH);
+    }
+
+    public static class ImagePoint {
+
+        public final float x;
+        public final float y;
+
+        public ImagePoint(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
     }
 }

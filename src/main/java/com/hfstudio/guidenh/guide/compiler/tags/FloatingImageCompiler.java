@@ -19,6 +19,8 @@ import com.hfstudio.guidenh.guide.document.flow.InlineBlockAlignment;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowInlineBlock;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowParent;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
+import com.hfstudio.guidenh.guide.sound.GuideSoundParsers;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
 import cpw.mods.fml.common.FMLLog;
@@ -70,8 +72,20 @@ public class FloatingImageCompiler extends FlowTagCompiler {
                 if (child instanceof MdxJsxElementFields annEl && "ImageAnnotation".equals(annEl.name())) {
                     var ann = parseImageAnnotation(compiler, parent, annEl);
                     image.addAnnotation(ann);
+                } else if (child instanceof MdxJsxElementFields soundEl && "SoundArea".equals(soundEl.name())) {
+                    var ann = parseSoundArea(compiler, parent, soundEl);
+                    if (ann != null) {
+                        image.addAnnotation(ann);
+                    }
                 }
             }
+        }
+        var wholeImageSound = GuideSoundParsers.parseAttributes(compiler, parent, el);
+        if (wholeImageSound != null) {
+            var soundAnnotation = new ImageRegionAnnotation(false, ConstantColor.WHITE, 1);
+            soundAnnotation.setSound(wholeImageSound);
+            soundAnnotation.setSoundTrigger(parseTrigger(compiler, parent, el));
+            image.addAnnotation(soundAnnotation);
         }
 
         // Wrap it in a flow content inline block
@@ -104,43 +118,18 @@ public class FloatingImageCompiler extends FlowTagCompiler {
      * <p>
      * Attributes:
      * <ul>
-     * <li>{@code x}, {@code y}, {@code w}, {@code h} 閳?region in image pixels; omitting all four
+     * <li>{@code x}, {@code y}, {@code w}, {@code h}: region in image pixels; omitting all four
      * means the annotation covers the whole image.</li>
-     * <li>{@code border} 閳?boolean flag; presence (or {@code {true}}) enables the border.</li>
-     * <li>{@code borderColor} 閳?{@code #RRGGBB} or {@code #AARRGGBB}; omit for a random color.</li>
-     * <li>{@code borderThickness} 閳?integer pixel thickness, default 1.</li>
+     * <li>{@code border}: boolean flag; presence (or {@code {true}}) enables the border.</li>
+     * <li>{@code borderColor}: {@code #RRGGBB} or {@code #AARRGGBB}; omit for a random color.</li>
+     * <li>{@code borderThickness}: integer pixel thickness, default 1.</li>
      * </ul>
      * Child MDX content is compiled as the rich-text tooltip body.
      */
     @NotNull
     private static ImageRegionAnnotation parseImageAnnotation(PageCompiler compiler, LytFlowParent parent,
         MdxJsxElementFields annEl) {
-        int x = MdxAttrs.getInt(compiler, parent, annEl, "x", -1);
-        int y = MdxAttrs.getInt(compiler, parent, annEl, "y", -1);
-        int w = MdxAttrs.getInt(compiler, parent, annEl, "w", -1);
-        int h = MdxAttrs.getInt(compiler, parent, annEl, "h", -1);
-        boolean wholeImage = x < 0 && y < 0 && w < 0 && h < 0;
-
-        boolean showBorder = MdxAttrs.getBoolean(compiler, parent, annEl, "border", false);
-        int borderThickness = MdxAttrs.getInt(compiler, parent, annEl, "borderThickness", 1);
-
-        ColorValue borderColor;
-        if (annEl.getAttribute("borderColor") != null) {
-            borderColor = MdxAttrs.getColor(compiler, parent, annEl, "borderColor", ConstantColor.WHITE);
-        } else {
-            borderColor = new ConstantColor(0xFF000000 | RANDOM.nextInt(0x1000000));
-        }
-
-        ImageRegionAnnotation ann;
-        if (wholeImage) {
-            ann = new ImageRegionAnnotation(showBorder, borderColor, borderThickness);
-        } else {
-            int ax = Math.max(x, 0);
-            int ay = Math.max(y, 0);
-            int aw = Math.max(1, w < 0 ? 1 : w);
-            int ah = Math.max(1, h < 0 ? 1 : h);
-            ann = new ImageRegionAnnotation(ax, ay, aw, ah, showBorder, borderColor, borderThickness);
-        }
+        ImageRegionAnnotation ann = parseImageAnnotationRegion(compiler, parent, annEl, true);
 
         // Compile tooltip rich-text content from child elements.
         var contentBox = new LytVBox();
@@ -149,8 +138,57 @@ public class FloatingImageCompiler extends FlowTagCompiler {
             .isEmpty()) {
             ann.setTooltip(new ContentTooltip(contentBox));
         }
+        ann.setSound(GuideSoundParsers.parseAttributes(compiler, parent, annEl));
+        ann.setSoundTrigger(parseTrigger(compiler, parent, annEl));
 
         return ann;
+    }
+
+    private static ImageRegionAnnotation parseSoundArea(PageCompiler compiler, LytFlowParent parent,
+        MdxJsxElementFields el) {
+        var sound = GuideSoundParsers.parseAttributes(compiler, parent, el);
+        if (sound == null) {
+            parent.appendError(compiler, "SoundArea requires a sound or src attribute.", el);
+            return null;
+        }
+        ImageRegionAnnotation ann = parseImageAnnotationRegion(compiler, parent, el, false);
+        ann.setSound(sound);
+        ann.setSoundTrigger(parseTrigger(compiler, parent, el));
+        return ann;
+    }
+
+    private static ImageRegionAnnotation parseImageAnnotationRegion(PageCompiler compiler, LytFlowParent parent,
+        MdxJsxElementFields el, boolean allowBorder) {
+        int x = MdxAttrs.getInt(compiler, parent, el, "x", -1);
+        int y = MdxAttrs.getInt(compiler, parent, el, "y", -1);
+        int w = MdxAttrs.getInt(compiler, parent, el, "w", -1);
+        int h = MdxAttrs.getInt(compiler, parent, el, "h", -1);
+        boolean wholeImage = x < 0 && y < 0 && w < 0 && h < 0;
+
+        boolean showBorder = allowBorder && MdxAttrs.getBoolean(compiler, parent, el, "border", false);
+        int borderThickness = allowBorder ? MdxAttrs.getInt(compiler, parent, el, "borderThickness", 1) : 1;
+
+        ColorValue borderColor;
+        if (allowBorder && el.getAttribute("borderColor") != null) {
+            borderColor = MdxAttrs.getColor(compiler, parent, el, "borderColor", ConstantColor.WHITE);
+        } else {
+            borderColor = allowBorder ? new ConstantColor(0xFF000000 | RANDOM.nextInt(0x1000000)) : ConstantColor.WHITE;
+        }
+
+        if (wholeImage) {
+            return new ImageRegionAnnotation(showBorder, borderColor, borderThickness);
+        }
+
+        int ax = Math.max(x, 0);
+        int ay = Math.max(y, 0);
+        int aw = Math.max(1, w < 0 ? 1 : w);
+        int ah = Math.max(1, h < 0 ? 1 : h);
+        return new ImageRegionAnnotation(ax, ay, aw, ah, showBorder, borderColor, borderThickness);
+    }
+
+    private static GuideSoundTrigger parseTrigger(PageCompiler compiler, LytFlowParent parent, MdxJsxElementFields el) {
+        return GuideSoundTrigger
+            .parse(MdxAttrs.getString(compiler, parent, el, "trigger", null), GuideSoundTrigger.CLICK);
     }
 
     @Override

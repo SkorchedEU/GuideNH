@@ -89,6 +89,7 @@ import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 import com.hfstudio.guidenh.guide.scene.SavedCameraSettings;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockDisplayResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityDisplayResolver;
+import com.hfstudio.guidenh.guide.sound.GuideSoundPlayback;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
 
 public class SceneEditorScreen extends GuiScreen {
@@ -493,6 +494,7 @@ public class SceneEditorScreen extends GuiScreen {
     @Override
     public void onGuiClosed() {
         Keyboard.enableRepeatEvents(false);
+        GuideSoundPlayback.stopAll();
         super.onGuiClosed();
         previewScene = null;
         activePreviewScene = null;

@@ -85,6 +85,27 @@ Stretched image (200×80) with an annotation that follows the stretch:
   </ImageAnnotation>
 </FloatingImage>
 
+## Image Sounds
+
+Click the image or the left region to play a custom sound. Hover the right region to play a hover
+sound. The example declares the event ids in the resource pack's `assets/guidenh/sounds.json`;
+actual `.ogg` files should be placed below `assets/guidenh/sounds/`.
+
+&[Inline sound action](sound:guidenh:guide.sample_click)
+
+<SoundLink sound="guidenh:guide.sample_click" volume="0.8">
+  **Rich text sound link**
+</SoundLink>
+
+<FloatingImage src="test1.png" align="left" width="128" sound="guidenh:guide.sample_click">
+  <SoundArea x="0" y="0" w="64" h="128" sound="guidenh:guide.sample_left" />
+  <SoundArea x="64" y="0" w="64" h="128" sound="guidenh:guide.sample_hover" trigger="hover" />
+  <ImageAnnotation x="16" y="16" w="32" h="32" border borderColor="#FFFFCC44"
+    sound="guidenh:guide.sample_click">
+    This annotation has both a tooltip and a click sound.
+  </ImageAnnotation>
+</FloatingImage>
+
 ## ItemImage Scale
 
 <Row>

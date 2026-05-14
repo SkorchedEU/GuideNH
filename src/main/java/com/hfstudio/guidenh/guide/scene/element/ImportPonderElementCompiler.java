@@ -30,7 +30,10 @@ import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderJsonLoader;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframe;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeAnnotation;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeSound;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderSceneData;
+import com.hfstudio.guidenh.guide.sound.GuideSoundParsers;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
 /**
@@ -84,7 +87,8 @@ public class ImportPonderElementCompiler implements SceneElementTagCompiler {
         }
 
         List<List<SceneAnnotation>> annotationsByKeyframe = resolveAnnotations(data, compiler);
-        scene.attachPonderData(data, annotationsByKeyframe);
+        List<List<GuideSoundSpec>> soundsByKeyframe = resolveSounds(data, compiler);
+        scene.attachPonderData(data, annotationsByKeyframe, soundsByKeyframe);
     }
 
     private static List<List<SceneAnnotation>> resolveAnnotations(PonderSceneData data, PageCompiler compiler) {
@@ -98,6 +102,26 @@ public class ImportPonderElementCompiler implements SceneElementTagCompiler {
             List<SceneAnnotation> resolved = new ArrayList<>(rawList.size());
             for (PonderKeyframeAnnotation raw : rawList) {
                 resolveAndAdd(raw, resolved, compiler);
+            }
+            result.add(resolved.isEmpty() ? Collections.emptyList() : resolved);
+        }
+        return result;
+    }
+
+    private static List<List<GuideSoundSpec>> resolveSounds(PonderSceneData data, PageCompiler compiler) {
+        List<List<GuideSoundSpec>> result = new ArrayList<>();
+        for (PonderKeyframe kf : data.getKeyframes()) {
+            List<PonderKeyframeSound> rawList = kf.getSounds();
+            if (rawList.isEmpty()) {
+                result.add(Collections.emptyList());
+                continue;
+            }
+            List<GuideSoundSpec> resolved = new ArrayList<>(rawList.size());
+            for (PonderKeyframeSound raw : rawList) {
+                GuideSoundSpec sound = GuideSoundParsers.parsePonderSound(compiler, raw);
+                if (sound != null) {
+                    resolved.add(sound);
+                }
             }
             result.add(resolved.isEmpty() ? Collections.emptyList() : resolved);
         }

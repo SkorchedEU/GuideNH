@@ -73,6 +73,15 @@
         "rotY": 200.0
       },
       "cameraEaseTicks": 20,
+      "sounds": [
+        {
+          "sound": "guidenh:guide.sample_click",
+          "volume": 0.75,
+          "x": 1.5,
+          "y": 1.5,
+          "z": 1.5
+        }
+      ],
       "blockChanges": [
         { "x": 1, "y": 1, "z": 1, "block": "minecraft:lit_furnace", "meta": 4, "particles": true }
       ],

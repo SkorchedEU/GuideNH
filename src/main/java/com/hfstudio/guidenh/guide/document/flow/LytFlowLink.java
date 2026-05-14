@@ -10,6 +10,8 @@ import org.jetbrains.annotations.Nullable;
 import com.hfstudio.guidenh.guide.GuideAnchor;
 import com.hfstudio.guidenh.guide.PageAnchor;
 import com.hfstudio.guidenh.guide.color.SymbolicColor;
+import com.hfstudio.guidenh.guide.sound.GuideSoundPlayback;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
 import com.hfstudio.guidenh.guide.ui.GuideUiHost;
 
 public class LytFlowLink extends LytTooltipSpan {
@@ -24,7 +26,8 @@ public class LytFlowLink extends LytTooltipSpan {
     private PageAnchor pageAnchor;
 
     @Nullable
-    private String clickSound = "gui.button.press";
+    private GuideSoundSpec clickSoundSpec;
+    private boolean playedCustomClickSound;
 
     public LytFlowLink() {
         modifyStyle(style -> style.color(SymbolicColor.LINK));
@@ -38,6 +41,7 @@ public class LytFlowLink extends LytTooltipSpan {
     @Override
     public boolean mouseClicked(GuideUiHost screen, int x, int y, int button, boolean doubleClick) {
         if (button == 0 && clickCallback != null) {
+            playedCustomClickSound = GuideSoundPlayback.play(clickSoundSpec);
             clickCallback.accept(screen);
             return true;
         }
@@ -49,12 +53,19 @@ public class LytFlowLink extends LytTooltipSpan {
         return false;
     }
 
-    public @Nullable String getClickSound() {
-        return clickSound;
+    public void setClickSoundSpec(@Nullable GuideSoundSpec clickSoundSpec) {
+        this.clickSoundSpec = clickSoundSpec;
     }
 
-    public void setClickSound(@Nullable String clickSound) {
-        this.clickSound = clickSound;
+    public boolean consumePlayedCustomClickSound() {
+        boolean played = playedCustomClickSound;
+        playedCustomClickSound = false;
+        return played;
+    }
+
+    @Nullable
+    public GuideSoundSpec getClickSoundSpec() {
+        return clickSoundSpec;
     }
 
     public void setExternalUrl(URI uri) {

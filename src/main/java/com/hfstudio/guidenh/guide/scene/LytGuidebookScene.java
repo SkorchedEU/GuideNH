@@ -84,6 +84,9 @@ import com.hfstudio.guidenh.guide.scene.support.GuideBlockStatsStackResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideDebugLog;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityRayPicker;
 import com.hfstudio.guidenh.guide.scene.support.GuideGregTechTileSupport;
+import com.hfstudio.guidenh.guide.sound.GuideSoundPlayback;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.guide.style.ResolvedTextStyle;
 import com.hfstudio.guidenh.integration.Mods;
 import com.hfstudio.guidenh.integration.ae2.Ae2Helpers;
@@ -139,10 +142,12 @@ public class LytGuidebookScene extends LytBlock {
     @Nullable
     private String draggingStructureLibChannelId;
     private boolean draggingPonderBar;
+    private final List<SceneSoundCue> soundCues = new ArrayList<>();
 
     @Nullable
     private PonderSceneData ponderSceneData;
     private List<List<SceneAnnotation>> ponderKeyframeAnnotationSets = new ArrayList<>();
+    private List<List<GuideSoundSpec>> ponderKeyframeSoundSets = new ArrayList<>();
     private int ponderCurrentTick = 0;
     private boolean ponderPaused = false;
     private boolean ponderFinished = false;
@@ -160,6 +165,7 @@ public class LytGuidebookScene extends LytBlock {
     private final Random ponderParticleRng = new Random();
     private int ponderLastKeyframeIdx = -2;
     private int ponderAnnotationFadeTick = 5;
+    private final Set<Integer> triggeredPonderSoundKeyframes = new HashSet<>();
     private final Map<Long, PonderBlockInfo> ponderBlockSnapshot = new LinkedHashMap<>();
     private final Map<String, PonderEntityRuntime> ponderEntityRefs = new LinkedHashMap<>();
     private boolean ponderTimelineBaselineReady;
@@ -430,6 +436,12 @@ public class LytGuidebookScene extends LytBlock {
 
     public CameraSettings getCamera() {
         return camera;
+    }
+
+    public void addSoundCue(SceneSoundCue cue) {
+        if (cue != null) {
+            soundCues.add(cue);
+        }
     }
 
     public void setCamera(CameraSettings camera) {
@@ -1534,6 +1546,7 @@ public class LytGuidebookScene extends LytBlock {
         int h = Math.round(sceneRect.height() * docZoom);
         int outerW = Math.round(outerRect.width() * docZoom);
         int outerH = Math.round(outerRect.height() * docZoom);
+        playEnterSoundsIfNeeded();
 
         if (level.isEmpty() && annotations.isEmpty() && !shouldRenderOriginAxes()) {
             this.lastAbsX = absX;
@@ -3305,14 +3318,114 @@ public class LytGuidebookScene extends LytBlock {
             applyStructureLibChannelSliderAt(hoveredChannelId, mouseX);
             return;
         }
+        if (button == 0) {
+            playSceneSounds(GuideSoundTrigger.CLICK, mouseX, mouseY);
+        }
         if (isPonderPlaying()) return;
         this.dragButton = button;
         this.dragLastX = mouseX;
         this.dragLastY = mouseY;
     }
 
+    public void updateSoundHover(int mouseX, int mouseY) {
+        if (soundCues.isEmpty()) {
+            return;
+        }
+        boolean inside = cachedScreenRect != null && cachedScreenRect.contains(mouseX, mouseY);
+        for (SceneSoundCue cue : soundCues) {
+            if (!cue.matches(GuideSoundTrigger.HOVER)) {
+                continue;
+            }
+            if (!inside) {
+                cue.setHovered(false);
+                continue;
+            }
+            if (!cue.isHovered()) {
+                cue.setHovered(true);
+                playSceneSound(cue.getSound(), mouseX, mouseY);
+            }
+        }
+    }
+
     public static boolean isRotateButton(int button) {
         return ModConfig.ui.sceneSwapMouseButtons ? button == 0 : button == 1;
+    }
+
+    private void playEnterSoundsIfNeeded() {
+        if (soundCues.isEmpty()) {
+            return;
+        }
+        int centerX = cachedScreenRect != null ? cachedScreenRect.x() + cachedScreenRect.width() / 2
+            : lastAbsX + lastW / 2;
+        int centerY = cachedScreenRect != null ? cachedScreenRect.y() + cachedScreenRect.height() / 2
+            : lastAbsY + lastH / 2;
+        for (SceneSoundCue cue : soundCues) {
+            if (!cue.matches(GuideSoundTrigger.ENTER) || cue.isEntered()) {
+                continue;
+            }
+            cue.setEntered(true);
+            playSceneSound(cue.getSound(), centerX, centerY);
+        }
+    }
+
+    private void playSceneSounds(GuideSoundTrigger trigger, int referenceX, int referenceY) {
+        if (soundCues.isEmpty()) {
+            return;
+        }
+        for (SceneSoundCue cue : soundCues) {
+            if (cue.matches(trigger)) {
+                playSceneSound(cue.getSound(), referenceX, referenceY);
+            }
+        }
+    }
+
+    private void playSceneSound(GuideSoundSpec sound, int referenceX, int referenceY) {
+        if (sound.hasPosition() && cachedScreenRect != null) {
+            float[] screenPoint = projectSoundPosition(sound);
+            float dx = screenPoint[0] - referenceX;
+            float dy = screenPoint[1] - referenceY;
+            float fallbackRadius = Math.min(cachedScreenRect.width(), cachedScreenRect.height()) * 0.75f;
+            float volume = GuideSoundPlayback.attenuate(sound, (float) Math.sqrt(dx * dx + dy * dy), fallbackRadius);
+            GuideSoundPlayback.play(sound, volume);
+            return;
+        }
+        GuideSoundPlayback.play(sound);
+    }
+
+    private float[] projectSoundPosition(GuideSoundSpec sound) {
+        float[] saved = null;
+        if (ponderSceneData != null) {
+            saved = applyPonderCameraForProjection();
+        }
+        try {
+            var projected = camera.worldToScreen(sound.x(), sound.y(), sound.z());
+            return new float[] { lastAbsX + projected.x, lastAbsY + projected.y };
+        } finally {
+            if (saved != null) {
+                restoreCameraFromProjection(saved);
+            }
+        }
+    }
+
+    private float[] applyPonderCameraForProjection() {
+        float[] saved = new float[] { camera.getZoom(), camera.getRotationX(), camera.getRotationY(),
+            camera.getRotationZ(), camera.getOffsetX(), camera.getOffsetY() };
+        camera.setZoom(ponderCamZoom);
+        camera.setRotationX(ponderCamRotX);
+        camera.setRotationY(ponderCamRotY);
+        camera.setRotationZ(ponderCamRotZ);
+        camera.setOffsetX(ponderCamOffX);
+        camera.setOffsetY(ponderCamOffY);
+        return saved;
+    }
+
+    private void restoreCameraFromProjection(float[] saved) {
+        camera.setZoom(saved[0]);
+        camera.setRotationX(saved[1]);
+        camera.setRotationY(saved[2]);
+        camera.setRotationZ(saved[3]);
+        camera.setOffsetX(saved[4]);
+        camera.setOffsetY(saved[5]);
     }
 
     public static boolean isPanButton(int button) {
@@ -3597,10 +3710,16 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public void attachPonderData(PonderSceneData data, List<List<SceneAnnotation>> annotationsByKeyframe) {
+        attachPonderData(data, annotationsByKeyframe, Collections.emptyList());
+    }
+
+    public void attachPonderData(PonderSceneData data, List<List<SceneAnnotation>> annotationsByKeyframe,
+        List<List<GuideSoundSpec>> soundsByKeyframe) {
         clearPonderBlockChanges();
         this.ponderSceneData = data;
         this.ponderKeyframeAnnotationSets = annotationsByKeyframe != null ? new ArrayList<>(annotationsByKeyframe)
             : new ArrayList<>();
+        this.ponderKeyframeSoundSets = soundsByKeyframe != null ? new ArrayList<>(soundsByKeyframe) : new ArrayList<>();
         this.ponderCurrentTick = 0;
         this.ponderPaused = true;
         this.ponderFinished = false;
@@ -3610,6 +3729,7 @@ public class LytGuidebookScene extends LytBlock {
         this.ponderOutgoingAnnotations.clear();
         this.ponderOutgoingFadeTick = 0;
         this.ponderSceneParticles.clear();
+        this.triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
 
@@ -3617,6 +3737,7 @@ public class LytGuidebookScene extends LytBlock {
         clearPonderBlockChanges();
         this.ponderSceneData = null;
         this.ponderKeyframeAnnotationSets = new ArrayList<>();
+        this.ponderKeyframeSoundSets = new ArrayList<>();
         this.ponderCurrentTick = 0;
         this.ponderPaused = false;
         this.ponderFinished = false;
@@ -3628,6 +3749,7 @@ public class LytGuidebookScene extends LytBlock {
         this.ponderOutgoingAnnotations.clear();
         this.ponderOutgoingFadeTick = 0;
         this.ponderSceneParticles.clear();
+        this.triggeredPonderSoundKeyframes.clear();
     }
 
     public void restorePonderPreviewState(int tick, boolean paused, boolean finished) {
@@ -3644,6 +3766,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderOutgoingFadeTick = 0;
         ponderSceneParticles.clear();
         ponderLastKeyframeIdx = -2;
+        triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
 
@@ -3693,9 +3816,14 @@ public class LytGuidebookScene extends LytBlock {
             ponderCurrentTick = 0;
             ponderFinished = false;
             ponderPaused = false;
+            triggeredPonderSoundKeyframes.clear();
             updatePonderState();
         } else {
+            boolean wasPaused = ponderPaused;
             ponderPaused = !ponderPaused;
+            if (wasPaused && !ponderPaused) {
+                playPonderKeyframeSounds(ponderSceneData.resolveActiveKeyframeIndex(ponderCurrentTick));
+            }
         }
     }
 
@@ -3711,6 +3839,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderOutgoingAnnotations.clear();
         ponderOutgoingFadeTick = 0;
         ponderSceneParticles.clear();
+        triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
 
@@ -3733,6 +3862,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderExportLayerOverrideEnabled = false;
         draggingPonderBar = false;
         ponderAnnotationFadeTick = 5;
+        triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
 
@@ -3757,6 +3887,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderCurrentTick = Math.max(0, Math.min(ponderSceneData.getTotalTime(), tick));
         ponderPaused = true;
         ponderFinished = ponderCurrentTick >= ponderSceneData.getTotalTime();
+        triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
 
@@ -3800,6 +3931,9 @@ public class LytGuidebookScene extends LytBlock {
                 boolean triggerParticles = !ponderPaused && wasAtValidKeyframe;
                 applyPonderTimelineActions(activeIdx, triggerParticles);
             }
+            if (!ponderPaused && wasAtValidKeyframe) {
+                playPonderKeyframeSounds(activeIdx);
+            }
         }
 
         ponderActiveAnnotations.clear();
@@ -3840,6 +3974,27 @@ public class LytGuidebookScene extends LytBlock {
         ponderCamRotZ = activeCam[3];
         ponderCamOffX = activeCam[4];
         ponderCamOffY = activeCam[5];
+    }
+
+    private void playPonderKeyframeSounds(int keyframeIndex) {
+        if (keyframeIndex < 0 || ponderSceneData == null || triggeredPonderSoundKeyframes.contains(keyframeIndex)) {
+            return;
+        }
+        if (keyframeIndex >= ponderKeyframeSoundSets.size()) {
+            return;
+        }
+        List<GuideSoundSpec> sounds = ponderKeyframeSoundSets.get(keyframeIndex);
+        if (sounds == null || sounds.isEmpty()) {
+            return;
+        }
+        triggeredPonderSoundKeyframes.add(keyframeIndex);
+        int centerX = cachedScreenRect != null ? cachedScreenRect.x() + cachedScreenRect.width() / 2
+            : lastAbsX + lastW / 2;
+        int centerY = cachedScreenRect != null ? cachedScreenRect.y() + cachedScreenRect.height() / 2
+            : lastAbsY + lastH / 2;
+        for (GuideSoundSpec sound : sounds) {
+            playSceneSound(sound, centerX, centerY);
+        }
     }
 
     private float[] resolveFullCameraAt(int kfIndex) {

@@ -59,10 +59,29 @@ Press ▶ to play, or drag the timeline. The keyframe nodes snap the timeline to
 | `camera` | object? | Partial camera override (only specified fields are applied) |
 | `layer` | int? | Visible layer override (`null` = show all) |
 | `annotations` | array? | Annotation objects to show while this keyframe is active |
+| `sounds` | array? | Sounds played once when this keyframe activates during forward playback |
 | `blockChanges` | array? | Block replacements applied when this keyframe activates |
 | `mergeTileNBT` / `modifyTileNBT` / `removeTileNBT` | array? | Seek-safe tile-entity NBT operations |
 | `createEntities` | array? | Create Ponder-owned entities referenced by `ref` |
 | `setEntityNBT` / `mergeEntityNBT` / `modifyEntityNBT` / `removeEntityNBT` | array? | Seek-safe NBT operations for referenced entities |
+
+---
+
+## Keyframe Sounds
+
+Keyframes can play guide sounds during forward playback:
+
+```json
+"sounds": [
+  { "sound": "guidenh:guide.sample_click", "volume": 0.75 },
+  { "src": "guidenh:sounds/guide/sample_hover.ogg", "volume": 0.35, "x": 1.5, "y": 1.5, "z": 1.5 }
+]
+```
+
+Use `sound` for a sound event id, or `src` for an `.ogg` file path. A file path below
+`sounds/` is converted to the matching sound event id: `guidenh:sounds/guide/sample_hover.ogg`
+becomes `guidenh:guide.sample_hover`. Optional `x`, `y`, `z`, `radius`, and `minVolume` use
+screen-space attenuation from the projected scene position.
 
 ---
 

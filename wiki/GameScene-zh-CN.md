@@ -176,12 +176,33 @@ GuideNH 当前注册了以下场景子标签：
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
 - `<BlockStats>`
+- `<PlaySound>`
 - `<RemoveBlocks>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - 各类注解标签，例如 `<BoxAnnotation>` 和 `<LineAnnotation>`
+
+## 场景音效
+
+`<PlaySound>` 可以放在 `<GameScene>` 内，用于通过场景交互或时间轴进入时播放音效。
+支持的触发方式：
+
+- `click`，默认值
+- `hover`，鼠标进入场景时触发一次
+- `enter`，场景首次渲染时触发一次
+
+```mdx
+<GameScene width="256" height="160">
+  <Block id="minecraft:furnace" />
+  <PlaySound sound="guidenh:machine.start" trigger="click" volume="0.8" />
+  <PlaySound src="guidenh:sounds/machine/hum.ogg" trigger="hover" volume="0.35" />
+</GameScene>
+```
+
+提供 `x`、`y`、`z` 时，音量会从投影后的场景坐标到点击点或场景中心进行屏幕空间衰减。
+`radius` 默认是场景较短边的 75%，`minVolume` 默认是 `0.15`。
 
 ## `<BlockStats>` 和 `<BlockStat>`
 

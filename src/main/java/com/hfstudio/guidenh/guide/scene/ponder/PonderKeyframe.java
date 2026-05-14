@@ -27,6 +27,8 @@ public class PonderKeyframe {
     @Nullable
     private List<PonderKeyframeAnnotation> annotations;
     @Nullable
+    private List<PonderKeyframeSound> sounds;
+    @Nullable
     private List<PonderKeyframeBlockChange> blockChanges;
     @Nullable
     private List<PonderKeyframeTileNbtOperation> mergeTileNBT;
@@ -82,6 +84,10 @@ public class PonderKeyframe {
 
     public List<PonderKeyframeAnnotation> getAnnotations() {
         return annotations != null ? annotations : Collections.emptyList();
+    }
+
+    public List<PonderKeyframeSound> getSounds() {
+        return sounds != null ? sounds : Collections.emptyList();
     }
 
     /**

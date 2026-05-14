@@ -1,5 +1,7 @@
 package com.hfstudio.guidenh.guide.siteexport.site;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +19,7 @@ import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.compiler.tags.functiongraph.FunctionGraphFenceParser;
 import com.hfstudio.guidenh.guide.document.block.functiongraph.LytFunctionGraph;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
+import com.hfstudio.guidenh.guide.internal.markdown.MarkdownActionLink;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownLatexShorthand;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownListSemantics;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownRuntimeBlocks;
@@ -24,6 +27,8 @@ import com.hfstudio.guidenh.guide.internal.markdown.MarkdownRuntimeBlocks.Blockq
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownRuntimeBlocks.QuoteIconSpec;
 import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapDocument;
 import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapParser;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.libs.mdast.gfm.model.GfmTable;
 import com.hfstudio.guidenh.libs.mdast.gfm.model.GfmTableCell;
 import com.hfstudio.guidenh.libs.mdast.gfm.model.GfmTableRow;
@@ -98,6 +103,8 @@ public class GuideSiteHtmlCompiler {
     private final ImageResolver imageResolver;
     private final MdxTagRenderer mdxTagRenderer;
     private final GuideSiteLatexExporter latexExporter;
+    @Nullable
+    private final GuideSitePageAssetExporter assetExporter;
 
     public GuideSiteHtmlCompiler() {
         this(new GuideSiteRecipeTagRenderer(), passthroughImageResolver(), noopMdxTagRenderer());
@@ -123,7 +130,25 @@ public class GuideSiteHtmlCompiler {
             new GuideSiteSceneTagRenderer(recipeTagRenderer, imageResolver, mdxTagRenderer, latexExporter),
             imageResolver,
             mdxTagRenderer,
-            latexExporter);
+            latexExporter,
+            null);
+    }
+
+    public GuideSiteHtmlCompiler(RecipeTagRenderer recipeTagRenderer, ImageResolver imageResolver,
+        MdxTagRenderer mdxTagRenderer, @Nullable GuideSiteLatexExporter latexExporter,
+        @Nullable GuideSitePageAssetExporter assetExporter) {
+        this(
+            recipeTagRenderer,
+            new GuideSiteSceneTagRenderer(
+                recipeTagRenderer,
+                imageResolver,
+                mdxTagRenderer,
+                latexExporter,
+                assetExporter),
+            imageResolver,
+            mdxTagRenderer,
+            latexExporter,
+            assetExporter);
     }
 
     public GuideSiteHtmlCompiler(RecipeTagRenderer recipeTagRenderer, SceneTagRenderer sceneTagRenderer) {
@@ -142,11 +167,18 @@ public class GuideSiteHtmlCompiler {
 
     public GuideSiteHtmlCompiler(RecipeTagRenderer recipeTagRenderer, SceneTagRenderer sceneTagRenderer,
         ImageResolver imageResolver, MdxTagRenderer mdxTagRenderer, @Nullable GuideSiteLatexExporter latexExporter) {
+        this(recipeTagRenderer, sceneTagRenderer, imageResolver, mdxTagRenderer, latexExporter, null);
+    }
+
+    public GuideSiteHtmlCompiler(RecipeTagRenderer recipeTagRenderer, SceneTagRenderer sceneTagRenderer,
+        ImageResolver imageResolver, MdxTagRenderer mdxTagRenderer, @Nullable GuideSiteLatexExporter latexExporter,
+        @Nullable GuideSitePageAssetExporter assetExporter) {
         this.recipeTagRenderer = recipeTagRenderer;
         this.sceneTagRenderer = sceneTagRenderer;
         this.imageResolver = imageResolver;
         this.mdxTagRenderer = mdxTagRenderer;
         this.latexExporter = latexExporter;
+        this.assetExporter = assetExporter;
     }
 
     public String compileBody(ParsedGuidePage parsed, GuideSiteTemplateRegistry templates) {
@@ -227,7 +259,7 @@ public class GuideSiteHtmlCompiler {
             return compileMarkdownImage(image, currentPageId);
         }
         if (node instanceof MdAstText text) {
-            return compileText(text.value(), templates);
+            return compileText(text.value(), templates, defaultNamespace, currentPageId);
         }
         if (node instanceof MdAstDelete deleted) {
             return "<del>"
@@ -269,6 +301,13 @@ public class GuideSiteHtmlCompiler {
         }
         if (node instanceof MdAstBreak) {
             return "<br>";
+        }
+        if (node instanceof MdAstLink link && isSoundActionHref(link.url())) {
+            return compileSoundLink(
+                link.url(),
+                compileChildren(link.children(), templates, defaultNamespace, currentPageId, sceneResolver),
+                defaultNamespace,
+                currentPageId);
         }
         if (node instanceof MdAstLink link) {
             return "<a href=\"" + escapeAttribute(GuideSiteHrefResolver.resolveRawHref(currentPageId, link.url()))
@@ -383,7 +422,8 @@ public class GuideSiteHtmlCompiler {
             tooltipSceneTagRenderer(),
             imageResolver,
             mdxTagRenderer,
-            latexExporter);
+            latexExporter,
+            assetExporter);
         MdxJsxAttribute content = element.getAttribute("content");
         if (content != null && content.hasExpressionValue()) {
             String source = normalizeTooltipContentExpression(content.getExpressionValue());
@@ -533,6 +573,14 @@ public class GuideSiteHtmlCompiler {
                     .append(escapeAttribute(annotation.templateId))
                     .append("\"");
             }
+            if (annotation.sound != null) {
+                GuideSiteSoundExport.appendDataAttributes(
+                    html,
+                    annotation.sound,
+                    annotation.soundTrigger,
+                    annotation.soundSrc,
+                    this::escapeAttribute);
+            }
             appendOptionalDataAttribute(html, "data-source-x", annotation.sourceX);
             appendOptionalDataAttribute(html, "data-source-y", annotation.sourceY);
             appendOptionalDataAttribute(html, "data-source-width", annotation.sourceWidth);
@@ -551,24 +599,21 @@ public class GuideSiteHtmlCompiler {
         List<ImageAnnotationExport> annotations = new ArrayList<>();
         for (MdAstAnyContent child : element.children()) {
             if (!(child instanceof MdxJsxElementFields childElement)
-                || !"ImageAnnotation".equals(childElement.name())) {
+                || (!"ImageAnnotation".equals(childElement.name()) && !"SoundArea".equals(childElement.name()))) {
                 continue;
             }
-            String tooltipHtml = compileChildren(
-                childElement.children(),
-                templates,
-                defaultNamespace,
-                currentPageId,
-                sceneResolver);
+            String tooltipHtml = "ImageAnnotation".equals(childElement.name())
+                ? compileChildren(childElement.children(), templates, defaultNamespace, currentPageId, sceneResolver)
+                : "";
             String templateId = tooltipHtml.trim()
                 .isEmpty() ? null : templates.create(tooltipHtml);
-            annotations.add(buildImageAnnotation(childElement, templateId, imageWidth, imageHeight));
+            annotations.add(buildImageAnnotation(childElement, templateId, imageWidth, imageHeight, currentPageId));
         }
         return annotations;
     }
 
     private ImageAnnotationExport buildImageAnnotation(MdxJsxElementFields element, @Nullable String templateId,
-        @Nullable Integer imageWidth, @Nullable Integer imageHeight) {
+        @Nullable Integer imageWidth, @Nullable Integer imageHeight, @Nullable ResourceLocation currentPageId) {
         Integer x = parsePositiveOrZeroInt(element.getAttributeString("x", null));
         Integer y = parsePositiveOrZeroInt(element.getAttributeString("y", null));
         Integer w = parsePositiveInt(element.getAttributeString("w", null));
@@ -588,13 +633,26 @@ public class GuideSiteHtmlCompiler {
                 .append(escapeCssColor(element.getAttributeString("borderColor", "#FFFFFFFF")))
                 .append(";");
         }
+        GuideSoundSpec sound = GuideSiteSoundExport.parse(
+            name -> element.getAttributeString(name, null),
+            currentPageId != null ? currentPageId.getResourceDomain() : "guidenh",
+            currentPageId);
+        String soundSrc = sound != null
+            ? GuideSiteSoundExport
+                .exportSource(sound, name -> element.getAttributeString(name, null), currentPageId, assetExporter)
+            : "";
         return new ImageAnnotationExport(
             templateId,
             style.toString(),
             wholeImage ? null : x != null ? x : 0,
             wholeImage ? null : y != null ? y : 0,
             wholeImage ? null : w != null ? w : 1,
-            wholeImage ? null : h != null ? h : 1);
+            wholeImage ? null : h != null ? h : 1,
+            sound,
+            sound != null
+                ? GuideSoundTrigger.parse(element.getAttributeString("trigger", null), GuideSoundTrigger.CLICK)
+                : GuideSoundTrigger.CLICK,
+            soundSrc);
     }
 
     private void appendOptionalDataAttribute(StringBuilder html, String name, @Nullable Integer value) {
@@ -745,7 +803,28 @@ public class GuideSiteHtmlCompiler {
             .append("px;");
     }
 
-    private String compileText(String text, GuideSiteTemplateRegistry templates) {
+    private String compileText(String text, GuideSiteTemplateRegistry templates, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId) {
+        if (!MarkdownActionLink.mayContain(text) && !MarkdownLatexShorthand.mayContain(text)) {
+            return escapeHtml(text);
+        }
+        StringBuilder html = new StringBuilder();
+        for (MarkdownActionLink.Segment actionSegment : MarkdownActionLink.split(text)) {
+            if (actionSegment.isLink() && isSoundActionHref(actionSegment.href())) {
+                html.append(
+                    compileSoundLink(
+                        actionSegment.href(),
+                        escapeHtml(actionSegment.text()),
+                        defaultNamespace,
+                        currentPageId));
+            } else {
+                html.append(compileLatexText(actionSegment.text(), templates));
+            }
+        }
+        return html.toString();
+    }
+
+    private String compileLatexText(String text, GuideSiteTemplateRegistry templates) {
         if (!MarkdownLatexShorthand.mayContain(text)) {
             return escapeHtml(text);
         }
@@ -757,6 +836,27 @@ public class GuideSiteHtmlCompiler {
                 html.append(escapeHtml(segment.getValue()));
             }
         }
+        return html.toString();
+    }
+
+    private boolean isSoundActionHref(String href) {
+        return href != null && (href.startsWith("sound:") || href.startsWith("sound-src:"));
+    }
+
+    private String compileSoundLink(String href, String body, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId) {
+        SoundHrefAttributes attributes = SoundHrefAttributes.parse(href);
+        GuideSoundSpec sound = GuideSiteSoundExport.parse(attributes, defaultNamespace, currentPageId);
+        if (sound == null) {
+            return body;
+        }
+        String src = GuideSiteSoundExport.exportSource(sound, attributes, currentPageId, assetExporter);
+        StringBuilder html = new StringBuilder();
+        html.append("<span class=\"guide-sound-link\" tabindex=\"0\" role=\"button\"");
+        GuideSiteSoundExport.appendDataAttributes(html, sound, GuideSoundTrigger.CLICK, src, this::escapeAttribute);
+        html.append(">")
+            .append(body)
+            .append("</span>");
         return html.toString();
     }
 
@@ -1417,15 +1517,91 @@ public class GuideSiteHtmlCompiler {
         private final Integer sourceWidth;
         @Nullable
         private final Integer sourceHeight;
+        @Nullable
+        private final GuideSoundSpec sound;
+        private final GuideSoundTrigger soundTrigger;
+        private final String soundSrc;
 
         private ImageAnnotationExport(@Nullable String templateId, String style, @Nullable Integer sourceX,
-            @Nullable Integer sourceY, @Nullable Integer sourceWidth, @Nullable Integer sourceHeight) {
+            @Nullable Integer sourceY, @Nullable Integer sourceWidth, @Nullable Integer sourceHeight,
+            @Nullable GuideSoundSpec sound, GuideSoundTrigger soundTrigger, String soundSrc) {
             this.templateId = templateId;
             this.style = style;
             this.sourceX = sourceX;
             this.sourceY = sourceY;
             this.sourceWidth = sourceWidth;
             this.sourceHeight = sourceHeight;
+            this.sound = sound;
+            this.soundTrigger = soundTrigger;
+            this.soundSrc = soundSrc != null ? soundSrc : "";
+        }
+    }
+
+    private static class SoundHrefAttributes implements GuideSiteSoundExport.MdxSoundAttributes {
+
+        private final String sound;
+        private final String source;
+        private final String query;
+
+        private SoundHrefAttributes(String sound, String source, String query) {
+            this.sound = sound;
+            this.source = source;
+            this.query = query;
+        }
+
+        private static SoundHrefAttributes parse(String href) {
+            String value = href != null ? href : "";
+            boolean sourceMode = value.startsWith("sound-src:");
+            String payload = sourceMode ? value.substring("sound-src:".length())
+                : value.startsWith("sound:") ? value.substring("sound:".length()) : "";
+            String path = payload;
+            String query = "";
+            int queryIndex = payload.indexOf('?');
+            if (queryIndex >= 0) {
+                path = payload.substring(0, queryIndex);
+                query = payload.substring(queryIndex + 1);
+            }
+            return new SoundHrefAttributes(
+                sourceMode ? null : decodeUriPart(path),
+                sourceMode ? decodeUriPart(path) : null,
+                query);
+        }
+
+        @Override
+        public @Nullable String value(String name) {
+            if ("sound".equals(name)) {
+                return sound;
+            }
+            if ("src".equals(name)) {
+                return source;
+            }
+            return queryValue(name);
+        }
+
+        @Nullable
+        private String queryValue(String name) {
+            if (query == null || query.isEmpty()) {
+                return null;
+            }
+            String[] pairs = query.split("&");
+            for (String pair : pairs) {
+                int eq = pair.indexOf('=');
+                if (eq <= 0) {
+                    continue;
+                }
+                if (name.equals(decodeUriPart(pair.substring(0, eq)))) {
+                    return decodeUriPart(pair.substring(eq + 1));
+                }
+            }
+            return null;
+        }
+
+        private static String decodeUriPart(String value) {
+            try {
+                return URLDecoder.decode(value, "UTF-8");
+            } catch (UnsupportedEncodingException | IllegalArgumentException ignored) {
+                return value.replace("%20", " ");
+            }
         }
     }
 

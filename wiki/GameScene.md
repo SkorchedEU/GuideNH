@@ -193,12 +193,34 @@ GuideNH currently registers these scene child tags:
 - `<ImportStructureLib>`
 - `<IsometricCamera>`
 - `<BlockStats>`
+- `<PlaySound>`
 - `<RemoveBlocks>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
 - `<Entity>`
 - annotation tags such as `<BoxAnnotation>` and `<LineAnnotation>`
+
+## Scene Sounds
+
+`<PlaySound>` can be placed inside `<GameScene>` to play sounds from scene interaction or timeline
+entry. Supported triggers are:
+
+- `click`, the default
+- `hover`, fired once when the cursor enters the scene
+- `enter`, fired once when the scene first renders
+
+```mdx
+<GameScene width="256" height="160">
+  <Block id="minecraft:furnace" />
+  <PlaySound sound="guidenh:machine.start" trigger="click" volume="0.8" />
+  <PlaySound src="guidenh:sounds/machine/hum.ogg" trigger="hover" volume="0.35" />
+</GameScene>
+```
+
+When `x`, `y`, and `z` are provided, the sound volume is attenuated in screen space from the
+projected scene coordinate to the click point or scene center. `radius` defaults to 75% of the
+shorter scene side, and `minVolume` defaults to `0.15`.
 
 ## `<BlockStats>` and `<BlockStat>`
 

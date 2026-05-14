@@ -4,6 +4,8 @@ import org.jetbrains.annotations.Nullable;
 
 import com.hfstudio.guidenh.guide.color.ColorValue;
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 
 /**
  * An annotation attached to a rectangular region of an image (in image-pixel coordinates).
@@ -23,6 +25,9 @@ public class ImageRegionAnnotation {
 
     @Nullable
     private GuideTooltip tooltip;
+    @Nullable
+    private GuideSoundSpec sound;
+    private GuideSoundTrigger soundTrigger = GuideSoundTrigger.CLICK;
 
     /**
      * Annotation covering a specific rectangular region of the image.
@@ -104,6 +109,23 @@ public class ImageRegionAnnotation {
 
     public void setTooltip(@Nullable GuideTooltip tooltip) {
         this.tooltip = tooltip;
+    }
+
+    @Nullable
+    public GuideSoundSpec getSound() {
+        return sound;
+    }
+
+    public void setSound(@Nullable GuideSoundSpec sound) {
+        this.sound = sound;
+    }
+
+    public GuideSoundTrigger getSoundTrigger() {
+        return soundTrigger;
+    }
+
+    public void setSoundTrigger(GuideSoundTrigger soundTrigger) {
+        this.soundTrigger = soundTrigger != null ? soundTrigger : GuideSoundTrigger.CLICK;
     }
 
     /**

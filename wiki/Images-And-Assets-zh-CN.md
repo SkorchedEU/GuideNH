@@ -37,6 +37,9 @@ GuideNH 会解析路径，并从指南内容根目录加载对应的二进制资
 | `title` | 否 | tooltip/title 文本 |
 | `width` | 否 | 显式宽度（像素） |
 | `height` | 否 | 显式高度（像素） |
+| `sound` | 否 | 整张图片点击时播放的音效事件 |
+| `src` | 是 | 图片路径；在 `<SoundArea>` 上使用时表示音效文件路径 |
+| `trigger` | 否 | 默认 `click`，也可以写 `hover` 以悬停播放 |
 
 ### 说明
 
@@ -65,6 +68,9 @@ GuideNH 会解析路径，并从指南内容根目录加载对应的二进制资
 | `border` | 否 | `false` | 是否显示彩色边框 |
 | `borderColor` | 否 | 随机 | 边框颜色（`#RRGGBB` 或 `#AARRGGBB`） |
 | `borderThickness` | 否 | `1` | 边框粗细（显示像素） |
+| `sound` | 否 | 无 | 此区域播放的可选音效事件 |
+| `src` | 否 | 无 | 可选音效文件路径，会转换为音效事件 id |
+| `trigger` | 否 | `click` | `click` 或 `hover` |
 
 ### 说明
 
@@ -109,6 +115,22 @@ GuideNH 会解析路径，并从指南内容根目录加载对应的二进制资
   </ImageAnnotation>
 </FloatingImage>
 ````
+
+图片区域也可以播放音效。只需要音效时可以使用 `<SoundArea>`；如果同一个区域还需要
+tooltip 或边框，也可以直接在 `<ImageAnnotation>` 上写 `sound`。
+
+````md
+<FloatingImage src="test1.png" align="left" width="128" sound="guidenh:image.click">
+  <SoundArea x="0" y="0" w="64" h="64" sound="guidenh:image.left" />
+  <SoundArea x="64" y="0" w="64" h="64" sound="guidenh:image.right" trigger="hover" />
+  <ImageAnnotation x="10" y="10" w="40" h="40" border sound="guidenh:image.note">
+    这个区域同时拥有 tooltip 内容和点击音效。
+  </ImageAnnotation>
+</FloatingImage>
+````
+
+`<FloatingImage sound="...">` 会覆盖整张图片。区域音效使用图片像素坐标，
+并遵循与 tooltip 相同的重叠优先级：靠后的区域优先响应。
 
 ## 内容嵌入与文字环绕
 

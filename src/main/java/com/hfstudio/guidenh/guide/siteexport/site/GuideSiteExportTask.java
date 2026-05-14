@@ -459,7 +459,8 @@ public class GuideSiteExportTask {
             recipeTagRenderer,
             assetExporter::resolveImageSrc,
             mdxTagRenderer,
-            new GuideSiteLatexExporter(assets));
+            new GuideSiteLatexExporter(assets),
+            assetExporter);
     }
 
     private byte[] loadGuideAsset(MutableGuide guide, IResourceManager resourceManager, String language,

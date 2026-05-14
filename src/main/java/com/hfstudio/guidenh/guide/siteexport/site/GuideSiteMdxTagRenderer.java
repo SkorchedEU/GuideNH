@@ -54,6 +54,8 @@ import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapParser;
 import com.hfstudio.guidenh.guide.internal.util.GuideStringLines;
 import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttribute;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstAnyContent;
@@ -150,6 +152,9 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         if ("CommandLink".equals(name)) {
             return renderCommandLink(element, defaultNamespace, currentPageId, templates, sceneResolver, compiler);
         }
+        if ("SoundLink".equals(name)) {
+            return renderSoundLink(element, defaultNamespace, currentPageId, templates, sceneResolver, compiler);
+        }
         if ("div".equals(name)) {
             return "<div>"
                 + compiler
@@ -232,6 +237,28 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             + "\">"
             + escapeHtml(label)
             + "</span>";
+    }
+
+    private String renderSoundLink(MdxJsxElementFields element, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver, GuideSiteHtmlCompiler compiler) {
+        String body = compiler
+            .compileFragment(element.children(), templates, defaultNamespace, sceneResolver, currentPageId);
+        GuideSoundSpec sound = GuideSiteSoundExport
+            .parse(name -> readOptional(element, name), defaultNamespace, currentPageId);
+        if (sound == null) {
+            return "<span class=\"guide-sound-link\">" + body + "</span>";
+        }
+        String src = GuideSiteSoundExport
+            .exportSource(sound, name -> readOptional(element, name), currentPageId, assetExporter);
+        GuideSoundTrigger trigger = GuideSoundTrigger.parse(readOptional(element, "trigger"), GuideSoundTrigger.CLICK);
+        StringBuilder html = new StringBuilder();
+        html.append("<span class=\"guide-sound-link\" tabindex=\"0\" role=\"button\"");
+        GuideSiteSoundExport.appendDataAttributes(html, sound, trigger, src, this::escapeAttribute);
+        html.append(">")
+            .append(body)
+            .append("</span>");
+        return html.toString();
     }
 
     private String renderQuestCard(MdxJsxElementFields element) {

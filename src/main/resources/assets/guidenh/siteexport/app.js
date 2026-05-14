@@ -19,6 +19,17 @@ function stopIngredientCycling(root) {
   }
 }
 
+function stopGuideSounds(root) {
+  const sounds = window.GuideNHSounds;
+  if (root && sounds && typeof sounds.stopWithin === "function") {
+    sounds.stopWithin(root);
+    return;
+  }
+  if (!root && sounds && typeof sounds.stopAll === "function") {
+    sounds.stopAll();
+  }
+}
+
 function installIngredientCycling(root) {
   stopIngredientCycling(root);
   const cyclingBoxes = root.querySelectorAll("[data-ingredient-cycling]");
@@ -72,6 +83,223 @@ function installImageAnnotations(root) {
     }
   }
   window.addEventListener("resize", () => layoutImageAnnotations(root), { passive: true });
+}
+
+function installGuideSounds(root) {
+  const lastPlayedAt = new Map();
+  const activeAudio = new Map();
+
+  function stopAudio(audio) {
+    try {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    } catch (_) {}
+  }
+
+  function stopAll() {
+    for (const audio of activeAudio.keys()) {
+      stopAudio(audio);
+    }
+    activeAudio.clear();
+  }
+
+  function stopWithin(container) {
+    for (const [audio, owner] of Array.from(activeAudio.entries())) {
+      if (!(owner instanceof Node) || !owner.isConnected || owner === container || container.contains(owner)) {
+        stopAudio(audio);
+        activeAudio.delete(audio);
+      }
+    }
+  }
+
+  window.GuideNHSounds = {
+    stopAll,
+    stopWithin,
+  };
+
+  function keyFor(element, sound) {
+    return `${sound || ""}:${element.dataset.guideSoundSrc || ""}`;
+  }
+
+  function effectiveVolume(element, event, spatialElement = element) {
+    const baseVolume = Number(element.dataset.guideSoundVolume || 1);
+    const radius = Number(element.dataset.guideSoundRadius || -1);
+    if (!Number.isFinite(baseVolume) || baseVolume <= 0 || !event || !Number.isFinite(radius) || radius <= 0) {
+      return Math.max(0, baseVolume || 0);
+    }
+    const rect = spatialElement.getBoundingClientRect();
+    const position = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+    const eventX = Number.isFinite(event.clientX) ? event.clientX : rect.left + rect.width / 2;
+    const eventY = Number.isFinite(event.clientY) ? event.clientY : rect.top + rect.height / 2;
+    const dx = eventX - position.x;
+    const dy = eventY - position.y;
+    const minVolume = Math.max(0, Math.min(1, Number(element.dataset.guideSoundMinVolume || 0.15)));
+    const factor = Math.max(minVolume, Math.min(1, 1 - Math.sqrt(dx * dx + dy * dy) / radius));
+    return Math.max(0, baseVolume * factor);
+  }
+
+  function playElementSound(element, event, spatialElement = element) {
+    const src = element.dataset.guideSoundSrc;
+    if (!src) {
+      return false;
+    }
+    const cooldown = Math.max(0, Number(element.dataset.guideSoundCooldown || 250));
+    const key = keyFor(element, element.dataset.guideSound);
+    const now = Date.now();
+    const last = lastPlayedAt.get(key) || 0;
+    if (cooldown > 0 && now - last < cooldown) {
+      return true;
+    }
+    const audio = new Audio(src);
+    activeAudio.set(audio, spatialElement);
+    audio.addEventListener("ended", () => activeAudio.delete(audio), { once: true });
+    audio.addEventListener("error", () => activeAudio.delete(audio), { once: true });
+    audio.volume = Math.max(0, Math.min(1, effectiveVolume(element, event, spatialElement)));
+    audio.playbackRate = Math.max(0.01, Number(element.dataset.guideSoundPitch || 1) || 1);
+    const played = audio.play();
+    if (played?.catch) {
+      played.catch(() => {
+        stopAudio(audio);
+        activeAudio.delete(audio);
+      });
+    }
+    lastPlayedAt.set(key, now);
+    return true;
+  }
+
+  function soundTrigger(element) {
+    return (element.dataset.guideSoundTrigger || "click").toLowerCase();
+  }
+
+  root.addEventListener("click", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-sound]") : null;
+    if (element instanceof HTMLElement && soundTrigger(element) === "click" && playElementSound(element, event)) {
+      event.preventDefault();
+    }
+  });
+
+  root.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-sound]") : null;
+    if (element instanceof HTMLElement && soundTrigger(element) === "click" && playElementSound(element, event)) {
+      event.preventDefault();
+    }
+  });
+
+  root.addEventListener("mouseover", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-sound]") : null;
+    if (element instanceof HTMLElement && soundTrigger(element) === "hover" && !element.dataset.guideSoundHovered) {
+      element.dataset.guideSoundHovered = "true";
+      playElementSound(element, event);
+    }
+  });
+
+  root.addEventListener("mouseout", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-sound]") : null;
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (element instanceof HTMLElement && (!related || !element.contains(related))) {
+      delete element.dataset.guideSoundHovered;
+    }
+  });
+
+  installSceneSounds(root, playElementSound);
+  window.addEventListener("pagehide", stopAll);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopAll();
+    }
+  });
+  root.addEventListener("click", (event) => {
+    const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+    if (link instanceof HTMLAnchorElement && !link.href.startsWith("javascript:")) {
+      stopAll();
+    }
+  }, true);
+}
+
+function installSceneSounds(root, playElementSound) {
+  const playedEnterSounds = new WeakMap();
+  const buildElement = (sound) => {
+    const element = document.createElement("span");
+    element.dataset.guideSound = sound.sound || "";
+    element.dataset.guideSoundSrc = sound.src || "";
+    element.dataset.guideSoundTrigger = sound.trigger || "click";
+    element.dataset.guideSoundVolume = String(sound.volume ?? 1);
+    element.dataset.guideSoundPitch = String(sound.pitch ?? 1);
+    element.dataset.guideSoundCooldown = String(sound.cooldown ?? 250);
+    element.dataset.guideSoundRadius = String(sound.radius ?? -1);
+    element.dataset.guideSoundMinVolume = String(sound.minVolume ?? 0.15);
+    if (sound.x != null) {
+      element.dataset.guideSoundX = String(sound.x);
+    }
+    if (sound.y != null) {
+      element.dataset.guideSoundY = String(sound.y);
+    }
+    if (sound.z != null) {
+      element.dataset.guideSoundZ = String(sound.z);
+    }
+    return element;
+  };
+  const parseSounds = (element) => {
+    try {
+      const parsed = JSON.parse(element.dataset.guideSceneSounds || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  };
+  const playMatching = (element, trigger, event) => {
+    const elementSounds = parseSounds(element);
+    for (const sound of elementSounds) {
+      if ((sound.trigger || "click") !== trigger) {
+        continue;
+      }
+      playElementSound(buildElement(sound), event, element);
+    }
+  };
+  const playEnter = (element, event) => {
+    const elementSounds = parseSounds(element);
+    let played = playedEnterSounds.get(element);
+    if (!played) {
+      played = new Set();
+      playedEnterSounds.set(element, played);
+    }
+    for (let i = 0; i < elementSounds.length; i++) {
+      const sound = elementSounds[i];
+      if ((sound.trigger || "click") === "enter" && !played.has(i)) {
+        played.add(i);
+        playElementSound(buildElement(sound), event, element);
+      }
+    }
+  };
+  root.addEventListener("click", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-scene-sounds]") : null;
+    if (element instanceof HTMLElement) {
+      playMatching(element, "click", event);
+    }
+  });
+  root.addEventListener("mouseover", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-scene-sounds]") : null;
+    if (!(element instanceof HTMLElement) || element.dataset.guideSceneSoundHovered) {
+      return;
+    }
+    element.dataset.guideSceneSoundHovered = "true";
+    playMatching(element, "hover", event);
+    playEnter(element, event);
+  });
+  root.addEventListener("mouseout", (event) => {
+    const element = event.target instanceof Element ? event.target.closest("[data-guide-scene-sounds]") : null;
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+    if (element instanceof HTMLElement && (!related || !element.contains(related))) {
+      delete element.dataset.guideSceneSoundHovered;
+    }
+  });
 }
 
 function installTooltips(root) {
@@ -130,6 +358,7 @@ function installTooltips(root) {
   function hideAll() {
     activeState = null;
     restoreStack = [];
+    stopGuideSounds(tooltipRoot);
     disposeHydratedScenes(tooltipRoot);
     tooltipRoot.hidden = true;
     tooltipRoot.innerHTML = "";
@@ -147,6 +376,7 @@ function installTooltips(root) {
       restoreStack = [];
     }
     activeState = nextState;
+    stopGuideSounds(tooltipRoot);
     disposeHydratedScenes(tooltipRoot);
     stopIngredientCycling(tooltipRoot);
     tooltipRoot.innerHTML = nextState.html;
@@ -344,6 +574,7 @@ document.addEventListener("DOMContentLoaded", () => {
   installTooltips(document);
   installIngredientCycling(document);
   installImageAnnotations(document);
+  installGuideSounds(document);
   installMermaidPanZoom(document);
   installChartHoverTooltips(document);
   hydrateVisibleScenes(document);

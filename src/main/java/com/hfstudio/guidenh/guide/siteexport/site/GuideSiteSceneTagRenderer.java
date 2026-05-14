@@ -7,8 +7,12 @@ import java.util.Map;
 
 import net.minecraft.util.ResourceLocation;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
+import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttribute;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxFlowElement;
@@ -27,6 +31,8 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
         "offsetX", "offsetY", "centerX", "centerY", "centerZ", "allowLayerSlider" };
 
     private final GuideSiteHtmlCompiler fragmentCompiler;
+    @Nullable
+    private final GuideSitePageAssetExporter assetExporter;
 
     public GuideSiteSceneTagRenderer() {
         this(
@@ -47,12 +53,20 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
     public GuideSiteSceneTagRenderer(GuideSiteHtmlCompiler.RecipeTagRenderer recipeTagRenderer,
         GuideSiteHtmlCompiler.ImageResolver imageResolver, GuideSiteHtmlCompiler.MdxTagRenderer mdxTagRenderer,
         GuideSiteLatexExporter latexExporter) {
+        this(recipeTagRenderer, imageResolver, mdxTagRenderer, latexExporter, null);
+    }
+
+    public GuideSiteSceneTagRenderer(GuideSiteHtmlCompiler.RecipeTagRenderer recipeTagRenderer,
+        GuideSiteHtmlCompiler.ImageResolver imageResolver, GuideSiteHtmlCompiler.MdxTagRenderer mdxTagRenderer,
+        GuideSiteLatexExporter latexExporter, @Nullable GuideSitePageAssetExporter assetExporter) {
         this.fragmentCompiler = new GuideSiteHtmlCompiler(
             recipeTagRenderer,
             (element, defaultNamespace, currentPageId, templates, exportedScene) -> "",
             imageResolver,
             mdxTagRenderer != null ? mdxTagRenderer : noopMdxTagRenderer(),
-            latexExporter);
+            latexExporter,
+            assetExporter);
+        this.assetExporter = assetExporter;
     }
 
     @Override
@@ -111,6 +125,7 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
             }
         }
         appendSceneActionAttributes(html, exportedScene);
+        appendSceneSoundAttributes(html, element, defaultNamespace, currentPageId);
 
         html.append(">");
         if (hasBlockStats) {
@@ -118,6 +133,58 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
                 .append("</div>");
         }
         return html.toString();
+    }
+
+    private void appendSceneSoundAttributes(StringBuilder html, MdxJsxElementFields element, String defaultNamespace,
+        ResourceLocation currentPageId) {
+        List<Map<String, Object>> sounds = collectSounds(element, defaultNamespace, currentPageId);
+        if (sounds.isEmpty()) {
+            return;
+        }
+        html.append(" data-guide-scene-sounds=\"")
+            .append(escapeAttribute(GSON.toJson(sounds)))
+            .append("\"");
+    }
+
+    private List<Map<String, Object>> collectSounds(MdxJsxElementFields element, String defaultNamespace,
+        ResourceLocation currentPageId) {
+        List<Map<String, Object>> sounds = new ArrayList<>();
+        for (MdAstAnyContent child : element.children()) {
+            if (!(child instanceof MdxJsxFlowElement flowElement) || !"PlaySound".equals(flowElement.name())) {
+                continue;
+            }
+            GuideSoundSpec sound = GuideSiteSoundExport
+                .parse(name -> readOptional(flowElement, name), defaultNamespace, currentPageId);
+            if (sound == null) {
+                continue;
+            }
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put(
+                "sound",
+                sound.soundId()
+                    .toString());
+            data.put(
+                "src",
+                GuideSiteSoundExport
+                    .exportSource(sound, name -> readOptional(flowElement, name), currentPageId, assetExporter));
+            data.put(
+                "trigger",
+                GuideSoundTrigger.parse(readOptional(flowElement, "trigger"), GuideSoundTrigger.CLICK)
+                    .name()
+                    .toLowerCase());
+            data.put("volume", sound.volume());
+            data.put("pitch", sound.pitch());
+            data.put("cooldown", sound.cooldownMillis());
+            data.put("radius", sound.radius());
+            data.put("minVolume", sound.minVolume());
+            if (sound.hasPosition()) {
+                data.put("x", sound.x());
+                data.put("y", sound.y());
+                data.put("z", sound.z());
+            }
+            sounds.add(data);
+        }
+        return sounds;
     }
 
     private void appendSceneActionAttributes(StringBuilder html, GuideSiteExportedScene exportedScene) {
@@ -312,6 +379,9 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
             }
 
             String name = flowElement.name();
+            if ("PlaySound".equals(name)) {
+                continue;
+            }
             if ("BoxAnnotation".equals(name)) {
                 float[] min = parseVector3(readOptional(flowElement, "min"), new float[] { 0f, 0f, 0f });
                 float[] max = parseVector3(readOptional(flowElement, "max"), new float[] { 0f, 0f, 0f });

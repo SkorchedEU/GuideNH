@@ -53,6 +53,14 @@ public class GuideSitePageAssetExporter {
     }
 
     public String exportResource(ResourceLocation assetId) {
+        return exportResource(assetId, "images");
+    }
+
+    public String exportSound(ResourceLocation assetId) {
+        return exportResource(assetId, "sounds");
+    }
+
+    private String exportResource(ResourceLocation assetId, String bucket) {
         if (assetId == null) {
             return "";
         }
@@ -61,7 +69,7 @@ public class GuideSitePageAssetExporter {
             if (content == null || content.length == 0) {
                 return "";
             }
-            String exportedPath = assets.writeShared("images", extensionOf(assetId), content);
+            String exportedPath = assets.writeShared(bucket, extensionOf(assetId), content);
             return ROOT_PREFIX + exportedPath;
         } catch (Exception ignored) {
             return "";

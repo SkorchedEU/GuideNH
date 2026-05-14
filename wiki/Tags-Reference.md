@@ -23,6 +23,7 @@ This page lists the built-in runtime tags registered by `DefaultExtensions`.
 | `<sup>` | smaller inline superscript-style text | none |
 | `<Color>` | colored inline text | `id` or `color` |
 | `<Tooltip>` | rich hover tooltip with markdown/tag children | `label` |
+| `<SoundLink>` | clickable rich-text sound trigger | `sound` or `src`, `volume`, `pitch`, `cooldown` |
 | `<mark>` | inline highlighted text; equivalent to `==text==` with optional color control | `color` |
 | `<PlayerName>` | inserts current player username | none |
 | `<KeyBind>` | inserts keybinding display name | `id` or `action` |
@@ -31,6 +32,13 @@ This page lists the built-in runtime tags registered by `DefaultExtensions`.
 | `<CommandLink>` | clickable chat command link | `command`, `title`, `close` |
 | `<Latex>` | LaTeX math formula; inline in flow context, centered display block in block context | `formula`, `color`, `scale`, `sourceScale`, `tooltip`, `showTooltip` |
 | `<QuestLink>` | BetterQuesting quest link with state-aware styling (compat tag, only registered when BetterQuesting is loaded) | `id`, `text` |
+
+Inline markdown also supports action links for sound playback:
+
+````md
+&[Start machine](sound:guidenh:machine.start)
+&[Play file-backed sound](sound-src:guidenh:sounds/machine/start.ogg?volume=0.8&pitch=1.1)
+````
 
 ## Block Tags
 
@@ -200,6 +208,29 @@ Creates underlined text that opens a rich content tooltip on hover.
 ````
 
 If `label` is omitted, the trigger text defaults to `tooltip`.
+
+### `<SoundLink>` And Sound Action Links
+
+`<SoundLink>` renders rich inline content that plays a sound when clicked. It does not navigate,
+and its custom click sound replaces the normal guide click sound for that click.
+
+````md
+<SoundLink sound="guidenh:machine.start" volume="0.8" pitch="1.0">
+  **Start machine**
+</SoundLink>
+
+&[Start machine](sound:guidenh:machine.start)
+&[Use a sound file](sound-src:guidenh:sounds/machine/start.ogg)
+````
+
+Sound attributes:
+
+- `sound` is a sound event id such as `modid:event.name`
+- `src` points at an `.ogg` file; `modid:sounds/machine/start.ogg` becomes `modid:machine.start`
+- `volume` defaults to `1.0`
+- `pitch` defaults to `1.0`
+- `cooldown` is milliseconds between repeated plays, default `250`
+- `radius` and `minVolume` control screen-space attenuation when used in scenes
 
 ### `<PlayerName>`
 

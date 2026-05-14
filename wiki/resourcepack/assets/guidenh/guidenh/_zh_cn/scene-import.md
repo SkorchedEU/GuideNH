@@ -28,6 +28,8 @@ categories:
 <GameScene width="384" height="256" zoom={4} interactive={true}>
   <ImportStructure src="/assets/example_structure.snbt" />
   <RemoveBlocks id="minecraft:glowstone" />
+  <PlaySound sound="guidenh:guide.sample_click" trigger="click" volume="0.75" />
+  <PlaySound sound="guidenh:guide.sample_hover" trigger="hover" volume="0.35" />
 </GameScene>
 
 ## ReplaceBlock

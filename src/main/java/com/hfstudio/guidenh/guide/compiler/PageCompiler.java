@@ -71,6 +71,7 @@ import com.hfstudio.guidenh.guide.internal.markdown.CodeBlockLanguage;
 import com.hfstudio.guidenh.guide.internal.markdown.CodeBlockLanguageDetector;
 import com.hfstudio.guidenh.guide.internal.markdown.FileTreeCompiler;
 import com.hfstudio.guidenh.guide.internal.markdown.FootnotePreprocessor;
+import com.hfstudio.guidenh.guide.internal.markdown.MarkdownActionLink;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownHtmlRuntimeNormalizer;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownLatexShorthand;
 import com.hfstudio.guidenh.guide.internal.markdown.MarkdownListSemantics;
@@ -82,6 +83,7 @@ import com.hfstudio.guidenh.guide.internal.markdown.MarkdownRuntimeBlocks.QuoteI
 import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapParser;
 import com.hfstudio.guidenh.guide.internal.util.GuideStringLines;
 import com.hfstudio.guidenh.guide.render.GuidePageTexture;
+import com.hfstudio.guidenh.guide.sound.GuideSoundParsers;
 import com.hfstudio.guidenh.guide.style.BorderStyle;
 import com.hfstudio.guidenh.guide.style.TextAlignment;
 import com.hfstudio.guidenh.guide.style.WhiteSpaceMode;
@@ -859,7 +861,9 @@ public class PageCompiler {
     private void compileFlowContent(LytFlowParent layoutParent, MdAstAnyContent content) {
         LytFlowContent layoutChild;
         if (content instanceof MdAstText astText) {
-            if (compileLiteralAutolinks(layoutParent, astText.value)) {
+            if (compileActionLinks(layoutParent, astText.value)) {
+                layoutChild = null;
+            } else if (compileLiteralAutolinks(layoutParent, astText.value)) {
                 layoutChild = null;
             } else if (compileInlineDollarLatex(layoutParent, astText.value)) {
                 layoutChild = null;
@@ -941,6 +945,46 @@ public class PageCompiler {
         if (layoutChild != null) {
             layoutParent.append(layoutChild);
         }
+    }
+
+    private boolean compileActionLinks(LytFlowParent layoutParent, String text) {
+        if (!MarkdownActionLink.mayContain(text)) {
+            return false;
+        }
+
+        List<MarkdownActionLink.Segment> segments = MarkdownActionLink.split(text);
+        boolean foundLink = false;
+        for (var segment : segments) {
+            if (segment.isLink() && GuideSoundParsers.parseActionUri(this, segment.href()) != null) {
+                foundLink = true;
+                break;
+            }
+        }
+        if (!foundLink) {
+            return false;
+        }
+
+        for (var segment : segments) {
+            if (!segment.isLink()) {
+                if (!segment.text()
+                    .isEmpty()) {
+                    layoutParent.appendText(segment.text());
+                }
+                continue;
+            }
+
+            var sound = GuideSoundParsers.parseActionUri(this, segment.href());
+            if (sound == null) {
+                layoutParent.appendText("&[" + segment.text() + "](" + segment.href() + ")");
+                continue;
+            }
+            var link = new LytFlowLink();
+            link.setClickSoundSpec(sound);
+            link.setClickCallback(uiHost -> {});
+            link.appendText(segment.text());
+            layoutParent.append(link);
+        }
+        return true;
     }
 
     private boolean compileLiteralAutolinks(LytFlowParent layoutParent, String text) {

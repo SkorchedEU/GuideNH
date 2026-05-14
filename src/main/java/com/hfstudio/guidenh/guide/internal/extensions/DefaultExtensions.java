@@ -34,6 +34,7 @@ import com.hfstudio.guidenh.guide.compiler.tags.MarkTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.MermaidCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.PlayerNameTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.RecipeCompiler;
+import com.hfstudio.guidenh.guide.compiler.tags.SoundLinkCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.StructureViewCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.SubPagesCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.SubscriptTagCompiler;
@@ -62,6 +63,7 @@ import com.hfstudio.guidenh.guide.scene.element.ImportStructureElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.ImportStructureLibElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.IsometricCameraElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.PlaceBlockElementCompiler;
+import com.hfstudio.guidenh.guide.scene.element.PlaySoundElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.RemoveBlocksElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.ReplaceBlockElementCompiler;
 import com.hfstudio.guidenh.guide.scene.element.SceneElementTagCompiler;
@@ -118,6 +120,7 @@ public class DefaultExtensions {
                 new SceneTagCompiler(),
                 new SubPagesCompiler(),
                 new CommandLinkCompiler(),
+                new SoundLinkCompiler(),
                 new PlayerNameTagCompiler(),
                 new KeyBindTagCompiler(),
                 new CommentTagCompiler(),
@@ -156,6 +159,7 @@ public class DefaultExtensions {
             new DiamondAnnotationElementCompiler(),
             new BlockAnnotationTemplateElementCompiler(),
             new TextAnnotationElementCompiler(),
+            new PlaySoundElementCompiler(),
             new RemoveBlocksElementCompiler(),
             new ReplaceBlockElementCompiler(),
             new PlaceBlockElementCompiler());

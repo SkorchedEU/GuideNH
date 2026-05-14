@@ -35,6 +35,9 @@ GuideNH resolves the path and loads the binary asset from the guide content root
 | `title` | no | tooltip/title text |
 | `width` | no | explicit width in pixels |
 | `height` | no | explicit height in pixels |
+| `sound` | no | sound event played by the whole image |
+| `src` | yes | image path; when used on `<SoundArea>`, the sound file path |
+| `trigger` | no | `click` by default, or `hover` for hover playback |
 
 ### Notes
 
@@ -65,6 +68,9 @@ an optional colored border) to a rectangular region of the image. Coordinates ar
 | `border` | no | `false` | show a colored border around the region |
 | `borderColor` | no | random | border color (`#RRGGBB` or `#AARRGGBB`) |
 | `borderThickness` | no | `1` | border thickness in display pixels |
+| `sound` | no | none | optional sound event played for this region |
+| `src` | no | none | optional sound file path; converted to a sound event id |
+| `trigger` | no | `click` | `click` or `hover` |
 
 ### Notes
 
@@ -109,6 +115,22 @@ Multiple regions on one image:
   </ImageAnnotation>
 </FloatingImage>
 ````
+
+Image regions can also play sounds. Use `<SoundArea>` when you only need sound, or put `sound`
+directly on `<ImageAnnotation>` when the same region also has a tooltip or border.
+
+````md
+<FloatingImage src="test1.png" align="left" width="128" sound="guidenh:image.click">
+  <SoundArea x="0" y="0" w="64" h="64" sound="guidenh:image.left" />
+  <SoundArea x="64" y="0" w="64" h="64" sound="guidenh:image.right" trigger="hover" />
+  <ImageAnnotation x="10" y="10" w="40" h="40" border sound="guidenh:image.note">
+    This region has both tooltip content and a click sound.
+  </ImageAnnotation>
+</FloatingImage>
+````
+
+`<FloatingImage sound="...">` covers the whole image. Region sounds use image-pixel coordinates
+and obey the same overlap priority as tooltips: later regions win.
 
 ## Content Embedding and Text Wrapping
 

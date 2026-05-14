@@ -58,6 +58,7 @@ import com.hfstudio.guidenh.guide.document.block.LytSlot;
 import com.hfstudio.guidenh.guide.document.block.LytVisitor;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowAnchor;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowContent;
+import com.hfstudio.guidenh.guide.document.flow.LytFlowLink;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowText;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.DocumentDragTarget;
@@ -95,6 +96,7 @@ import com.hfstudio.guidenh.guide.render.VanillaRenderContext;
 import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockDisplayResolver;
 import com.hfstudio.guidenh.guide.scene.support.GuideEntityDisplayResolver;
+import com.hfstudio.guidenh.guide.sound.GuideSoundPlayback;
 import com.hfstudio.guidenh.guide.ui.GuideUiHost;
 import com.hfstudio.guidenh.libs.unist.UnistPoint;
 
@@ -381,6 +383,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         var screen = new GuideScreen(guide, initial, parent);
         screen.guideEditorSuppressTextFocusUntilGuideHotkeyRelease = openedFromGuideHotkey
             && OpenGuideHotkey.isKeyHeld();
+        GuideSoundPlayback.stopAll();
         mc.displayGuiScreen(screen);
     }
 
@@ -2386,8 +2389,10 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
         boolean handled = activateDocumentInteraction(interaction, button);
         if (handled) {
-            mc.getSoundHandler()
-                .playSound(PositionedSoundRecord.func_147674_a(new ResourceLocation("guidenh:guide_click"), 1.0F));
+            if (!consumeCustomClickSound(interaction.hit)) {
+                mc.getSoundHandler()
+                    .playSound(PositionedSoundRecord.func_147674_a(new ResourceLocation("guidenh:guide_click"), 1.0F));
+            }
         }
         return true;
     }
@@ -3591,9 +3596,11 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
                     }
                 }
                 if (handled) {
-                    mc.getSoundHandler()
-                        .playSound(
-                            PositionedSoundRecord.func_147674_a(new ResourceLocation("guidenh:guide_click"), 1.0F));
+                    if (!consumeCustomClickSound(hit)) {
+                        mc.getSoundHandler()
+                            .playSound(
+                                PositionedSoundRecord.func_147674_a(new ResourceLocation("guidenh:guide_click"), 1.0F));
+                    }
                     return;
                 }
                 if (startDocumentInteractionDrag(interaction, hit, docX, docY, mouseX, mouseY, button)) {
@@ -3623,6 +3630,17 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
         openGuideEditorContextMenu(mouseX, mouseY);
         return true;
+    }
+
+    private boolean consumeCustomClickSound(LytDocument.HitTestResult hit) {
+        var fc = hit.content();
+        while (fc != null) {
+            if (fc instanceof LytFlowLink link && link.consumePlayedCustomClickSound()) {
+                return true;
+            }
+            fc = fc.getFlowParent();
+        }
+        return false;
     }
 
     private boolean activateDocumentInteraction(DocumentInteractionState interaction, int button) {
@@ -3792,6 +3810,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
         }
         if (scene != null) {
             hoveredScene = scene;
+            scene.updateSoundHover(mouseX, mouseY);
             if (scene.containsBottomControlSlider(mouseX, mouseY)) {
                 scene.clearAnnotationHover();
                 scene.setHoveredStructureLibHatch(null);
@@ -4030,6 +4049,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     }
 
     private void navigateWithoutHistory(PageAnchor anchor) {
+        GuideSoundPlayback.stopAll();
         clearInteractionState();
         currentAnchor = anchor;
         pendingAnchorScroll = anchor != null && anchor.anchor() != null;
@@ -4049,6 +4069,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
 
     @Override
     public void close() {
+        GuideSoundPlayback.stopAll();
         mc.displayGuiScreen(parentScreen);
         if (mc.currentScreen == null) {
             mc.setIngameFocus();
@@ -4058,6 +4079,7 @@ public class GuideScreen extends GuiScreen implements GuideUiHost, GuiYesNoCallb
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
+        GuideSoundPlayback.stopAll();
         if (GuideScreenEditorState.isAutosaveEnabled() && guideEditorDirty) {
             saveGuideEditorDraft();
         }

@@ -25,6 +25,7 @@
 | `<sup>` | 较小的上标风格行内文本 | 无 |
 | `<Color>` | 彩色行内文本 | `id` 或 `color` |
 | `<Tooltip>` | 带 Markdown/标签子内容的富悬浮提示 | `label` |
+| `<SoundLink>` | 可点击的富文本音效触发器 | `sound` 或 `src`，`volume`，`pitch`，`cooldown` |
 | `<mark>` | 行内高亮文本；等价于 `==text==`，并可自定义颜色 | `color` |
 | `<PlayerName>` | 插入当前玩家用户名 | 无 |
 | `<KeyBind>` | 插入按键绑定显示名 | `id` 或 `action` |
@@ -33,6 +34,13 @@
 | `<CommandLink>` | 可点击的聊天命令链接 | `command`, `title`, `close` |
 | `<Latex>` | LaTeX 数学公式；在流式上下文中行内渲染，在块级上下文中居中显示为独立公式块 | `formula`, `color`, `scale`, `sourceScale`, `tooltip`, `showTooltip` |
 | `<QuestLink>` | BetterQuesting 任务链接，按任务状态自动调整样式（兼容标签，仅当 BetterQuesting 已加载时注册） | `id`, `text` |
+
+行内 Markdown 也支持音效动作链接：
+
+````md
+&[启动机器](sound:guidenh:machine.start)
+&[播放文件音效](sound-src:guidenh:sounds/machine/start.ogg?volume=0.8&pitch=1.1)
+````
 
 ## 块级标签
 
@@ -176,6 +184,29 @@ world
 ````
 
 若省略 `label`，默认触发文字为 `tooltip`。
+
+### `<SoundLink>` 与音效动作链接
+
+`<SoundLink>` 会渲染一段可点击的富文本内容，点击后播放音效。它不会进行页面导航，
+并且本次点击会使用自定义音效替代指南默认点击音效。
+
+````md
+<SoundLink sound="guidenh:machine.start" volume="0.8" pitch="1.0">
+  **启动机器**
+</SoundLink>
+
+&[启动机器](sound:guidenh:machine.start)
+&[使用音效文件](sound-src:guidenh:sounds/machine/start.ogg)
+````
+
+音效属性：
+
+- `sound` 是音效事件 id，例如 `modid:event.name`
+- `src` 指向 `.ogg` 文件；`modid:sounds/machine/start.ogg` 会转换为 `modid:machine.start`
+- `volume` 默认 `1.0`
+- `pitch` 默认 `1.0`
+- `cooldown` 是重复播放的间隔毫秒数，默认 `250`
+- `radius` 和 `minVolume` 用于场景中的屏幕空间衰减
 
 ### `<PlayerName>`
 

@@ -165,6 +165,10 @@ function attachSceneContext(sceneContext) {
   const wrapper = sceneContext?.runtime?.wrapper;
   if (wrapper instanceof HTMLElement) {
     wrapper[SCENE_CONTEXT_KEY] = sceneContext;
+    const sceneSounds = sceneContext.descriptor?.attributes?.["data-guide-scene-sounds"];
+    if (sceneSounds) {
+      wrapper.dataset.guideSceneSounds = sceneSounds;
+    }
     normalizeVendorSceneControls(wrapper);
     mountSceneActionControls(sceneContext);
   }

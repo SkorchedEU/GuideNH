@@ -1,0 +1,20 @@
+{
+  "guide.sample_click": {
+    "category": "master",
+    "sounds": [
+      "guidenh:guide/sample_click"
+    ]
+  },
+  "guide.sample_left": {
+    "category": "master",
+    "sounds": [
+      "guidenh:guide/sample_left"
+    ]
+  },
+  "guide.sample_hover": {
+    "category": "master",
+    "sounds": [
+      "guidenh:guide/sample_hover"
+    ]
+  }
+}
