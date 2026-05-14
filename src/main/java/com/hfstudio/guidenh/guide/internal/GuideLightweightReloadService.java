@@ -165,14 +165,7 @@ public final class GuideLightweightReloadService {
         if (bytes == null) {
             return null;
         }
-        try {
-            return PageCompiler
-                .parse(sourcePack, language, pageId, new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-        } catch (Exception ex) {
-            FMLLog.getLogger()
-                .error("[GuideNH] [GuideLightweightReloadService] Error parsing page {} from {}", pageId, sourceId, ex);
-            return null;
-        }
+        return parsePageBytes(sourcePack, language, pageId, sourceId, bytes);
     }
 
     @Nullable
@@ -182,6 +175,12 @@ public final class GuideLightweightReloadService {
         if (bytes == null) {
             return null;
         }
+        return parsePageBytes(sourcePack, language, pageId, sourceId, bytes);
+    }
+
+    @Nullable
+    private static ParsedGuidePage parsePageBytes(String sourcePack, String language, ResourceLocation pageId,
+        ResourceLocation sourceId, byte[] bytes) {
         try {
             return PageCompiler
                 .parse(sourcePack, language, pageId, new String(bytes, java.nio.charset.StandardCharsets.UTF_8));

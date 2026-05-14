@@ -40,13 +40,26 @@ public class LytLatexDisplayBlock extends LytBlock implements InteractiveElement
 
     public LytLatexDisplayBlock(String formula, int fillColorArgb, float sourceScale, float userScale,
         @Nullable GuideTooltip tooltip, int offsetX, int offsetY) {
+        this(
+            formula,
+            new LatexRenderOptions(
+                fillColorArgb,
+                sourceScale,
+                userScale,
+                tooltip,
+                LatexVerticalAlign.BASELINE,
+                offsetX,
+                offsetY));
+    }
+
+    public LytLatexDisplayBlock(String formula, LatexRenderOptions options) {
         this.formula = formula;
-        this.fillColorArgb = fillColorArgb;
-        this.sourceScale = sourceScale;
-        this.userScale = Math.max(0.1f, userScale);
-        this.tooltip = tooltip;
-        this.offsetX = offsetX;
-        this.offsetY = offsetY;
+        this.fillColorArgb = options.fillColorArgb();
+        this.sourceScale = options.sourceScale();
+        this.userScale = options.userScale();
+        this.tooltip = options.tooltip();
+        this.offsetX = options.offsetX();
+        this.offsetY = options.offsetY();
     }
 
     @Override

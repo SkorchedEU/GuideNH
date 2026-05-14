@@ -41,13 +41,10 @@ public class NavigationUtil {
                     cycleTextures.add(texture != null ? texture : GuidePageTexture.missing());
                 }
             }
-            return new GuidePageIcon(
-                null,
-                cycleTextureIds.get(0),
-                cycleTextures.isEmpty() ? null : cycleTextures.get(0),
-                null,
-                cycleTextures.isEmpty() ? null : cycleTextures,
-                cycleTextureIds);
+            if (cycleTextures.isEmpty()) {
+                return GuidePageIcon.cycleTextureIds(cycleTextureIds);
+            }
+            return GuidePageIcon.cycleTextures(cycleTextureIds, cycleTextures);
         }
 
         var iconTextureId = navigation.iconTextureId();
@@ -60,7 +57,7 @@ public class NavigationUtil {
             }
             if (navigation.iconItemId() == null && (navigation.iconEntries() == null || navigation.iconEntries()
                 .isEmpty())) {
-                return new GuidePageIcon(null, iconTextureId, null, null, null, null);
+                return GuidePageIcon.textureId(iconTextureId);
             }
         }
 
@@ -74,13 +71,13 @@ public class NavigationUtil {
                 }
             }
             if (!cycleItems.isEmpty()) {
-                return new GuidePageIcon(cycleItems.get(0), null, null, cycleItems, null, null);
+                return GuidePageIcon.cycleItems(cycleItems);
             }
         }
 
         if (navigation.iconItemId() == null) {
             if (iconTextureId != null) {
-                return new GuidePageIcon(null, iconTextureId, null, null, null, null);
+                return GuidePageIcon.textureId(iconTextureId);
             }
             return null;
         }
@@ -91,7 +88,7 @@ public class NavigationUtil {
             navigation.iconItemMeta(),
             navigation.iconComponents());
         if (stack == null) return null;
-        return new GuidePageIcon(stack, null, null, null, null, null);
+        return GuidePageIcon.item(stack);
     }
 
     @Nullable
@@ -103,7 +100,7 @@ public class NavigationUtil {
     public static GuidePageIcon createTextureIcon(ParsedGuidePage page, PageCollection pages, ResourceLocation iconId) {
         var texture = loadTexture(page, pages, iconId);
         if (texture == null) return null;
-        return new GuidePageIcon(null, iconId, texture, null, null, null);
+        return GuidePageIcon.texture(iconId, texture);
     }
 
     @Nullable

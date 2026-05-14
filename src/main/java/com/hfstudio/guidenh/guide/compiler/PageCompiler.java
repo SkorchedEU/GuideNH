@@ -31,6 +31,7 @@ import com.hfstudio.guidenh.guide.color.SymbolicColor;
 import com.hfstudio.guidenh.guide.compiler.tags.CsvTableCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.functiongraph.FunctionGraphFenceParser;
 import com.hfstudio.guidenh.guide.document.LytErrorSink;
+import com.hfstudio.guidenh.guide.document.block.LatexRenderOptions;
 import com.hfstudio.guidenh.guide.document.block.LatexVerticalAlign;
 import com.hfstudio.guidenh.guide.document.block.LytAlertBox;
 import com.hfstudio.guidenh.guide.document.block.LytBlock;
@@ -755,7 +756,10 @@ public class PageCompiler {
         if (children.size() == 1 && children.get(0) instanceof MdAstText soleText) {
             String formula = MarkdownLatexShorthand.extractSoleDisplayFormula(soleText.value);
             if (formula != null) {
-                var displayBlock = new LytLatexDisplayBlock(formula, 0xFFFFFFFF, 100f, 1.0f, null, 0, 0);
+                var displayBlock = new LytLatexDisplayBlock(
+                    formula,
+                    LatexRenderOptions.builder()
+                        .build());
                 displayBlock.setMarginTop(DEFAULT_ELEMENT_SPACING);
                 displayBlock.setMarginBottom(DEFAULT_ELEMENT_SPACING);
                 parent.append(displayBlock);
@@ -972,13 +976,9 @@ public class PageCompiler {
                 foundFormula = true;
                 var block = new LytLatexBlock(
                     segment.getValue(),
-                    0xFFFFFFFF,
-                    100f,
-                    1.0f,
-                    null,
-                    LatexVerticalAlign.BASELINE,
-                    0,
-                    0);
+                    LatexRenderOptions.builder()
+                        .valign(LatexVerticalAlign.BASELINE)
+                        .build());
                 layoutParent.append(LytFlowInlineBlock.of(block));
             } else if (!segment.getValue()
                 .isEmpty()) {

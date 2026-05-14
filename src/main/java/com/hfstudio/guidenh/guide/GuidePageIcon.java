@@ -1,5 +1,7 @@
 package com.hfstudio.guidenh.guide;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import net.minecraft.item.ItemStack;
@@ -14,6 +16,53 @@ import com.hfstudio.guidenh.guide.render.GuidePageTexture;
 public record GuidePageIcon(@Nullable ItemStack itemStack, @Nullable ResourceLocation textureId,
     @Nullable GuidePageTexture texture, @Nullable List<ItemStack> cycleItemStacks,
     @Nullable List<GuidePageTexture> cycleTextures, @Nullable List<ResourceLocation> cycleTextureIds) {
+
+    public static GuidePageIcon item(ItemStack itemStack) {
+        return new GuidePageIcon(itemStack, null, null, null, null, null);
+    }
+
+    public static GuidePageIcon textureId(ResourceLocation textureId) {
+        return new GuidePageIcon(null, textureId, null, null, null, null);
+    }
+
+    public static GuidePageIcon texture(ResourceLocation textureId, GuidePageTexture texture) {
+        return new GuidePageIcon(null, textureId, texture, null, null, null);
+    }
+
+    public static GuidePageIcon cycleItems(List<ItemStack> itemStacks) {
+        if (itemStacks.isEmpty()) {
+            throw new IllegalArgumentException("cycle item icon list must not be empty");
+        }
+        var copiedStacks = copy(itemStacks);
+        return new GuidePageIcon(copiedStacks.get(0), null, null, copiedStacks, null, null);
+    }
+
+    public static GuidePageIcon cycleTextureIds(List<ResourceLocation> textureIds) {
+        if (textureIds.isEmpty()) {
+            throw new IllegalArgumentException("cycle texture icon list must not be empty");
+        }
+        var copiedTextureIds = copy(textureIds);
+        return new GuidePageIcon(null, copiedTextureIds.get(0), null, null, null, copiedTextureIds);
+    }
+
+    public static GuidePageIcon cycleTextures(List<ResourceLocation> textureIds, List<GuidePageTexture> textures) {
+        if (textureIds.isEmpty()) {
+            throw new IllegalArgumentException("cycle texture icon id list must not be empty");
+        }
+        var copiedTextureIds = copy(textureIds);
+        var copiedTextures = textures.isEmpty() ? null : copy(textures);
+        return new GuidePageIcon(
+            null,
+            copiedTextureIds.get(0),
+            copiedTextures == null ? null : copiedTextures.get(0),
+            null,
+            copiedTextures,
+            copiedTextureIds);
+    }
+
+    private static <T> List<T> copy(List<T> values) {
+        return Collections.unmodifiableList(new ArrayList<>(values));
+    }
 
     public boolean isItemIcon() {
         return itemStack != null || (cycleItemStacks != null && !cycleItemStacks.isEmpty());

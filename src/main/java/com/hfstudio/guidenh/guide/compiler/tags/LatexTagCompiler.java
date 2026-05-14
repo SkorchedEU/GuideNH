@@ -6,6 +6,7 @@ import java.util.Set;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.TagCompiler;
 import com.hfstudio.guidenh.guide.document.LytErrorSink;
+import com.hfstudio.guidenh.guide.document.block.LatexRenderOptions;
 import com.hfstudio.guidenh.guide.document.block.LatexVerticalAlign;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.document.block.LytLatexBlock;
@@ -51,10 +52,6 @@ public class LatexTagCompiler implements TagCompiler {
 
     private static final String TAG_NAME = "Latex";
 
-    private static final int DEFAULT_FILL_COLOR_ARGB = 0xFFFFFFFF;
-    private static final float DEFAULT_USER_SCALE = 1.0f;
-    private static final float DEFAULT_SOURCE_SCALE = 100.0f;
-
     @Override
     public Set<String> getTagNames() {
         return Collections.singleton(TAG_NAME);
@@ -85,8 +82,9 @@ public class LatexTagCompiler implements TagCompiler {
         }
 
         int fillColor = parseColor(compiler, parent, el);
-        float userScale = MdxAttrs.getFloat(compiler, parent, el, "scale", DEFAULT_USER_SCALE);
-        float sourceScale = MdxAttrs.getFloat(compiler, parent, el, "sourceScale", DEFAULT_SOURCE_SCALE);
+        float userScale = MdxAttrs.getFloat(compiler, parent, el, "scale", LatexRenderOptions.DEFAULT_USER_SCALE);
+        float sourceScale = MdxAttrs
+            .getFloat(compiler, parent, el, "sourceScale", LatexRenderOptions.DEFAULT_SOURCE_SCALE);
         GuideTooltip tooltip = buildInlineTooltip(compiler, parent, el, formula);
         LatexVerticalAlign valign = LatexVerticalAlign.parse(MdxAttrs.getString(compiler, parent, el, "valign", null));
         int offsetX = MdxAttrs.getInt(compiler, parent, el, "offsetX", 0);
@@ -94,13 +92,14 @@ public class LatexTagCompiler implements TagCompiler {
 
         return new LytLatexBlock(
             formula,
-            fillColor,
-            Math.max(16f, sourceScale),
-            Math.max(0.1f, userScale),
-            tooltip,
-            valign,
-            offsetX,
-            offsetY);
+            LatexRenderOptions.builder()
+                .fillColorArgb(fillColor)
+                .sourceScale(sourceScale)
+                .userScale(userScale)
+                .tooltip(tooltip)
+                .valign(valign)
+                .offset(offsetX, offsetY)
+                .build());
     }
 
     private LytLatexDisplayBlock buildDisplayBlock(PageCompiler compiler, LytBlockContainer parent,
@@ -113,20 +112,22 @@ public class LatexTagCompiler implements TagCompiler {
         }
 
         int fillColor = parseColor(compiler, parent, el);
-        float userScale = MdxAttrs.getFloat(compiler, parent, el, "scale", DEFAULT_USER_SCALE);
-        float sourceScale = MdxAttrs.getFloat(compiler, parent, el, "sourceScale", DEFAULT_SOURCE_SCALE);
+        float userScale = MdxAttrs.getFloat(compiler, parent, el, "scale", LatexRenderOptions.DEFAULT_USER_SCALE);
+        float sourceScale = MdxAttrs
+            .getFloat(compiler, parent, el, "sourceScale", LatexRenderOptions.DEFAULT_SOURCE_SCALE);
         GuideTooltip tooltip = buildBlockTooltip(compiler, parent, el, formula);
         int offsetX = MdxAttrs.getInt(compiler, parent, el, "offsetX", 0);
         int offsetY = MdxAttrs.getInt(compiler, parent, el, "offsetY", 0);
 
         return new LytLatexDisplayBlock(
             formula,
-            fillColor,
-            Math.max(16f, sourceScale),
-            Math.max(0.1f, userScale),
-            tooltip,
-            offsetX,
-            offsetY);
+            LatexRenderOptions.builder()
+                .fillColorArgb(fillColor)
+                .sourceScale(sourceScale)
+                .userScale(userScale)
+                .tooltip(tooltip)
+                .offset(offsetX, offsetY)
+                .build());
     }
 
     private static GuideTooltip buildInlineTooltip(PageCompiler compiler, LytErrorSink errorSink,
@@ -171,7 +172,7 @@ public class LatexTagCompiler implements TagCompiler {
     private static int parseColor(PageCompiler compiler, LytErrorSink errorSink, MdxJsxElementFields el) {
         String colorStr = MdxAttrs.getString(compiler, errorSink, el, "color", null);
         if (colorStr == null) {
-            return DEFAULT_FILL_COLOR_ARGB;
+            return LatexRenderOptions.DEFAULT_FILL_COLOR_ARGB;
         }
         colorStr = colorStr.trim();
         if (colorStr.startsWith("#")) {
@@ -190,6 +191,6 @@ public class LatexTagCompiler implements TagCompiler {
             compiler,
             "Invalid color format '" + colorStr + "' for Latex tag; expected #RRGGBB or #AARRGGBB.",
             el);
-        return DEFAULT_FILL_COLOR_ARGB;
+        return LatexRenderOptions.DEFAULT_FILL_COLOR_ARGB;
     }
 }
