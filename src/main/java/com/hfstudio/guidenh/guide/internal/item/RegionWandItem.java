@@ -684,6 +684,10 @@ public class RegionWandItem extends Item {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
     public void addInformation(ItemStack stack, EntityPlayer player, List list, boolean advanced) {
+        if (!GuideNhStructureExportAccess.canUseSceneExport()) {
+            list.add(GuidebookText.SceneExportDisabled.text());
+            return;
+        }
         int[] p1 = getPos(stack, 1);
         int[] p2 = getPos(stack, 2);
         list.add(GuidebookText.RegionWandTooltipSelect.text());

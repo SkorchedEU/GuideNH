@@ -24,10 +24,11 @@ public class RegionWandRenderer {
         EntityClientPlayerMP player = mc.thePlayer;
         if (player == null) return;
         ItemStack heldWand = getHeldRegionWand(player);
-        boolean holdingWand = heldWand != null && GuideNhStructureExportAccess.canUseSceneExport();
+        boolean exportEnabled = GuideNhStructureExportAccess.canUseSceneExport();
+        boolean holdingWand = heldWand != null && exportEnabled;
         int[] p1 = RegionWandSelection.getPos(1);
         int[] p2 = RegionWandSelection.getPos(2);
-        boolean renderSelection = (p1 != null || p2 != null)
+        boolean renderSelection = (p1 != null || p2 != null) && exportEnabled
             && (holdingWand || ModConfig.ui.regionWandPersistentSelectionRender);
         int[] target = holdingWand ? resolveTarget(mc, player) : null;
         if (!renderSelection && target == null) return;

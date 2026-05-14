@@ -1,20 +1,17 @@
 package com.hfstudio.guidenh.guide.internal.structure;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.server.MinecraftServer;
 
 import com.hfstudio.guidenh.config.ModConfig;
 
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
+import cpw.mods.fml.common.FMLCommonHandler;
 
 public final class GuideNhStructureExportAccess {
 
     private GuideNhStructureExportAccess() {}
 
-    @SideOnly(Side.CLIENT)
     public static boolean canUseSceneExport() {
-        Minecraft minecraft = Minecraft.getMinecraft();
-        boolean singlePlayer = minecraft != null && minecraft.isSingleplayer();
+        boolean singlePlayer = isSinglePlayer();
         return canUseSceneExport(singlePlayer, GuideNhStructureRuntime.isServerStructureCommandsAvailable());
     }
 
@@ -23,5 +20,11 @@ public final class GuideNhStructureExportAccess {
             return ModConfig.ui.sceneExportEnabled;
         }
         return serverGuideNhInstalled && ModConfig.ui.sceneExportEnabled;
+    }
+
+    private static boolean isSinglePlayer() {
+        MinecraftServer server = FMLCommonHandler.instance()
+            .getMinecraftServerInstance();
+        return server != null && server.isSinglePlayer();
     }
 }

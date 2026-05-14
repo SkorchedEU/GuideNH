@@ -1,6 +1,7 @@
 package com.hfstudio.guidenh.guide.internal.editor.guide;
 
 import com.hfstudio.guidenh.config.ModConfig;
+import com.hfstudio.guidenh.guide.internal.structure.GuideNhStructureExportAccess;
 
 public final class GuideScreenEditorState {
 
@@ -10,7 +11,7 @@ public final class GuideScreenEditorState {
     private GuideScreenEditorState() {}
 
     public static boolean isEnabled() {
-        return ModConfig.ui.guideEditorEnabled;
+        return ModConfig.ui.guideEditorEnabled && GuideNhStructureExportAccess.canUseSceneExport();
     }
 
     public static void setEnabled(boolean enabled) {
