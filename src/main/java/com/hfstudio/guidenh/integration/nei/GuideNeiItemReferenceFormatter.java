@@ -35,7 +35,7 @@ public class GuideNeiItemReferenceFormatter {
 
     public static String escapeAttribute(String value) {
         return value == null ? ""
-            : value.replace("\\", "\\\\")
-                .replace("\"", "\\\"");
+            : value.replace("&", "&amp;")
+                .replace("\"", "&quot;");
     }
 }

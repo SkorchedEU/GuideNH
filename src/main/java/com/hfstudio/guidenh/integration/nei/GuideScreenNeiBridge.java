@@ -87,6 +87,14 @@ public class GuideScreenNeiBridge {
 
         int containerTop();
 
+        int neiLayoutWidth();
+
+        int neiLayoutLeft();
+
+        void beginNeiLayout();
+
+        void endNeiLayout();
+
         @Nullable
         SceneEditorMultilineTextArea textArea();
 

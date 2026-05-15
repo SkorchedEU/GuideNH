@@ -35,8 +35,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 public class GuideScreenNeiNativeBridge {
 
-    private static final int MIN_LEFT_PANEL_WIDTH = 104;
-    private static final int MIN_RIGHT_PANEL_WIDTH = 126;
+    private static final int MIN_COMPRESSED_SIDE_WIDTH = 84;
     private static final int BOTTOM_PANEL_HEIGHT = 24;
 
     protected GuideScreenNeiNativeBridge() {}
@@ -49,7 +48,7 @@ public class GuideScreenNeiNativeBridge {
         if (!isNativeEditorNeiEnabled(editorAccess)) {
             return 0;
         }
-        return Math.max(MIN_LEFT_PANEL_WIDTH, MIN_RIGHT_PANEL_WIDTH);
+        return MIN_COMPRESSED_SIDE_WIDTH;
     }
 
     public static int reservedBottomPixels(EditorAccess editorAccess) {
@@ -112,7 +111,13 @@ public class GuideScreenNeiNativeBridge {
         }
         editorAccess.prepareForTemporaryScreenChange();
         try {
-            return manager.mouseClicked(mouseX, mouseY, button);
+            return withNeiLayout(editorAccess, new NeiLayoutAction<Boolean>() {
+
+                @Override
+                public Boolean run() {
+                    return manager.mouseClicked(mouseX, mouseY, button);
+                }
+            });
         } finally {
             if (Minecraft.getMinecraft().currentScreen == editorAccess.container()) {
                 editorAccess.cancelTemporaryScreenChange();
@@ -125,8 +130,14 @@ public class GuideScreenNeiNativeBridge {
         if (manager == null) {
             return false;
         }
-        manager.mouseDragged(mouseX, mouseY, button, heldTime);
-        return isDraggingItem() || isNeiMouseOver(manager, mouseX, mouseY);
+        return withNeiLayout(editorAccess, new NeiLayoutAction<Boolean>() {
+
+            @Override
+            public Boolean run() {
+                manager.mouseDragged(mouseX, mouseY, button, heldTime);
+                return isDraggingItem() || isNeiMouseOver(manager, mouseX, mouseY);
+            }
+        });
     }
 
     public static boolean mouseReleased(EditorAccess editorAccess, int mouseX, int mouseY, int button) {
@@ -136,11 +147,17 @@ public class GuideScreenNeiNativeBridge {
         }
         editorAccess.prepareForTemporaryScreenChange();
         try {
-            if (manager.overrideMouseUp(mouseX, mouseY, button)) {
-                return true;
-            }
-            manager.mouseUp(mouseX, mouseY, button);
-            return isNeiMouseOver(manager, mouseX, mouseY);
+            return withNeiLayout(editorAccess, new NeiLayoutAction<Boolean>() {
+
+                @Override
+                public Boolean run() {
+                    if (manager.overrideMouseUp(mouseX, mouseY, button)) {
+                        return true;
+                    }
+                    manager.mouseUp(mouseX, mouseY, button);
+                    return isNeiMouseOver(manager, mouseX, mouseY);
+                }
+            });
         } finally {
             if (Minecraft.getMinecraft().currentScreen == editorAccess.container()) {
                 editorAccess.cancelTemporaryScreenChange();
@@ -153,8 +170,14 @@ public class GuideScreenNeiNativeBridge {
         if (manager == null || !isNeiMouseOver(manager, mouseX, mouseY)) {
             return false;
         }
-        manager.mouseScrolled(Integer.signum(wheelDelta));
-        return true;
+        return withNeiLayout(editorAccess, new NeiLayoutAction<Boolean>() {
+
+            @Override
+            public Boolean run() {
+                manager.mouseScrolled(Integer.signum(wheelDelta));
+                return true;
+            }
+        });
     }
 
     public static boolean keyTyped(EditorAccess editorAccess, char typedChar, int keyCode) {
@@ -168,10 +191,17 @@ public class GuideScreenNeiNativeBridge {
         editorAccess.prepareForTemporaryScreenChange();
         boolean handled = false;
         try {
-            handled = manager.firstKeyTyped(typedChar, keyCode);
-            if (!handled) {
-                handled = manager.lastKeyTyped(keyCode, typedChar);
-            }
+            handled = withNeiLayout(editorAccess, new NeiLayoutAction<Boolean>() {
+
+                @Override
+                public Boolean run() {
+                    boolean firstHandled = manager.firstKeyTyped(typedChar, keyCode);
+                    if (firstHandled) {
+                        return true;
+                    }
+                    return manager.lastKeyTyped(keyCode, typedChar);
+                }
+            });
             return handled;
         } finally {
             if (Minecraft.getMinecraft().currentScreen == editorAccess.container()) {
@@ -188,7 +218,14 @@ public class GuideScreenNeiNativeBridge {
     public static void tick(EditorAccess editorAccess) {
         GuiContainerManager manager = configuredManager(editorAccess);
         if (manager != null) {
-            manager.updateScreen();
+            withNeiLayout(editorAccess, new NeiLayoutAction<Void>() {
+
+                @Override
+                public Void run() {
+                    manager.updateScreen();
+                    return null;
+                }
+            });
         }
     }
 
@@ -197,31 +234,45 @@ public class GuideScreenNeiNativeBridge {
         if (manager == null) {
             return;
         }
-        manager.preDraw();
-        GL11.glPushMatrix();
-        try {
-            RenderHelper.enableGUIStandardItemLighting();
-            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
-            GL11.glEnable(GL11.GL_LIGHTING);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            GL11.glTranslatef(editorAccess.containerLeft(), editorAccess.containerTop(), 0.0F);
-            manager.renderObjects(mouseX, mouseY);
-        } finally {
-            GL11.glPopMatrix();
-            RenderHelper.disableStandardItemLighting();
-            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-            GL11.glDisable(GL11.GL_LIGHTING);
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        }
+        withNeiLayout(editorAccess, new NeiLayoutAction<Void>() {
+
+            @Override
+            public Void run() {
+                manager.preDraw();
+                GL11.glPushMatrix();
+                try {
+                    RenderHelper.enableGUIStandardItemLighting();
+                    GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+                    GL11.glEnable(GL11.GL_LIGHTING);
+                    GL11.glEnable(GL11.GL_DEPTH_TEST);
+                    OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
+                    GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                    GL11.glTranslatef(editorAccess.containerLeft(), editorAccess.containerTop(), 0.0F);
+                    manager.renderObjects(mouseX, mouseY);
+                } finally {
+                    GL11.glPopMatrix();
+                    RenderHelper.disableStandardItemLighting();
+                    GL11.glDisable(GL12.GL_RESCALE_NORMAL);
+                    GL11.glDisable(GL11.GL_LIGHTING);
+                    GL11.glDisable(GL11.GL_DEPTH_TEST);
+                    GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                }
+                return null;
+            }
+        });
     }
 
     public static void drawNativeNeiTooltip(EditorAccess editorAccess, int mouseX, int mouseY) {
         GuiContainerManager manager = nativeManager(editorAccess);
         if (manager != null) {
-            manager.renderToolTips(mouseX, mouseY);
+            withNeiLayout(editorAccess, new NeiLayoutAction<Void>() {
+
+                @Override
+                public Void run() {
+                    manager.renderToolTips(mouseX, mouseY);
+                    return null;
+                }
+            });
         }
     }
 
@@ -256,6 +307,20 @@ public class GuideScreenNeiNativeBridge {
 
     private static boolean isNeiMouseOver(GuiContainerManager manager, int mouseX, int mouseY) {
         return manager.objectUnderMouse(mouseX, mouseY);
+    }
+
+    private static <T> T withNeiLayout(EditorAccess editorAccess, NeiLayoutAction<T> action) {
+        editorAccess.beginNeiLayout();
+        try {
+            return action.run();
+        } finally {
+            editorAccess.endNeiLayout();
+        }
+    }
+
+    private interface NeiLayoutAction<T> {
+
+        T run();
     }
 
     public static class GuideScreenNeiBridgeEvents {

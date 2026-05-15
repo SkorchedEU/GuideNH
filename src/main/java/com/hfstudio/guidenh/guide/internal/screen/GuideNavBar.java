@@ -174,10 +174,14 @@ public class GuideNavBar {
         var row = rows.get(rowIndex);
         boolean hasChildren = !row.node.children()
             .isEmpty();
+        if (hasChildren && isInsideExpandArrow(mouseX, row)) {
+            toggleExpand(row.node);
+            return null;
+        }
         if (hasChildren) {
             boolean alreadyExpanded = expanded.contains(row.node);
             if (!alreadyExpanded) {
-                // Collapsed → expand (and navigate if the node has a page).
+                // Expand collapsed groups and navigate if the node has a page.
                 toggleExpand(row.node);
             } else {
                 // Already expanded: only collapse when already on this exact page;
@@ -193,6 +197,11 @@ public class GuideNavBar {
             return row.node.pageId();
         }
         return null;
+    }
+
+    private boolean isInsideExpandArrow(int mouseX, Row row) {
+        int arrowX = x + 2 + row.depth * CHILD_INDENT;
+        return mouseX >= arrowX && mouseX < arrowX + EXPAND_INDENT;
     }
 
     public boolean contains(int mouseX, int mouseY) {
