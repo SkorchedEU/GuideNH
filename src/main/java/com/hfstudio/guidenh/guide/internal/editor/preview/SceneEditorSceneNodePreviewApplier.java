@@ -80,6 +80,21 @@ public class SceneEditorSceneNodePreviewApplier {
         }
     }
 
+    void applyAnnotations(SceneEditorSession session, LytGuidebookScene scene) {
+        SceneEditorSceneModel model = session.getSceneModel();
+        if (model.getSceneNodes()
+            .isEmpty()) {
+            for (SceneEditorElementModel element : model.getElements()) {
+                appendAnnotation(scene, element);
+            }
+            return;
+        }
+
+        for (SceneEditorSceneNodeModel node : model.getSceneNodes()) {
+            applyAnnotationNode(scene, node);
+        }
+    }
+
     private void applyLegacyPreview(SceneEditorSession session, LytGuidebookScene scene) {
         String structureText = resolveStructureText(
             session,
@@ -107,6 +122,19 @@ public class SceneEditorSceneNodePreviewApplier {
             case REMOVE_BLOCKS:
                 applyRemoveBlocks(scene.getLevel(), node);
                 return;
+            case BLOCK_ANNOTATION_TEMPLATE:
+                applyBlockAnnotationTemplate(scene, node);
+                return;
+            case ANNOTATION:
+                appendAnnotation(scene, node.getAnnotationElement());
+                return;
+            default:
+                return;
+        }
+    }
+
+    private void applyAnnotationNode(LytGuidebookScene scene, SceneEditorSceneNodeModel node) {
+        switch (node.getType()) {
             case BLOCK_ANNOTATION_TEMPLATE:
                 applyBlockAnnotationTemplate(scene, node);
                 return;

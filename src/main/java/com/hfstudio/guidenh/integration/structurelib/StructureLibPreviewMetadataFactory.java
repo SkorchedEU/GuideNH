@@ -36,7 +36,7 @@ public class StructureLibPreviewMetadataFactory {
     public StructureLibSceneMetadata createMetadata(StructureLibImportRequest request,
         StructureLibPreviewSelection selection, int maxTier, Map<String, Integer> channelMaxTierMap,
         List<AbsolutePreviewBlock> absoluteBlocks, Map<Long, IStructureElement<?>> visitedElementsByPos,
-        ItemStack trigger, @Nullable World world) {
+        ItemStack trigger, @Nullable World world, @Nullable String contextFingerprint) {
         return createMetadata(
             request,
             selection,
@@ -46,6 +46,7 @@ public class StructureLibPreviewMetadataFactory {
             visitedElementsByPos,
             trigger,
             world,
+            contextFingerprint,
             null,
             null);
     }
@@ -53,7 +54,8 @@ public class StructureLibPreviewMetadataFactory {
     public StructureLibSceneMetadata createMetadata(StructureLibImportRequest request,
         StructureLibPreviewSelection selection, int maxTier, Map<String, Integer> channelMaxTierMap,
         List<AbsolutePreviewBlock> absoluteBlocks, Map<Long, IStructureElement<?>> visitedElementsByPos,
-        ItemStack trigger, @Nullable World world, @Nullable Object constructable, @Nullable EntityPlayer actor) {
+        ItemStack trigger, @Nullable World world, @Nullable String contextFingerprint, @Nullable Object constructable,
+        @Nullable EntityPlayer actor) {
         StructureLibSceneMetadata metadata = new StructureLibSceneMetadata(
             request.getController(),
             request.getPiece(),
@@ -106,7 +108,8 @@ public class StructureLibPreviewMetadataFactory {
                     block.getY(),
                     block.getZ(),
                     trigger,
-                    actor)
+                    actor,
+                    contextFingerprint)
                 : StructureLibElementTooltipResolver.TooltipDetails.empty();
             tooltipDataByPos.put(
                 StructureLibSceneMetadata.packBlockPos(block.getX() - minX, block.getY() - minY, block.getZ() - minZ),

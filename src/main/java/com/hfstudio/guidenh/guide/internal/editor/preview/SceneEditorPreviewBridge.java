@@ -72,4 +72,30 @@ public class SceneEditorPreviewBridge {
         scene.initializePonderTimelineBaseline();
         scene.restorePonderPreviewState(ponderTick, ponderPaused, ponderFinished);
     }
+
+    public void rebuildAnnotations(SceneEditorSession session, LytGuidebookScene scene) {
+        if (scene == null) {
+            return;
+        }
+        scene.getAnnotations()
+            .clear();
+        scene.clearAnnotationHover();
+        sceneNodePreviewApplier.applyAnnotations(session, scene);
+    }
+
+    public void releaseScene(@Nullable LytGuidebookScene scene) {
+        if (scene == null) {
+            return;
+        }
+        scene.setStructureLibSelectionChangeListener(null);
+        scene.getAnnotations()
+            .clear();
+        scene.clearAnnotationHover();
+        scene.setHoveredStructureLibHatch(null);
+        scene.setHoveredBlock(null);
+        scene.setHoveredEntity(null);
+        scene.setStructureLibSceneMetadata(null);
+        scene.clearPonderDataForPreviewRebuild();
+        scene.setLevel(new GuidebookLevel());
+    }
 }

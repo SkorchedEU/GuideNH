@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Mixins implements IMixins {
 
-    EARLY(Side.CLIENT, "forge.AccessorForgeHooksClient", "fml.AccessorFMLClientHandler",
+    EARLY(Side.CLIENT, "forge.AccessorForgeHooksClient", "forge.AccessorGuiIngameForge", "fml.AccessorFMLClientHandler",
         "minecraft.AccessorAbstractResourcePack", "forge.AccessorShapedOreRecipe", "forge.AccessorShapelessOreRecipe",
         "minecraft.MixinModelRendererSceneExportCapture", "minecraft.MixinTessellatorSceneExportCapture"),
 

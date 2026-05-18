@@ -76,6 +76,7 @@ import com.hfstudio.guidenh.guide.document.interaction.InteractiveElement;
 import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
 import com.hfstudio.guidenh.guide.indices.ItemMultiIndex;
+import com.hfstudio.guidenh.guide.internal.debug.GuideDebugOverlayRenderer;
 import com.hfstudio.guidenh.guide.internal.editor.gui.SceneEditorMultilineTextArea;
 import com.hfstudio.guidenh.guide.internal.editor.guide.GuideScreenEditorAction;
 import com.hfstudio.guidenh.guide.internal.editor.guide.GuideScreenEditorConflictPrompt;
@@ -213,6 +214,7 @@ public class GuideScreen extends GuiContainer
     private final GuideBookmarkState bookmarkState = GuideBookmarkState.getSharedInstance();
     private final MinecraftFontMetrics layoutFontMetrics = new MinecraftFontMetrics();
     private final CodeBlockClipboardService codeBlockClipboardService = new CodeBlockClipboardService();
+    private final GuideDebugOverlayRenderer debugOverlayRenderer = new GuideDebugOverlayRenderer();
     private final GuideScreenEditorFileStore guideEditorFileStore = GuideScreenEditorFileStore.createDefault();
     private final Map<Integer, GuideIconButton> guideEditorActionButtons = new LinkedHashMap<>();
 
@@ -2435,6 +2437,7 @@ public class GuideScreen extends GuiContainer
             GuideScreenNeiBridge.drawNativeNeiTooltip(this, mouseX, mouseY);
         }
         drawButtonTooltip(mouseX, mouseY);
+        debugOverlayRenderer.render(mc, partialTicks, mouseX, mouseY);
     }
 
     private void drawGuideButtons(int mouseX, int mouseY) {

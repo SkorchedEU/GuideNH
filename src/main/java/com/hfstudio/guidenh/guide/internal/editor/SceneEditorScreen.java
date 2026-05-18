@@ -5,6 +5,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
+import com.hfstudio.guidenh.guide.internal.debug.GuideDebugOverlayRenderer;
 import com.hfstudio.guidenh.guide.internal.editor.gui.SceneEditorDraftTextController;
 import com.hfstudio.guidenh.guide.internal.editor.gui.SceneEditorElementContextMenuController;
 import com.hfstudio.guidenh.guide.internal.editor.gui.SceneEditorElementController;
@@ -69,6 +71,9 @@ import com.hfstudio.guidenh.guide.internal.editor.md.SceneEditorMarkdownCodec;
 import com.hfstudio.guidenh.guide.internal.editor.md.SceneEditorMarkdownElementRange;
 import com.hfstudio.guidenh.guide.internal.editor.model.SceneEditorElementModel;
 import com.hfstudio.guidenh.guide.internal.editor.model.SceneEditorElementType;
+import com.hfstudio.guidenh.guide.internal.editor.model.SceneEditorSceneModel;
+import com.hfstudio.guidenh.guide.internal.editor.model.SceneEditorSceneNodeModel;
+import com.hfstudio.guidenh.guide.internal.editor.model.SceneEditorSceneNodeType;
 import com.hfstudio.guidenh.guide.internal.editor.preview.SceneEditorCameraMarkerOverlay;
 import com.hfstudio.guidenh.guide.internal.editor.preview.SceneEditorHandleOverlay;
 import com.hfstudio.guidenh.guide.internal.editor.preview.SceneEditorPickingService;
@@ -203,6 +208,7 @@ public class SceneEditorScreen extends GuiScreen {
     private final Random elementColorRandom;
     private final SceneEditorHoverMenuState addElementMenuState;
     private final SceneEditorMarkdownPanelState markdownPanelState;
+    private final GuideDebugOverlayRenderer debugOverlayRenderer;
 
     private GuideIconButton closeButton;
     private GuideIconButton resetPreviewButton;
@@ -352,6 +358,7 @@ public class SceneEditorScreen extends GuiScreen {
         this.elementPanelScrollState = new SceneEditorScrollState();
         this.addElementMenuState = new SceneEditorHoverMenuState();
         this.markdownPanelState = SceneEditorMarkdownPanelState.fromConfig(false);
+        this.debugOverlayRenderer = new GuideDebugOverlayRenderer();
         this.previewScene = null;
         this.activePreviewScene = null;
         this.activePointDrag = null;
@@ -503,9 +510,18 @@ public class SceneEditorScreen extends GuiScreen {
     public void onGuiClosed() {
         Keyboard.enableRepeatEvents(false);
         GuideSoundPlayback.stopAll();
+        previewBridge.releaseScene(previewScene);
+        if (activePreviewScene != null && activePreviewScene != previewScene) {
+            previewBridge.releaseScene(activePreviewScene);
+        }
         super.onGuiClosed();
+        pendingStructureImport = null;
+        pendingServerSelectionSync = null;
+        pendingServerSelectionBaseSnbt = null;
+        session.setImportedStructureSnbt(null);
         previewScene = null;
         activePreviewScene = null;
+        activePointDrag = null;
         expandedElementEditor = null;
     }
 
@@ -752,6 +768,7 @@ public class SceneEditorScreen extends GuiScreen {
 
         if (closeConfirmDialogOpen) {
             drawCloseConfirmDialog(mouseX, mouseY);
+            debugOverlayRenderer.render(mc, partialTicks, mouseX, mouseY);
             return;
         }
 
@@ -783,6 +800,7 @@ public class SceneEditorScreen extends GuiScreen {
         } else {
             drawPreviewSceneHoverTooltip(mouseX, mouseY);
         }
+        debugOverlayRenderer.render(mc, partialTicks, mouseX, mouseY);
     }
 
     @Override
@@ -2060,6 +2078,7 @@ public class SceneEditorScreen extends GuiScreen {
         if (markdownTextArea == null) {
             return true;
         }
+        SceneEditorSceneModel previousModel = session.getSceneModel();
         clearPendingMarkdownLiveSync();
         textSyncController.setDraftText(markdownTextArea.getText());
         if (!textSyncController.commitDraftText(MARKDOWN_UNDO_MERGE_KEY, captureCurrentUiUndoState())) {
@@ -2070,7 +2089,9 @@ public class SceneEditorScreen extends GuiScreen {
         session.getSelectionState()
             .setSelectedElementId(null);
         expandedElementId = null;
-        previewDirty = true;
+        if (!refreshPreviewWithoutLevelRebuild(previousModel)) {
+            previewDirty = true;
+        }
         return true;
     }
 
@@ -2923,6 +2944,11 @@ public class SceneEditorScreen extends GuiScreen {
             .recordAppliedSnapshot(mergeKey, captureCurrentUiUndoState(), resolveAppliedUndoKeepOpen(mergeKey != null));
         ensureElementPanelStateValid();
         syncExpandedElementEditorFromModel();
+        if (previewScene != null && !previewDirty) {
+            previewBridge.rebuildAnnotations(session, previewScene);
+            preservePreviewCameraOnNextRebuild = false;
+            return;
+        }
         previewDirty = true;
         preservePreviewCameraOnNextRebuild = true;
     }
@@ -2959,11 +2985,13 @@ public class SceneEditorScreen extends GuiScreen {
     }
 
     private void applyUndoSnapshot(SceneEditorUndoSnapshot snapshot) {
+        SceneEditorSceneModel previousModel = session.getSceneModel();
         textSyncController.restoreSnapshot(snapshot);
-        reloadUiFromSessionContent(snapshot.getUiState());
+        reloadUiFromSessionContent(snapshot.getUiState(), previousModel);
     }
 
-    private void reloadUiFromSessionContent(SceneEditorUndoUiState uiState) {
+    private void reloadUiFromSessionContent(SceneEditorUndoUiState uiState,
+        @Nullable SceneEditorSceneModel previousModel) {
         clearPendingMarkdownLiveSync();
         if (markdownTextArea != null) {
             markdownTextArea.setText(session.getRawText());
@@ -2986,8 +3014,10 @@ public class SceneEditorScreen extends GuiScreen {
             .setSelectedHandleId(null);
         session.getSelectionState()
             .setDragging(false);
-        previewDirty = true;
-        preservePreviewCameraOnNextRebuild = false;
+        if (!refreshPreviewWithoutLevelRebuild(previousModel)) {
+            previewDirty = true;
+            preservePreviewCameraOnNextRebuild = false;
+        }
         refreshLinkedSelectionFromMarkdownCursor();
         refreshMarkdownHighlightFromSelectedElement();
     }
@@ -3062,20 +3092,21 @@ public class SceneEditorScreen extends GuiScreen {
             return;
         }
         clearPendingMarkdownLiveSync();
+        SceneEditorSceneModel previousModel = session.getSceneModel();
         SceneEditorTextSyncController.LiveApplyResult result = textSyncController.applyLiveDraftText();
         if (result == SceneEditorTextSyncController.LiveApplyResult.NO_CHANGE) {
             return;
         }
         recordCurrentUiDraftSnapshot(MARKDOWN_UNDO_MERGE_KEY);
         if (result == SceneEditorTextSyncController.LiveApplyResult.APPLIED) {
-            applyLiveMarkdownState();
+            applyLiveMarkdownState(previousModel);
             return;
         }
         refreshLinkedSelectionFromMarkdownCursor();
         refreshMarkdownHighlightFromSelectedElement();
     }
 
-    private void applyLiveMarkdownState() {
+    private void applyLiveMarkdownState(@Nullable SceneEditorSceneModel previousModel) {
         syncParameterRowsFromModel();
         refreshLinkedSelectionFromMarkdownCursor();
         if (expandedElementId != null) {
@@ -3084,9 +3115,65 @@ public class SceneEditorScreen extends GuiScreen {
         }
         ensureElementPanelStateValid();
         syncExpandedElementEditorFromModel();
-        previewDirty = true;
-        preservePreviewCameraOnNextRebuild = true;
+        if (!refreshPreviewWithoutLevelRebuild(previousModel)) {
+            previewDirty = true;
+            preservePreviewCameraOnNextRebuild = true;
+        }
         refreshMarkdownHighlightFromSelectedElement();
+    }
+
+    private boolean refreshPreviewWithoutLevelRebuild(@Nullable SceneEditorSceneModel previousModel) {
+        if (previousModel == null || previewScene == null || previewDirty) {
+            return false;
+        }
+        if (!canRefreshPreviewWithoutLevelRebuild(previousModel, session.getSceneModel())) {
+            return false;
+        }
+        previewScene.setVisibleLayerSliderEnabled(
+            session.getSceneModel()
+                .isAllowLayerSlider() || ModConfig.ui.sceneLayerSliderEnabled);
+        previewBridge.rebuildAnnotations(session, previewScene);
+        previewCameraController.applyResolvedPreviewCamera(previewScene, session.getSceneModel());
+        previewDirty = false;
+        preservePreviewCameraOnNextRebuild = false;
+        return true;
+    }
+
+    private boolean canRefreshPreviewWithoutLevelRebuild(SceneEditorSceneModel previousModel,
+        SceneEditorSceneModel currentModel) {
+        if (!Objects.equals(previousModel.getStructureSource(), currentModel.getStructureSource())) {
+            return false;
+        }
+        List<SceneEditorSceneNodeModel> previousNodes = levelAffectingPreviewNodes(previousModel);
+        List<SceneEditorSceneNodeModel> currentNodes = levelAffectingPreviewNodes(currentModel);
+        if (previousNodes.size() != currentNodes.size()) {
+            return false;
+        }
+        for (int i = 0; i < previousNodes.size(); i++) {
+            if (!sameLevelAffectingPreviewNode(previousNodes.get(i), currentNodes.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<SceneEditorSceneNodeModel> levelAffectingPreviewNodes(SceneEditorSceneModel model) {
+        List<SceneEditorSceneNodeModel> nodes = new ArrayList<>();
+        for (SceneEditorSceneNodeModel node : model.getSceneNodes()) {
+            if (node.getType() == SceneEditorSceneNodeType.ANNOTATION
+                || node.getType() == SceneEditorSceneNodeType.BLOCK_ANNOTATION_TEMPLATE) {
+                continue;
+            }
+            nodes.add(node);
+        }
+        return nodes;
+    }
+
+    private boolean sameLevelAffectingPreviewNode(SceneEditorSceneNodeModel previousNode,
+        SceneEditorSceneNodeModel currentNode) {
+        return previousNode.getType() == currentNode.getType()
+            && Objects.equals(previousNode.getAttributes(), currentNode.getAttributes())
+            && Objects.equals(previousNode.getOpaqueText(), currentNode.getOpaqueText());
     }
 
     private boolean commitWithAppliedUndoContext(@Nullable String mergeKey, boolean keepOpen, BooleanSupplier action) {

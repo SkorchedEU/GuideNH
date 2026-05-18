@@ -148,6 +148,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
                 snapshot.visitedElementsByPos,
                 snapshot.triggerStack,
                 snapshot.world,
+                snapshot.fingerprint,
                 snapshot.constructable,
                 snapshot.actor);
 
