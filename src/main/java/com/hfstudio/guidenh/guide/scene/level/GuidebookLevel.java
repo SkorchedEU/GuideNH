@@ -135,7 +135,9 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
             explicitBlockIds.remove(key);
             previewAuthorityStore.clearAt(key);
         } else {
-            filledBlocks.put(key, new int[] { x, y, z });
+            if (!filledBlocks.containsKey(key)) {
+                filledBlocks.put(key, new int[] { x, y, z });
+            }
             String fallbackBlockId = resolveBlockId(block);
             String resolvedBlockId = GuideNhIntegrationRegistry.global()
                 .resolveBlockExportId(this, block, tileEntity, x, y, z, fallbackBlockId);

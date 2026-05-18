@@ -62,6 +62,7 @@ public class GuidebookPreviewBlockPlacer {
         NBTTagCompound previewTileTag = sanitizeGregTechInitTag(tileTag);
         PlacementData placementData = resolvePlacementData(block, meta, previewTileTag);
         logPlacementRequest(x, y, z, block, meta, previewTileTag, explicitBlockId, placementData);
+        World previewWorld = null;
 
         // Place the block before loading its tile so world-aware tile initialization sees the correct block/meta.
         level.setBlock(x, y, z, block, placementData.blockMeta, null);
@@ -70,8 +71,9 @@ public class GuidebookPreviewBlockPlacer {
         NBTTagCompound tileSnapshot = null;
         if (previewTileTag != null || block.hasTileEntity(placementData.blockMeta)) {
             try {
+                previewWorld = level.getOrCreateFakeWorld();
                 tileEntity = GuidebookTileEntityLoader
-                    .load(level.getOrCreateFakeWorld(), block, placementData.blockMeta, x, y, z, previewTileTag);
+                    .load(previewWorld, block, placementData.blockMeta, x, y, z, previewTileTag);
             } catch (Throwable t) {
                 GuideDebugLog.warn(LOG, "Preview tile entity load failed, falling back to block-only placement", t);
             }
@@ -86,7 +88,12 @@ public class GuidebookPreviewBlockPlacer {
             logLoadedTile("post-facing-meta", x, y, z, tileEntity, placementData.metaTileId, previewTileTag);
             TileEntity residentTile = preferPreparedTileEntity(
                 tileEntity,
-                resolveWorldResidentTile(level.getOrCreateFakeWorld(), x, y, z, tileEntity));
+                resolveWorldResidentTile(
+                    previewWorld != null ? previewWorld : level.getOrCreateFakeWorld(),
+                    x,
+                    y,
+                    z,
+                    tileEntity));
             level.setTileEntity(x, y, z, residentTile);
             residentTile = finalizeSpecialPreviewTile(level, x, y, z, residentTile);
             tileSnapshot = captureTileSnapshot(residentTile);
@@ -108,7 +115,7 @@ public class GuidebookPreviewBlockPlacer {
                 placementData.metaTileId,
                 GuideGregTechTileSupport.describeTileTag(previewTileTag));
         }
-        invokeOnBlockAdded(block, level.getOrCreateFakeWorld(), x, y, z);
+        invokeOnBlockAdded(block, previewWorld != null ? previewWorld : level.getOrCreateFakeWorld(), x, y, z);
         tileEntity = restoreTileAfterOnBlockAdded(
             level,
             x,

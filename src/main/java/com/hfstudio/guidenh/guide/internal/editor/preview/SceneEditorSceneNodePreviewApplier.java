@@ -140,6 +140,7 @@ public class SceneEditorSceneNodePreviewApplier {
             return;
         }
         GuidebookLevel level = scene.getLevel();
+        Integer requestedChannel = parseIntegerAttribute(node.getAttribute("channel"));
 
         StructureLibImportRequest request = new StructureLibImportRequest(
             controller,
@@ -148,10 +149,9 @@ public class SceneEditorSceneNodePreviewApplier {
             node.getAttribute("rotation"),
             node.getAttribute("flip"),
             structureLibSelectionOverride != null ? Integer.valueOf(structureLibSelectionOverride.getMasterTier())
-                : parseIntegerAttribute(node.getAttribute("channel")),
+                : requestedChannel,
             structureLibSelectionOverride != null ? structureLibSelectionOverride
-                : parseIntegerAttribute(node.getAttribute("channel")) != null
-                    ? StructureLibPreviewSelection.ofMasterTier(parseIntegerAttribute(node.getAttribute("channel")))
+                : requestedChannel != null ? StructureLibPreviewSelection.ofMasterTier(requestedChannel)
                     : StructureLibPreviewSelection.defaultSelection());
         StructureLibImportResult result = structureLibImportService.importScene(request);
         attachStructureLibMetadata(scene, request, result);
@@ -173,11 +173,6 @@ public class SceneEditorSceneNodePreviewApplier {
                 block,
                 placedBlock.getMeta(),
                 placedBlock.getTileTag(),
-                placedBlock.getBlockId());
-            level.setExplicitBlockId(
-                placedBlock.getX(),
-                placedBlock.getY(),
-                placedBlock.getZ(),
                 placedBlock.getBlockId());
         }
     }

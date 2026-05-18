@@ -183,6 +183,9 @@ public class ModConfig {
         @Comment("How long page-wheel scrolling temporarily blocks 3D preview wheel interactions. "
             + "Value is in milliseconds. Default: 750.")
         public int sceneWheelInteractionDelayMillis = 750;
+
+        @Comment("Client-global bookmarked guide page ids, serialized as a pipe-delimited list.")
+        public String guideBookmarks = "";
     }
 
     public static void save() {

@@ -118,6 +118,15 @@ import cpw.mods.fml.common.Loader;
 public class GuideScreen extends GuiContainer
     implements GuideUiHost, GuiYesNoCallback, GuideScreenNeiBridge.EditorAccess {
 
+    private static final GuideScreenEditorAction[] GUIDE_EDITOR_BASE_ACTIONS = new GuideScreenEditorAction[] {
+        GuideScreenEditorAction.HEADING_1, GuideScreenEditorAction.HEADING_2, GuideScreenEditorAction.HEADING_3,
+        GuideScreenEditorAction.BOLD, GuideScreenEditorAction.ITALIC, GuideScreenEditorAction.KBD,
+        GuideScreenEditorAction.SUBSCRIPT, GuideScreenEditorAction.SUPERSCRIPT, GuideScreenEditorAction.FOOTNOTE,
+        GuideScreenEditorAction.LATEX, GuideScreenEditorAction.COLOR, GuideScreenEditorAction.LINK,
+        GuideScreenEditorAction.INLINE_CODE, GuideScreenEditorAction.CODE_BLOCK, GuideScreenEditorAction.BLOCKQUOTE,
+        GuideScreenEditorAction.UNORDERED_LIST, GuideScreenEditorAction.ORDERED_LIST, GuideScreenEditorAction.TASK_LIST,
+        GuideScreenEditorAction.TABLE, GuideScreenEditorAction.THEMATIC_BREAK };
+
     public static final int PANEL_MARGIN = 20;
     public static final int PANEL_PADDING = 8;
 
@@ -183,7 +192,7 @@ public class GuideScreen extends GuiContainer
     private boolean draggingDocument = false;
     private int dragLastMouseY = 0;
 
-    private GuideIconButton btnSearch, btnBack, btnForward, btnFullWidth, btnClose;
+    private GuideIconButton btnSearch, btnHomePage, btnBack, btnForward, btnFullWidth, btnClose;
     private GuideIconButton btnGuideEditorToggle, btnGuideEditorNewPage, btnGuideEditorAutosave, btnGuideEditorSave,
         btnGuideEditorLayoutSplit, btnGuideEditorLayoutEditorOnly, btnGuideEditorLayoutPreviewOnly,
         btnGuideEditorAdvancedToggle;
@@ -201,6 +210,7 @@ public class GuideScreen extends GuiContainer
     private boolean fullWidth;
 
     private final GuideNavBar navBar = new GuideNavBar();
+    private final GuideBookmarkState bookmarkState = GuideBookmarkState.getSharedInstance();
     private final MinecraftFontMetrics layoutFontMetrics = new MinecraftFontMetrics();
     private final CodeBlockClipboardService codeBlockClipboardService = new CodeBlockClipboardService();
     private final GuideScreenEditorFileStore guideEditorFileStore = GuideScreenEditorFileStore.createDefault();
@@ -1763,32 +1773,48 @@ public class GuideScreen extends GuiContainer
     private void rebuildToolbar() {
         this.buttonList.clear();
         int btnY = getToolbarButtonY();
-        int btnRight = panelX + panelW - PANEL_PADDING;
         int leftX = panelX + PANEL_PADDING;
+        int leftSecondaryX = leftX + GuideIconButton.WIDTH + TOOLBAR_GAP;
         int rightToolbarLeft = getRightToolbarButtonsLeft();
-        btnSearch = new GuideIconButton(
+        btnSearch = reuseToolbarButton(
+            btnSearch,
             4,
-            isSearchPage() ? leftX : rightToolbarLeft,
+            isSearchPage() ? leftX : getRightToolbarButtonX(0),
             btnY,
             GuideIconButton.Role.SEARCH);
-        btnBack = new GuideIconButton(
+        btnHomePage = reuseToolbarButton(
+            btnHomePage,
+            5,
+            isSearchPage() ? leftSecondaryX : getRightToolbarButtonX(1),
+            btnY,
+            GuideIconButton.Role.HOMEPAGE);
+        btnBack = reuseToolbarButton(
+            btnBack,
             3,
-            btnRight - (16 + TOOLBAR_GAP) * 4 + TOOLBAR_GAP,
+            getRightToolbarButtonX(isSearchPage() ? 0 : 2),
             btnY,
             GuideIconButton.Role.BACK);
-        btnForward = new GuideIconButton(
+        btnForward = reuseToolbarButton(
+            btnForward,
             2,
-            btnRight - (16 + TOOLBAR_GAP) * 3 + TOOLBAR_GAP,
+            getRightToolbarButtonX(isSearchPage() ? 1 : 3),
             btnY,
             GuideIconButton.Role.FORWARD);
-        btnFullWidth = new GuideIconButton(
+        btnFullWidth = reuseToolbarButton(
+            btnFullWidth,
             1,
-            btnRight - (16 + TOOLBAR_GAP) * 2 + TOOLBAR_GAP,
+            getRightToolbarButtonX(isSearchPage() ? 2 : 4),
             btnY,
             fullWidth ? GuideIconButton.Role.CLOSE_FULL_WIDTH_VIEW : GuideIconButton.Role.OPEN_FULL_WIDTH_VIEW);
-        btnClose = new GuideIconButton(0, btnRight - 16, btnY, GuideIconButton.Role.CLOSE);
+        btnClose = reuseToolbarButton(
+            btnClose,
+            0,
+            getRightToolbarButtonX(getRightToolbarButtonCount() - 1),
+            btnY,
+            GuideIconButton.Role.CLOSE);
         rebuildGuideEditorModeButtons(rightToolbarLeft - TOOLBAR_GAP, btnY);
         this.buttonList.add(btnSearch);
+        this.buttonList.add(btnHomePage);
         this.buttonList.add(btnBack);
         this.buttonList.add(btnForward);
         this.buttonList.add(btnFullWidth);
@@ -1800,69 +1826,123 @@ public class GuideScreen extends GuiContainer
         return panelY + Math.max(0, (TOOLBAR_H - GuideIconButton.HEIGHT) / 2);
     }
 
+    private GuideIconButton reuseToolbarButton(@Nullable GuideIconButton button, int id, int x, int y,
+        GuideIconButton.Role role) {
+        if (button == null) {
+            return new GuideIconButton(id, x, y, role);
+        }
+        button.id = id;
+        button.xPosition = x;
+        button.yPosition = y;
+        button.setRole(role);
+        button.visible = true;
+        return button;
+    }
+
     private void rebuildGuideEditorModeButtons(int rightX, int btnY) {
         if (!GuideScreenEditorState.isEnabled()) {
             clearGuideEditorActionButtons();
-            btnGuideEditorToggle = null;
-            btnGuideEditorNewPage = null;
-            btnGuideEditorLayoutSplit = null;
-            btnGuideEditorLayoutEditorOnly = null;
-            btnGuideEditorLayoutPreviewOnly = null;
-            btnGuideEditorAdvancedToggle = null;
-            btnGuideEditorAutosave = null;
-            btnGuideEditorSave = null;
             return;
         }
 
         if (isHomeRoute()) {
             clearGuideEditorActionButtons();
             int x = rightX - GuideIconButton.WIDTH;
-            btnGuideEditorNewPage = addEditorModeButton(101, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_NEW_PAGE);
+            btnGuideEditorNewPage = reuseEditorModeButton(
+                btnGuideEditorNewPage,
+                101,
+                x,
+                btnY,
+                GuideIconButton.Role.GUIDE_EDITOR_NEW_PAGE);
+            buttonList.add(btnGuideEditorNewPage);
             x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-            btnGuideEditorToggle = addEditorModeButton(100, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_TOGGLE);
-            btnGuideEditorLayoutSplit = null;
-            btnGuideEditorLayoutEditorOnly = null;
-            btnGuideEditorLayoutPreviewOnly = null;
-            btnGuideEditorAdvancedToggle = null;
-            btnGuideEditorAutosave = null;
-            btnGuideEditorSave = null;
+            btnGuideEditorToggle = reuseEditorModeButton(
+                btnGuideEditorToggle,
+                100,
+                x,
+                btnY,
+                GuideIconButton.Role.GUIDE_EDITOR_TOGGLE);
+            buttonList.add(btnGuideEditorToggle);
             return;
         }
 
         int x = rightX - GuideIconButton.WIDTH;
-        btnGuideEditorAdvancedToggle = addEditorModeButton(
+        btnGuideEditorAdvancedToggle = reuseEditorModeButton(
+            btnGuideEditorAdvancedToggle,
             105,
             x,
             btnY,
             GuideIconButton.Role.GUIDE_EDITOR_ADVANCED_TOGGLE);
+        buttonList.add(btnGuideEditorAdvancedToggle);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorLayoutPreviewOnly = addEditorModeButton(
+        btnGuideEditorLayoutPreviewOnly = reuseEditorModeButton(
+            btnGuideEditorLayoutPreviewOnly,
             104,
             x,
             btnY,
             GuideIconButton.Role.GUIDE_EDITOR_LAYOUT_PREVIEW_ONLY);
+        buttonList.add(btnGuideEditorLayoutPreviewOnly);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorLayoutEditorOnly = addEditorModeButton(
+        btnGuideEditorLayoutEditorOnly = reuseEditorModeButton(
+            btnGuideEditorLayoutEditorOnly,
             103,
             x,
             btnY,
             GuideIconButton.Role.GUIDE_EDITOR_LAYOUT_EDITOR_ONLY);
+        buttonList.add(btnGuideEditorLayoutEditorOnly);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorLayoutSplit = addEditorModeButton(102, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_LAYOUT_SPLIT);
+        btnGuideEditorLayoutSplit = reuseEditorModeButton(
+            btnGuideEditorLayoutSplit,
+            102,
+            x,
+            btnY,
+            GuideIconButton.Role.GUIDE_EDITOR_LAYOUT_SPLIT);
+        buttonList.add(btnGuideEditorLayoutSplit);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorNewPage = addEditorModeButton(101, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_NEW_PAGE);
+        btnGuideEditorNewPage = reuseEditorModeButton(
+            btnGuideEditorNewPage,
+            101,
+            x,
+            btnY,
+            GuideIconButton.Role.GUIDE_EDITOR_NEW_PAGE);
+        buttonList.add(btnGuideEditorNewPage);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorAutosave = addEditorModeButton(106, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_AUTOSAVE);
+        btnGuideEditorAutosave = reuseEditorModeButton(
+            btnGuideEditorAutosave,
+            106,
+            x,
+            btnY,
+            GuideIconButton.Role.GUIDE_EDITOR_AUTOSAVE);
+        buttonList.add(btnGuideEditorAutosave);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorSave = addEditorModeButton(107, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_SAVE);
+        btnGuideEditorSave = reuseEditorModeButton(
+            btnGuideEditorSave,
+            107,
+            x,
+            btnY,
+            GuideIconButton.Role.GUIDE_EDITOR_SAVE);
+        buttonList.add(btnGuideEditorSave);
         x -= GuideIconButton.WIDTH + TOOLBAR_GAP;
-        btnGuideEditorToggle = addEditorModeButton(100, x, btnY, GuideIconButton.Role.GUIDE_EDITOR_TOGGLE);
+        btnGuideEditorToggle = reuseEditorModeButton(
+            btnGuideEditorToggle,
+            100,
+            x,
+            btnY,
+            GuideIconButton.Role.GUIDE_EDITOR_TOGGLE);
+        buttonList.add(btnGuideEditorToggle);
         rebuildGuideEditorActionButtons();
     }
 
-    private GuideIconButton addEditorModeButton(int id, int x, int y, GuideIconButton.Role role) {
-        GuideIconButton button = new GuideIconButton(id, x, y, role);
-        this.buttonList.add(button);
+    private GuideIconButton reuseEditorModeButton(@Nullable GuideIconButton button, int id, int x, int y,
+        GuideIconButton.Role role) {
+        if (button == null) {
+            return new GuideIconButton(id, x, y, role);
+        }
+        button.id = id;
+        button.xPosition = x;
+        button.yPosition = y;
+        button.setRole(role);
+        button.visible = true;
         return button;
     }
 
@@ -1871,41 +1951,28 @@ public class GuideScreen extends GuiContainer
     }
 
     private void rebuildGuideEditorActionButtons() {
-        guideEditorActionButtons.clear();
         if (!isGuideEditorActive()) {
+            guideEditorActionButtons.clear();
             return;
         }
 
         for (GuideScreenEditorAction action : getGuideEditorActionOrder()) {
             int id = 2000 + action.ordinal();
-            GuideIconButton button = new GuideIconButton(id, 0, 0, action.toRole());
-            guideEditorActionButtons.put(id, button);
+            GuideIconButton button = guideEditorActionButtons.get(id);
+            if (button == null) {
+                button = new GuideIconButton(id, 0, 0, action.toRole());
+                guideEditorActionButtons.put(id, button);
+            } else {
+                button.setRole(action.toRole());
+                button.visible = true;
+            }
             buttonList.add(button);
         }
     }
 
     private List<GuideScreenEditorAction> getGuideEditorActionOrder() {
         List<GuideScreenEditorAction> actions = new ArrayList<>();
-        actions.add(GuideScreenEditorAction.HEADING_1);
-        actions.add(GuideScreenEditorAction.HEADING_2);
-        actions.add(GuideScreenEditorAction.HEADING_3);
-        actions.add(GuideScreenEditorAction.BOLD);
-        actions.add(GuideScreenEditorAction.ITALIC);
-        actions.add(GuideScreenEditorAction.KBD);
-        actions.add(GuideScreenEditorAction.SUBSCRIPT);
-        actions.add(GuideScreenEditorAction.SUPERSCRIPT);
-        actions.add(GuideScreenEditorAction.FOOTNOTE);
-        actions.add(GuideScreenEditorAction.LATEX);
-        actions.add(GuideScreenEditorAction.COLOR);
-        actions.add(GuideScreenEditorAction.LINK);
-        actions.add(GuideScreenEditorAction.INLINE_CODE);
-        actions.add(GuideScreenEditorAction.CODE_BLOCK);
-        actions.add(GuideScreenEditorAction.BLOCKQUOTE);
-        actions.add(GuideScreenEditorAction.UNORDERED_LIST);
-        actions.add(GuideScreenEditorAction.ORDERED_LIST);
-        actions.add(GuideScreenEditorAction.TASK_LIST);
-        actions.add(GuideScreenEditorAction.TABLE);
-        actions.add(GuideScreenEditorAction.THEMATIC_BREAK);
+        Collections.addAll(actions, GUIDE_EDITOR_BASE_ACTIONS);
         if (guideEditorAdvancedToolbarVisible) {
             actions.add(GuideScreenEditorAction.HEADING_4);
             actions.add(GuideScreenEditorAction.HEADING_5);
@@ -2054,6 +2121,17 @@ public class GuideScreen extends GuiContainer
                 navigateTo(GuideSearchPage.anchorForQuery(""));
                 focusSearchField();
             }
+        } else if (btn == btnHomePage) {
+            if (currentRoute != null && currentRoute.isHome()) {
+                return;
+            }
+            confirmGuideEditorDirtyBefore(() -> {
+                rememberCurrentContentStateIfEligible();
+                history.push(captureCurrentViewState());
+                forwardHistory.clear();
+                restoreViewState(GuideScreenViewState.home());
+                rebuildToolbar();
+            });
         } else if (btn == btnGuideEditorToggle) {
             toggleGuideEditorEnabled();
         } else if (btn == btnGuideEditorNewPage) {
@@ -2290,7 +2368,8 @@ public class GuideScreen extends GuiContainer
         int bottomBarH = hasBottomBar() ? TOOLBAR_H : 0;
         int navH = Math.max(20, panelH - TOOLBAR_H - 1 - bottomBarH);
         navBar.setBounds(navX, navY, navH);
-        navBar.update(mouseX, mouseY, resolveNavigationTree());
+        NavigationTree navTree = resolveNavigationTree();
+        navBar.update(mouseX, mouseY, navTree, bookmarkState);
         int contentMouseX = mouseX;
         int contentMouseY = mouseY;
         if (navBar.isOpen() && navBar.contains(mouseX, mouseY)) {
@@ -2345,7 +2424,8 @@ public class GuideScreen extends GuiContainer
             currentAnchor != null ? currentAnchor.pageId() : null,
             mouseX,
             mouseY,
-            guide);
+            guide,
+            bookmarkState);
         if (isGuideEditorActive()) {
             drawGuideEditorContextMenu(mouseX, mouseY);
             GuideScreenNeiBridge.drawNativeNei(this, mouseX, mouseY);
@@ -4123,12 +4203,22 @@ public class GuideScreen extends GuiContainer
             return;
         }
         if (button == 0 && navBar.contains(mouseX, mouseY)) {
-            var target = navBar.mouseClicked(
+            var result = navBar.mouseClicked(
                 mouseX,
                 mouseY,
                 guide != null ? guide.getId() : null,
-                currentAnchor != null ? currentAnchor.pageId() : null);
-            if (target != null && target.pageId() != null) {
+                currentAnchor != null ? currentAnchor.pageId() : null,
+                bookmarkState);
+            if (result != null && result.bookmarkTogglePageId() != null) {
+                bookmarkState.toggle(result.bookmarkTogglePageId());
+                mc.getSoundHandler()
+                    .playSound(PositionedSoundRecord.func_147674_a(new ResourceLocation("gui.button.press"), 1.0F));
+                return;
+            }
+            if (result != null && result.navigationTarget() != null
+                && result.navigationTarget()
+                    .pageId() != null) {
+                var target = result.navigationTarget();
                 if (target.guideId() != null) {
                     navigateTo(target.guideId(), PageAnchor.page(target.pageId()));
                 } else {
@@ -4856,7 +4946,7 @@ public class GuideScreen extends GuiContainer
     }
 
     private int getSearchToolbarFieldX() {
-        return getSearchToolbarIconX() + GuideIconButton.WIDTH + TOOLBAR_GAP;
+        return getSearchToolbarIconX() + (GuideIconButton.WIDTH + TOOLBAR_GAP) * 2;
     }
 
     private int getSearchToolbarFieldWidth(int fieldX) {
@@ -4878,11 +4968,30 @@ public class GuideScreen extends GuiContainer
         if (isHomeRoute()) {
             return GuideIconButton.WIDTH * 2 + TOOLBAR_GAP;
         }
-        return GuideIconButton.WIDTH * 6 + TOOLBAR_GAP * 5;
+        return getToolbarButtonsWidth(8);
     }
 
     private int getRightToolbarButtonsLeft() {
-        return panelX + panelW - PANEL_PADDING - GuideIconButton.WIDTH * 5 - TOOLBAR_GAP * 4;
+        return panelX + panelW - PANEL_PADDING - getToolbarButtonsWidth(getRightToolbarButtonCount());
+    }
+
+    private int getRightToolbarButtonCount() {
+        return isSearchPage() ? 4 : 6;
+    }
+
+    private int getRightToolbarButtonX(int index) {
+        return getRightToolbarButtonsLeft() + index * getToolbarButtonStep();
+    }
+
+    private int getToolbarButtonsWidth(int buttonCount) {
+        if (buttonCount <= 0) {
+            return 0;
+        }
+        return GuideIconButton.WIDTH * buttonCount + TOOLBAR_GAP * (buttonCount - 1);
+    }
+
+    private int getToolbarButtonStep() {
+        return GuideIconButton.WIDTH + TOOLBAR_GAP;
     }
 
     private void focusSearchField() {

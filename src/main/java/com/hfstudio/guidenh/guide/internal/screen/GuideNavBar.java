@@ -19,8 +19,8 @@ import org.lwjgl.opengl.GL11;
 
 import com.hfstudio.guidenh.guide.GuidePageIcon;
 import com.hfstudio.guidenh.guide.PageCollection;
+import com.hfstudio.guidenh.guide.internal.GuideBookmarkState;
 import com.hfstudio.guidenh.guide.internal.util.DisplayScale;
-import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.render.GuidePageTexture;
 
@@ -49,6 +49,42 @@ public class GuideNavBar {
         }
     }
 
+    public static class ClickResult {
+
+        @Nullable
+        private final NavigationTarget navigationTarget;
+        @Nullable
+        private final ResourceLocation bookmarkTogglePageId;
+
+        private ClickResult(@Nullable NavigationTarget navigationTarget,
+            @Nullable ResourceLocation bookmarkTogglePageId) {
+            this.navigationTarget = navigationTarget;
+            this.bookmarkTogglePageId = bookmarkTogglePageId;
+        }
+
+        public static ClickResult navigate(@Nullable ResourceLocation guideId, @Nullable ResourceLocation pageId) {
+            return pageId == null ? none() : new ClickResult(new NavigationTarget(guideId, pageId), null);
+        }
+
+        public static ClickResult toggleBookmark(ResourceLocation pageId) {
+            return new ClickResult(null, pageId);
+        }
+
+        public static ClickResult none() {
+            return new ClickResult(null, null);
+        }
+
+        @Nullable
+        public NavigationTarget navigationTarget() {
+            return navigationTarget;
+        }
+
+        @Nullable
+        public ResourceLocation bookmarkTogglePageId() {
+            return bookmarkTogglePageId;
+        }
+    }
+
     public static final int WIDTH_CLOSED = 10;
     public static final int WIDTH_OPEN = 150;
     public static final int CONTENT_PADDING = 2;
@@ -56,11 +92,18 @@ public class GuideNavBar {
     public static final int CHILD_INDENT = 12;
     public static final int EXPAND_INDENT = 8;
     public static final int ICON_SIZE = 9;
+    public static final int ACTION_SLOT_W = 12;
+    public static final int ACTION_ICON_SIZE = 9;
+    public static final int ACTION_PADDING_RIGHT = 2;
 
-    private final List<Row> rows = new ArrayList<>();
-    private final Set<ResourceLocation> expandedPageIds = new HashSet<>();
+    private final List<Row> rows = new ArrayList<Row>();
+    private final Set<ResourceLocation> expandedPageIds = new HashSet<ResourceLocation>();
+    private final GuideNavProjection projection = new GuideNavProjection();
     @Nullable
     private NavigationTree lastTree;
+    private int lastBookmarkStateVersion;
+    private int lastExpandedStateHash;
+    private boolean bookmarkGroupExpanded = true;
 
     private int x;
     private int y;
@@ -83,9 +126,9 @@ public class GuideNavBar {
         return open || pinned;
     }
 
-    public void update(int mouseX, int mouseY, NavigationTree tree) {
-        if (tree != lastTree) {
-            rebuildRows(tree);
+    public void update(int mouseX, int mouseY, @Nullable NavigationTree tree, GuideBookmarkState bookmarkState) {
+        if (shouldRebuildRows(tree, bookmarkState)) {
+            rebuildRows(tree, bookmarkState);
         }
         if (pinned) {
             open = true;
@@ -95,34 +138,44 @@ public class GuideNavBar {
         open = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + height;
     }
 
-    private void rebuildRows(@Nullable NavigationTree tree) {
-        rows.clear();
-        lastTree = tree;
-        if (tree == null) return;
-        for (var root : tree.getRootNodes()) {
-            addRowRecursive(root, 0);
-        }
+    private boolean shouldRebuildRows(@Nullable NavigationTree tree, GuideBookmarkState bookmarkState) {
+        return tree != lastTree || lastBookmarkStateVersion != bookmarkState.version()
+            || lastExpandedStateHash != expandedPageIds.hashCode();
     }
 
-    private void addRowRecursive(NavigationNode node, int depth) {
-        rows.add(new Row(node, depth));
-        if (isExpanded(node)) {
-            for (var child : node.children()) {
-                addRowRecursive(child, depth + 1);
-            }
+    private void rebuildRows(@Nullable NavigationTree tree, GuideBookmarkState bookmarkState) {
+        rows.clear();
+        lastTree = tree;
+        if (tree == null) {
+            lastBookmarkStateVersion = bookmarkState.version();
+            lastExpandedStateHash = expandedPageIds.hashCode();
+            return;
         }
+        for (GuideNavProjection.DisplayRow displayRow : projection
+            .project(tree, bookmarkState, expandedPageIds, bookmarkGroupExpanded)) {
+            rows.add(new Row(displayRow));
+        }
+        lastBookmarkStateVersion = bookmarkState.version();
+        lastExpandedStateHash = expandedPageIds.hashCode();
     }
 
     public void render(Minecraft mc, @Nullable ResourceLocation currentGuideId,
-        @Nullable ResourceLocation currentPageId, int mouseX, int mouseY, @Nullable PageCollection pageCollection) {
-        if (lastTree == null || rows.isEmpty()) return;
+        @Nullable ResourceLocation currentPageId, int mouseX, int mouseY, @Nullable PageCollection pageCollection,
+        GuideBookmarkState bookmarkState) {
+        if (lastTree == null || rows.isEmpty()) {
+            return;
+        }
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_CURRENT_BIT | GL11.GL_COLOR_BUFFER_BIT);
         try {
             int w = currentWidth();
+            int rowRight = x + w - 1;
+            int textRightBase = x + w - 2;
+            int bookmarkActionLeft = x + w - ACTION_SLOT_W;
+            int bookmarkIconX = bookmarkActionLeft + ACTION_PADDING_RIGHT;
             int bgTop = 0xE0151515;
             int bgBot = 0xE0101010;
             drawVGradient(x, y, w, height, bgTop, bgBot);
-            Gui.drawRect(x + w - 1, y, x + w, y + height, 0xFF2A2A2A);
+            Gui.drawRect(rowRight, y, x + w, y + height, 0xFF2A2A2A);
 
             if (!isOpen()) {
                 drawArrow(x + w / 2 - 2, y + height / 2 - 3, true, 0xFF888888);
@@ -136,44 +189,49 @@ public class GuideNavBar {
             FontRenderer fr = mc.fontRenderer;
             int firstVisibleRow = getFirstVisibleRowIndex();
             for (int rowIndex = firstVisibleRow; rowIndex < rows.size(); rowIndex++) {
-                var row = rows.get(rowIndex);
+                Row row = rows.get(rowIndex);
                 int rowY = getRowY(rowIndex);
-                if (rowY >= y + height) break;
+                if (rowY >= y + height) {
+                    break;
+                }
 
-                int indent = row.depth * CHILD_INDENT;
+                int indent = row.displayRow.depth() * CHILD_INDENT;
                 int rowX = x + 2 + indent;
-
-                boolean hovered = mouseX >= x && mouseX < x + w - 1 && mouseY >= rowY && mouseY < rowY + ROW_H;
-                boolean current = isCurrentRow(row.node, currentGuideId, currentPageId);
+                boolean hovered = mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowY + ROW_H;
+                boolean current = isCurrentRow(row.displayRow, currentGuideId, currentPageId);
                 if (current) {
-                    Gui.drawRect(x, rowY, x + w - 1, rowY + ROW_H, 0x40FFFFFF);
+                    Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x40FFFFFF);
                 } else if (hovered) {
-                    Gui.drawRect(x, rowY, x + w - 1, rowY + ROW_H, 0x20FFFFFF);
+                    Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x20FFFFFF);
                 }
 
-                boolean hasChildren = !row.node.children()
-                    .isEmpty();
-                if (hasChildren) {
-                    boolean exp = isExpanded(row.node);
-                    drawArrow(rowX, rowY + 2, !exp, 0xFFCCCCCC);
+                if (row.displayRow.hasChildren()) {
+                    boolean collapsed = isCollapsed(row.displayRow);
+                    drawArrow(rowX, rowY + 2, collapsed, 0xFFCCCCCC);
                 }
+
                 int textX = rowX + EXPAND_INDENT;
-
-                GuidePageIcon icon = row.node.icon();
+                GuidePageIcon icon = row.displayRow.icon();
                 if (icon != null) {
                     int iy = rowY + (ROW_H - ICON_SIZE) / 2;
                     drawMiniIcon(mc, icon, textX, iy);
                     textX += ICON_SIZE + 2;
                 }
 
-                int maxTw = (x + w - 2) - textX;
+                int textRight = textRightBase;
+                if (canToggleBookmark(row.displayRow)) {
+                    textRight -= ACTION_SLOT_W;
+                }
+                int maxTw = textRight - textX;
                 if (maxTw > 0) {
                     String title = row.getTitle(fr, maxTw);
-                    boolean failed = row.node.pageId() != null && pageCollection != null
-                        && pageCollection.isPageFailed(row.node.pageId());
+                    boolean failed = row.displayRow.pageId() != null && pageCollection != null
+                        && pageCollection.isPageFailed(row.displayRow.pageId());
                     int color = getRowTextColor(current, hovered, failed);
                     fr.drawString(title, textX, rowY + 2, color, false);
                 }
+
+                renderBookmarkIcon(mc, row.displayRow, rowY, hovered, bookmarkState, bookmarkIconX);
             }
         } finally {
             GL11.glPopAttrib();
@@ -184,54 +242,116 @@ public class GuideNavBar {
     }
 
     @Nullable
-    public NavigationTarget mouseClicked(int mouseX, int mouseY, @Nullable ResourceLocation currentGuideId,
-        @Nullable ResourceLocation currentPageId) {
-        if (!isOpen()) return null;
+    public ClickResult mouseClicked(int mouseX, int mouseY, @Nullable ResourceLocation currentGuideId,
+        @Nullable ResourceLocation currentPageId, GuideBookmarkState bookmarkState) {
+        if (!isOpen()) {
+            return null;
+        }
         int w = currentWidth();
-        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + height) return null;
+        if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + height) {
+            return null;
+        }
         int rowIndex = getRowIndexAt(mouseY);
         if (rowIndex < 0) {
             return null;
         }
 
-        var row = rows.get(rowIndex);
-        boolean hasChildren = !row.node.children()
-            .isEmpty();
-        if (hasChildren && isInsideExpandArrow(mouseX, row)) {
-            toggleExpand(row.node);
-            return null;
+        Row row = rows.get(rowIndex);
+        int rowY = getRowY(rowIndex);
+        if (canToggleBookmark(row.displayRow) && isInsideBookmarkAction(mouseX, row, rowY)
+            && row.displayRow.pageId() != null) {
+            return ClickResult.toggleBookmark(row.displayRow.pageId());
         }
-        if (hasChildren) {
-            boolean alreadyExpanded = isExpanded(row.node);
+
+        if (row.displayRow.hasChildren() && isInsideExpandArrow(mouseX, row)) {
+            toggleExpand(row.displayRow, bookmarkState);
+            return ClickResult.none();
+        }
+
+        if (row.displayRow.kind() == GuideNavProjection.RowKind.BOOKMARK_GROUP) {
+            bookmarkGroupExpanded = !bookmarkGroupExpanded;
+            rebuildRows(lastTree, bookmarkState);
+            return ClickResult.none();
+        }
+
+        if (row.displayRow.hasChildren() && row.displayRow.kind() == GuideNavProjection.RowKind.TREE_PAGE) {
+            boolean alreadyExpanded = isExpanded(row.displayRow);
             if (!alreadyExpanded) {
-                // Expand collapsed groups and navigate if the node has a page.
-                toggleExpand(row.node);
-            } else {
-                // Already expanded: only collapse when already on this exact page;
-                // otherwise just navigate there without touching the expand state.
-                boolean onThisPage = isCurrentRow(row.node, currentGuideId, currentPageId);
-                if (onThisPage) {
-                    toggleExpand(row.node);
-                }
+                toggleExpand(row.displayRow, bookmarkState);
+            } else if (isCurrentRow(row.displayRow, currentGuideId, currentPageId)) {
+                toggleExpand(row.displayRow, bookmarkState);
             }
         }
-        if (row.node.pageId() != null && row.node.hasPage()) {
-            return new NavigationTarget(row.node.guideId(), row.node.pageId());
+
+        if (row.displayRow.pageId() != null && row.displayRow.hasPage()) {
+            return ClickResult.navigate(row.displayRow.guideId(), row.displayRow.pageId());
         }
-        return null;
+        return ClickResult.none();
+    }
+
+    private void renderBookmarkIcon(Minecraft mc, GuideNavProjection.DisplayRow row, int rowY, boolean hovered,
+        GuideBookmarkState bookmarkState, int bookmarkIconX) {
+        if (!canToggleBookmark(row)) {
+            return;
+        }
+        boolean bookmarked = row.pageId() != null && bookmarkState.isBookmarked(row.pageId());
+        if (!bookmarked && !hovered) {
+            return;
+        }
+        int iconY = rowY + (ROW_H - ACTION_ICON_SIZE) / 2;
+        GuideIconButton.Role role = bookmarked ? GuideIconButton.Role.BOOKMARKED : GuideIconButton.Role.BOOKMARK;
+        int color = GuideIconButton.resolveIconColor(true, hovered, bookmarked);
+        GuideIconButton.drawIcon(mc, role, bookmarkIconX, iconY, ACTION_ICON_SIZE, ACTION_ICON_SIZE, color);
+    }
+
+    private boolean isInsideBookmarkAction(int mouseX, Row row, int rowY) {
+        if (!canToggleBookmark(row.displayRow)) {
+            return false;
+        }
+        int iconX = x + currentWidth() - ACTION_SLOT_W;
+        return mouseX >= iconX && mouseX < x + currentWidth() - 1;
+    }
+
+    private boolean canToggleBookmark(GuideNavProjection.DisplayRow row) {
+        return row.kind() == GuideNavProjection.RowKind.BOOKMARK_PAGE
+            || row.kind() == GuideNavProjection.RowKind.TREE_PAGE && row.hasPage();
     }
 
     private boolean isInsideExpandArrow(int mouseX, Row row) {
-        int arrowX = x + 2 + row.depth * CHILD_INDENT;
+        int arrowX = x + 2 + row.displayRow.depth() * CHILD_INDENT;
         return mouseX >= arrowX && mouseX < arrowX + EXPAND_INDENT;
     }
 
-    private boolean isCurrentRow(NavigationNode node, @Nullable ResourceLocation currentGuideId,
+    private boolean isCurrentRow(GuideNavProjection.DisplayRow row, @Nullable ResourceLocation currentGuideId,
         @Nullable ResourceLocation currentPageId) {
-        if (currentPageId == null || !currentPageId.equals(node.pageId())) {
+        if (currentPageId == null || !currentPageId.equals(row.pageId())) {
             return false;
         }
-        return node.guideId() == null || currentGuideId == null || currentGuideId.equals(node.guideId());
+        return row.guideId() == null || currentGuideId == null || currentGuideId.equals(row.guideId());
+    }
+
+    private boolean isCollapsed(GuideNavProjection.DisplayRow row) {
+        if (row.kind() == GuideNavProjection.RowKind.BOOKMARK_GROUP) {
+            return !bookmarkGroupExpanded;
+        }
+        return !isExpanded(row);
+    }
+
+    private boolean isExpanded(GuideNavProjection.DisplayRow row) {
+        return row.pageId() != null && expandedPageIds.contains(row.pageId());
+    }
+
+    private void toggleExpand(GuideNavProjection.DisplayRow row, GuideBookmarkState bookmarkState) {
+        if (row.kind() == GuideNavProjection.RowKind.BOOKMARK_GROUP) {
+            bookmarkGroupExpanded = !bookmarkGroupExpanded;
+        } else if (row.pageId() != null) {
+            if (expandedPageIds.contains(row.pageId())) {
+                expandedPageIds.remove(row.pageId());
+            } else {
+                expandedPageIds.add(row.pageId());
+            }
+        }
+        rebuildRows(lastTree, bookmarkState);
     }
 
     public boolean contains(int mouseX, int mouseY) {
@@ -243,8 +363,12 @@ public class GuideNavBar {
         int contentH = rows.size() * ROW_H + CONTENT_PADDING * 2;
         int max = Math.max(0, contentH - height);
         scrollY -= Integer.signum(dwheel) * ROW_H * 2;
-        if (scrollY < 0) scrollY = 0;
-        if (scrollY > max) scrollY = max;
+        if (scrollY < 0) {
+            scrollY = 0;
+        }
+        if (scrollY > max) {
+            scrollY = max;
+        }
     }
 
     private int getFirstVisibleRowIndex() {
@@ -257,7 +381,6 @@ public class GuideNavBar {
         if (relativeY < 0) {
             return -1;
         }
-
         int rowIndex = relativeY / ROW_H;
         return rowIndex >= 0 && rowIndex < rows.size() ? rowIndex : -1;
     }
@@ -266,27 +389,11 @@ public class GuideNavBar {
         return y + CONTENT_PADDING - scrollY + rowIndex * ROW_H;
     }
 
-    private boolean isExpanded(@Nullable NavigationNode node) {
-        return node != null && node.pageId() != null && expandedPageIds.contains(node.pageId());
-    }
-
-    private void toggleExpand(@Nullable NavigationNode node) {
-        if (node == null || node.pageId() == null) {
-            return;
-        }
-        if (expandedPageIds.contains(node.pageId())) {
-            expandedPageIds.remove(node.pageId());
-        } else {
-            expandedPageIds.add(node.pageId());
-        }
-        rebuildRows(lastTree);
-    }
-
     public static int getRowTextColor(boolean current, boolean hovered, boolean failed) {
         if (failed) {
-            return current ? 0xFFFF9999 : (hovered ? 0xFFFF7777 : 0xFFFF5555);
+            return current ? 0xFFFF9999 : hovered ? 0xFFFF7777 : 0xFFFF5555;
         }
-        return current ? 0xFFFFFFFF : (hovered ? 0xFF88BBFF : 0xFFBBBBBB);
+        return current ? 0xFFFFFFFF : hovered ? 0xFF88BBFF : 0xFFBBBBBB;
     }
 
     public static void drawVGradient(int x, int y, int w, int h, int topColor, int botColor) {
@@ -315,7 +422,6 @@ public class GuideNavBar {
 
     public static void drawArrow(int x, int y, boolean pointRight, int color) {
         if (pointRight) {
-            // row0 1px; row1 2px; row2 3px; row3 4px; row4 3px; row5 2px; row6 1px
             Gui.drawRect(x, y, x + 1, y + 7, color);
             Gui.drawRect(x + 1, y + 1, x + 2, y + 6, color);
             Gui.drawRect(x + 2, y + 2, x + 3, y + 5, color);
@@ -388,21 +494,20 @@ public class GuideNavBar {
 
     public static class Row {
 
-        public final NavigationNode node;
-        public final int depth;
-        private String cachedTitle = null;
+        private final GuideNavProjection.DisplayRow displayRow;
+        @Nullable
+        private String cachedTitle;
         private int cachedMaxTw = -1;
 
-        public Row(NavigationNode node, int depth) {
-            this.node = node;
-            this.depth = depth;
+        public Row(GuideNavProjection.DisplayRow displayRow) {
+            this.displayRow = displayRow;
         }
 
         public String getTitle(FontRenderer fr, int maxTw) {
             if (maxTw == cachedMaxTw && cachedTitle != null) {
                 return cachedTitle;
             }
-            String title = node.title();
+            String title = displayRow.title();
             cachedTitle = fr.getStringWidth(title) > maxTw ? fr.trimStringToWidth(title, maxTw - 4) + "\u2026" : title;
             cachedMaxTw = maxTw;
             return cachedTitle;

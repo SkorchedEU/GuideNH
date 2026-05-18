@@ -132,7 +132,6 @@ public class ImportStructureElementCompiler implements SceneElementTagCompiler {
 
             NBTTagCompound tileTag = b.hasKey("nbt", 10) ? b.getCompoundTag("nbt") : null;
             GuidebookPreviewBlockPlacer.place(level, px, py, pz, block, meta, tileTag, name, b);
-            level.setExplicitBlockId(px, py, pz, name);
             placed++;
         }
 

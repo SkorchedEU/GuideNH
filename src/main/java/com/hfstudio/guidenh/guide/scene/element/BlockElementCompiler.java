@@ -59,7 +59,6 @@ public class BlockElementCompiler implements SceneElementTagCompiler {
         String explicitBlockId = blockReference.registryId()
             .toString();
         GuidebookPreviewBlockPlacer.place(level, x, y, z, block, meta, tileTag, explicitBlockId);
-        level.setExplicitBlockId(x, y, z, explicitBlockId);
     }
 
     public static int defaultMetaFor(Block block, String facing) {

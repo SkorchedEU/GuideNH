@@ -33,6 +33,7 @@ import net.minecraft.util.IIcon;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
+import net.minecraft.world.World;
 
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
@@ -4300,7 +4301,8 @@ public class LytGuidebookScene extends LytBlock {
             if (block == null || block == Blocks.air || !block.hasTileEntity(meta)) {
                 return null;
             }
-            tileEntity = GuidebookTileEntityLoader.load(level.getOrCreateFakeWorld(), block, meta, x, y, z, null);
+            World fakeWorld = level.getOrCreateFakeWorld();
+            tileEntity = GuidebookTileEntityLoader.load(fakeWorld, block, meta, x, y, z, null);
             if (tileEntity == null) {
                 return null;
             }
@@ -4360,8 +4362,9 @@ public class LytGuidebookScene extends LytBlock {
             }
         }
         applyPonderEntityTransform(tag, action);
+        World fakeWorld = level.getOrCreateFakeWorld();
         Entity entity = GuidebookSceneEntityLoader
-            .loadFromNbt(level.getOrCreateFakeWorld(), entityId, tag, action.getName(), action.getUuid());
+            .loadFromNbt(fakeWorld, entityId, tag, action.getName(), action.getUuid());
         if (entity == null) {
             return;
         }
@@ -4450,8 +4453,9 @@ public class LytGuidebookScene extends LytBlock {
         PonderEntityRuntime runtime = findPonderEntityRuntime(entity);
         String entityId = runtime != null ? runtime.entityTypeId : null;
         if (entityId != null) {
+            World fakeWorld = level.getOrCreateFakeWorld();
             Entity replacement = GuidebookSceneEntityLoader
-                .loadFromNbt(level.getOrCreateFakeWorld(), entityId, tag, runtime.playerName, runtime.playerUuid);
+                .loadFromNbt(fakeWorld, entityId, tag, runtime.playerName, runtime.playerUuid);
             if (replacement != null) {
                 level.removeEntity(entity.getEntityId());
                 level.addEntity(replacement);
@@ -4587,7 +4591,8 @@ public class LytGuidebookScene extends LytBlock {
         float green = 0.6f;
         float blue = 0.6f;
         try {
-            int color = block.colorMultiplier(level.getOrCreateFakeWorld(), x, y, z);
+            World fakeWorld = level.getOrCreateFakeWorld();
+            int color = block.colorMultiplier(fakeWorld, x, y, z);
             red *= (color >> 16 & 255) / 255.0f;
             green *= (color >> 8 & 255) / 255.0f;
             blue *= (color & 255) / 255.0f;
