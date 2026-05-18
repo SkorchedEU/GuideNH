@@ -26,6 +26,7 @@ import com.hfstudio.guidenh.libs.mdast.MdastOptions;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttribute;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttributeNode;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstHTML;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstRoot;
 import com.hfstudio.guidenh.libs.mdx.MdxCommentMasker;
 import com.hfstudio.guidenh.libs.micromark.ParseException;
@@ -181,32 +182,11 @@ public class SceneEditorMarkdownCodec {
                 continue;
             }
             MdxJsxElementFields element = unwrapJsxElement(node, source);
-            if (element == null) {
+            if (element != null) {
+                appendParsedSceneChild(model, node, element, source);
                 continue;
             }
-            String tagName = element.name();
-            if ("ImportStructure".equals(tagName)) {
-                model.addSceneNode(parseImportStructureNode(element));
-                continue;
-            }
-            if ("ImportStructureLib".equals(tagName)) {
-                model.addSceneNode(parseImportStructureLibNode(element));
-                continue;
-            }
-            if ("RemoveBlocks".equals(tagName)) {
-                model.addSceneNode(parseRemoveBlocksNode(element));
-                continue;
-            }
-            if ("BlockAnnotationTemplate".equals(tagName)) {
-                model.addSceneNode(parseBlockAnnotationTemplateNode(element, source));
-                continue;
-            }
-
-            // Unknown element — try to parse as a known annotation type.
-            // If unsupported, preserve raw source text as an opaque passthrough node.
-            try {
-                model.addElement(parseElement(element, source));
-            } catch (UnsupportedSubsetException ignored) {
+            if (!appendParsedSceneChildFromRawText(model, node, source)) {
                 String rawText = extractRawNodeText(node, source);
                 if (rawText != null && !rawText.trim()
                     .isEmpty()) {
@@ -219,6 +199,76 @@ public class SceneEditorMarkdownCodec {
         }
 
         return model;
+    }
+
+    private void appendParsedSceneChild(SceneEditorSceneModel model, UnistNode node, MdxJsxElementFields element,
+        String source) {
+        String tagName = element.name();
+        if ("ImportStructure".equals(tagName)) {
+            model.addSceneNode(parseImportStructureNode(element));
+            return;
+        }
+        if ("ImportStructureLib".equals(tagName)) {
+            model.addSceneNode(parseImportStructureLibNode(element));
+            return;
+        }
+        if ("RemoveBlocks".equals(tagName)) {
+            model.addSceneNode(parseRemoveBlocksNode(element));
+            return;
+        }
+        if ("BlockAnnotationTemplate".equals(tagName)) {
+            model.addSceneNode(parseBlockAnnotationTemplateNode(element, source));
+            return;
+        }
+
+        try {
+            model.addElement(parseElement(element, source));
+        } catch (UnsupportedSubsetException ignored) {
+            String rawText = extractRawNodeText(node, source);
+            if (rawText != null && !rawText.trim()
+                .isEmpty()) {
+                SceneEditorSceneNodeModel opaqueNode = new SceneEditorSceneNodeModel(SceneEditorSceneNodeType.OPAQUE);
+                opaqueNode.setOpaqueText(rawText);
+                model.addSceneNode(opaqueNode);
+            }
+        }
+    }
+
+    private boolean appendParsedSceneChildFromRawText(SceneEditorSceneModel model, UnistNode node, String source) {
+        String rawText = extractRawNodeText(node, source);
+        if (rawText == null || rawText.trim()
+            .isEmpty() || rawText.indexOf('<') < 0 || rawText.indexOf('>') < 0) {
+            return false;
+        }
+        SceneEditorMarkdownParseResult nestedResult = parseSceneChildFragment(rawText);
+        if (!(nestedResult instanceof SceneEditorMarkdownParseResult.Success success)) {
+            return false;
+        }
+        mergeParsedSceneChild(model, success.model());
+        return true;
+    }
+
+    private SceneEditorMarkdownParseResult parseSceneChildFragment(String rawText) {
+        String trimmed = trimSceneChildRawText(rawText);
+        if (trimmed.isEmpty()) {
+            return new SceneEditorMarkdownParseResult.Unsupported("Empty scene child");
+        }
+        String wrapped = "<GameScene>\n" + trimmed + "\n</GameScene>";
+        return parse(wrapped);
+    }
+
+    private String trimSceneChildRawText(String rawText) {
+        String normalized = normalizeLineEndings(rawText);
+        if (normalized.indexOf('\n') < 0) {
+            return normalized.trim();
+        }
+        return trimCommonIndent(normalized);
+    }
+
+    private void mergeParsedSceneChild(SceneEditorSceneModel target, SceneEditorSceneModel parsed) {
+        for (SceneEditorSceneNodeModel sceneNode : parsed.getSceneNodes()) {
+            target.addSceneNode(sceneNode.duplicate());
+        }
     }
 
     private SceneEditorElementModel parseElement(MdxJsxElementFields element, String source) {
@@ -1141,7 +1191,7 @@ public class SceneEditorMarkdownCodec {
     }
 
     private boolean isIgnorableNode(UnistNode node, String source) {
-        if (node instanceof MdxJsxElementFields) {
+        if (node instanceof MdxJsxElementFields || node instanceof MdAstHTML) {
             return false;
         }
         UnistPosition position = node.position();
