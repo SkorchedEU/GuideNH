@@ -4,10 +4,10 @@ public class HomePageLayout {
 
     private static final float SHELL_WIDTH_RATIO = 0.8f;
     private static final float SHELL_HEIGHT_RATIO = 0.8f;
-    private static final float LEFT_COLUMN_RATIO = 0.44f;
     private static final float LOGO_WIDTH_RATIO = 0.8f;
     private static final int PANEL_GAP = 12;
     private static final int LOGO_RAISE_PIXELS = 5;
+    private static final int PANEL_MIN_WIDTH = 100;
 
     private HomePageLayout() {}
 
@@ -18,10 +18,11 @@ public class HomePageLayout {
         int shellX = contentX + Math.max(0, (contentW - shellW) / 2);
         int shellY = contentY + Math.max(0, (contentH - shellH) / 2);
 
-        int leftW = Math.max(140, Math.round(shellW * LEFT_COLUMN_RATIO));
-        int rightW = Math.max(120, shellW - leftW - PANEL_GAP);
+        int panelW = Math.max(PANEL_MIN_WIDTH, (shellW - PANEL_GAP) / 2);
+        int columnsW = panelW * 2 + PANEL_GAP;
+        int columnsX = shellX + Math.max(0, (shellW - columnsW) / 2);
 
-        int logoW = Math.max(80, Math.round(leftW * LOGO_WIDTH_RATIO));
+        int logoW = Math.max(80, Math.round(panelW * LOGO_WIDTH_RATIO));
         int safeLogoWidth = Math.max(1, logoWidth);
         int safeLogoHeight = Math.max(1, logoHeight);
         int logoH = Math.max(30, Math.round((float) logoW * safeLogoHeight / safeLogoWidth));
@@ -30,10 +31,10 @@ public class HomePageLayout {
         int rightHalfH = Math.max(60, (availableRecommendH - PANEL_GAP) / 2);
         int recommendH = rightHalfH * 2 + PANEL_GAP;
 
-        Rect recommended = new Rect(shellX, recommendY, leftW, recommendH);
-        Rect logo = new Rect(shellX, recommendY - logoH - LOGO_RAISE_PIXELS, logoW, logoH);
-        Rect bookmarks = new Rect(shellX + leftW + PANEL_GAP, recommendY, rightW, rightHalfH);
-        Rect history = new Rect(shellX + leftW + PANEL_GAP, recommendY + rightHalfH + PANEL_GAP, rightW, rightHalfH);
+        Rect recommended = new Rect(columnsX, recommendY, panelW, recommendH);
+        Rect logo = new Rect(columnsX, recommendY - logoH - LOGO_RAISE_PIXELS, logoW, logoH);
+        Rect bookmarks = new Rect(columnsX + panelW + PANEL_GAP, recommendY, panelW, rightHalfH);
+        Rect history = new Rect(columnsX + panelW + PANEL_GAP, recommendY + rightHalfH + PANEL_GAP, panelW, rightHalfH);
         int recommendedTitleSafeTop = 0;
         return new LayoutRects(logo, recommended, bookmarks, history, recommendedTitleSafeTop);
     }
