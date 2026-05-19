@@ -317,8 +317,10 @@ public class SceneTagCompiler extends BlockTagCompiler {
 
         SceneChildrenCompileResult result = compileSceneChildrenDetailed(scene, compiler, errorSink, children, true);
         if (result.isStructureCacheable()) {
+            GuideSceneStructureCacheEntry normalizedStructureState = GuideSceneStructureCacheEntry.capture(scene);
             GuideSceneStructureCache.global()
-                .put(cacheKey, GuideSceneStructureCacheEntry.capture(scene));
+                .put(cacheKey, normalizedStructureState);
+            normalizedStructureState.restoreInto(scene);
         }
         return result.isBlockStatsDeclared();
     }

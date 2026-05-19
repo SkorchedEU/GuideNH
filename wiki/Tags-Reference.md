@@ -711,11 +711,11 @@ Interaction: hover a curve to highlight it; press and hold to scrub a point alon
 
 ### `<QuestLink>`
 
-Inline link to a BetterQuesting quest. Clicking opens the quest inside the BetterQuesting GUI, unless the quest UUID is also present in the current guide's `quest_ids` frontmatter — in that case the link navigates to that page instead.
+Inline link to a BetterQuesting quest. Clicking opens the quest inside the BetterQuesting GUI, unless the quest id is also present in the current guide's `quest_ids` frontmatter — in that case the link navigates to that page instead.
 
 | Attribute | Meaning |
 | --- | --- |
-| `id` | required quest UUID |
+| `id` | required BetterQuesting quest id; accepts canonical UUID strings and compact Base64 ids |
 | `text` | optional override for the displayed text |
 
 Visibility behavior is decided per player at compile time:
@@ -723,13 +723,14 @@ Visibility behavior is decided per player at compile time:
 - visible / completed quests render as a clickable link (completed quests are tinted green and append a `✓` mark)
 - locked quests render as a non-clickable italic gray placeholder using the `guidenh.compat.bq.locked` translation
 - hidden / secret quests render as a darker italic placeholder using `guidenh.compat.bq.hidden`
-- unknown UUIDs render as a red placeholder using `guidenh.compat.bq.missing`
+- unknown quest ids render as a red placeholder using `guidenh.compat.bq.missing`
 
 Example:
 
 ````md
 See <QuestLink id="01234567-89ab-cdef-0123-456789abcdef" /> for the next step.
 <QuestLink id="01234567-89ab-cdef-0123-456789abcdef" text="Stage 2 quest" />
+See <QuestLink id="AAAAAAAAAAAAAAAAAAAMug==" text="Compact quest id example" /> after that.
 ````
 
 ### `<QuestCard>`
@@ -738,7 +739,7 @@ Block-level summary card for a BetterQuesting quest. Renders the quest title wit
 
 | Attribute | Meaning |
 | --- | --- |
-| `id` | required quest UUID |
+| `id` | required BetterQuesting quest id; accepts canonical UUID strings and compact Base64 ids |
 | `show_desc` | optional boolean (default `true`); set to `false` to suppress the description body |
 
 The accent color of the card border follows the quest state: green for completed, gray for locked / hidden, red for missing, and the standard link color for visible quests.
@@ -748,4 +749,5 @@ Example:
 ````md
 <QuestCard id="01234567-89ab-cdef-0123-456789abcdef" />
 <QuestCard id="01234567-89ab-cdef-0123-456789abcdef" show_desc="false" />
+<QuestCard id="AAAAAAAAAAAAAAAAAAAMug==" />
 ````

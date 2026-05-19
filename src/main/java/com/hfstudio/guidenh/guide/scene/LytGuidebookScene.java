@@ -698,7 +698,8 @@ public class LytGuidebookScene extends LytBlock {
         if (blockStatsMaxWidthExplicit && blockStatsMaxHeightExplicit) {
             return;
         }
-        int maxWidth = Math.max(BLOCK_STATS_DEFAULT_MAX_WIDTH, Math.max(BLOCK_STATS_MIN_WIDTH, Math.round(width * 0.4f)));
+        int maxWidth = Math
+            .max(BLOCK_STATS_DEFAULT_MAX_WIDTH, Math.max(BLOCK_STATS_MIN_WIDTH, Math.round(width * 0.4f)));
         int maxHeight = Math
             .max(BLOCK_STATS_DEFAULT_MAX_HEIGHT, Math.max(BLOCK_STATS_MIN_HEIGHT, Math.round(height * 0.4f)));
         boolean changed = false;
@@ -2502,8 +2503,7 @@ public class LytGuidebookScene extends LytBlock {
         boolean reserveVerticalScrollbar = blockStatsContentHeight + BLOCK_STATS_PADDING_Y * 2 > maxHeight;
         int preferredWidth = blockStatsContentWidth + BLOCK_STATS_PADDING_X * 2
             + (reserveVerticalScrollbar ? BLOCK_STATS_SCROLLBAR_SIZE : 0);
-        int boxWidth = Math
-            .max(BLOCK_STATS_MIN_WIDTH, Math.min(maxWidth, preferredWidth));
+        int boxWidth = Math.max(BLOCK_STATS_MIN_WIDTH, Math.min(maxWidth, preferredWidth));
         int boxHeight = Math
             .max(BLOCK_STATS_MIN_HEIGHT, Math.min(maxHeight, blockStatsContentHeight + BLOCK_STATS_PADDING_Y * 2));
         int innerWidth = Math.max(1, boxWidth - BLOCK_STATS_PADDING_X * 2);

@@ -19,6 +19,7 @@ import com.hfstudio.guidenh.guide.document.flow.LytFlowLink;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowSpan;
 import com.hfstudio.guidenh.integration.betterquesting.BqHelpers;
 import com.hfstudio.guidenh.integration.betterquesting.QuestDisplay;
+import com.hfstudio.guidenh.integration.betterquesting.QuestIdParser;
 import com.hfstudio.guidenh.integration.betterquesting.QuestIndex;
 import com.hfstudio.guidenh.integration.betterquesting.QuestState;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
@@ -42,14 +43,12 @@ public class QuestCardCompiler extends BlockTagCompiler {
     protected void compile(PageCompiler compiler, LytBlockContainer parent, MdxJsxElementFields el) {
         String idAttr = MdxAttrs.getString(compiler, parent, el, "id", null);
         if (idAttr == null) {
-            parent.appendError(compiler, "QuestCard requires an 'id' attribute (quest UUID).", el);
+            parent.appendError(compiler, "QuestCard requires an 'id' attribute (BetterQuesting quest id).", el);
             return;
         }
-        UUID questId;
-        try {
-            questId = UUID.fromString(idAttr.trim());
-        } catch (IllegalArgumentException e) {
-            parent.appendError(compiler, "QuestCard id is not a valid UUID: " + idAttr, el);
+        UUID questId = QuestIdParser.parse(idAttr);
+        if (questId == null) {
+            parent.appendError(compiler, "QuestCard id is not a valid BetterQuesting quest id: " + idAttr, el);
             return;
         }
         boolean showDesc = !"false".equalsIgnoreCase(MdxAttrs.getString(compiler, parent, el, "show_desc", "true"));

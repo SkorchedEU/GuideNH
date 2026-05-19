@@ -13,6 +13,7 @@ import betterquesting.api.enums.EnumQuestVisibility;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.utils.BigItemStack;
+import betterquesting.api2.cache.QuestCache;
 import betterquesting.api2.utils.QuestTranslation;
 import betterquesting.client.gui2.GuiQuest;
 import betterquesting.questing.QuestDatabase;
@@ -23,6 +24,9 @@ public class BqHelpers {
      * Resolves the per-player display attributes of a quest by its UUID. Never returns
      * {@code null}: missing/unparseable UUIDs and unloaded databases yield a {@code MISSING}
      * display.
+     * <p/>
+     * Visibility matches BetterQuesting's own GUI rules. A quest is considered visible when BQ
+     * would show it in client UI, even if it is still locked behind prerequisites.
      *
      * @param questId The quest UUID, may be {@code null}.
      * @param player  The player whose progress is queried; {@code null} treats the quest as
@@ -51,7 +55,7 @@ public class BqHelpers {
             UUID playerId = playerUuid(player);
             if (quest.isComplete(playerId)) {
                 state = QuestState.COMPLETED;
-            } else if (quest.isUnlocked(playerId)) {
+            } else if (QuestCache.isQuestShown(quest, playerId, player)) {
                 state = QuestState.VISIBLE;
             } else {
                 EnumQuestVisibility visibility = quest.getProperty(NativeProps.VISIBILITY);
@@ -71,8 +75,9 @@ public class BqHelpers {
     }
 
     /**
-     * Opens BetterQuesting's quest GUI for the given quest UUID on the current screen. Must be
-     * called on the client thread.
+     * Opens BetterQuesting's quest GUI for the given quest UUID on the current screen. This
+     * mirrors BetterQuesting's own quest-open path used by quest buttons. Must be called on the
+     * client thread.
      */
     public static void openQuestGui(UUID questId) {
         Minecraft mc = Minecraft.getMinecraft();

@@ -674,11 +674,11 @@ $$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$
 
 ### `<QuestLink>`
 
-指向 BetterQuesting 任务的行内链接。点击时默认打开 BetterQuesting 任务 GUI；若该任务的 UUID 出现在某个指南页的 `quest_ids` 前言中，则改为跳转到该页面。
+指向 BetterQuesting 任务的行内链接。点击时默认打开 BetterQuesting 任务 GUI；若该任务 id 出现在某个指南页的 `quest_ids` 前言中，则改为跳转到该页面。
 
 | 属性 | 含义 |
 | --- | --- |
-| `id` | 必填，任务 UUID |
+| `id` | 必填，BetterQuesting 任务 id；支持标准 UUID 字符串和紧凑 Base64 id |
 | `text` | 可选，覆盖显示文本 |
 
 按玩家进度在编译时决定外观：
@@ -686,13 +686,14 @@ $$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$
 - 已可见 / 已完成的任务渲染为可点击链接（已完成的会被染为绿色并追加 `✓`）
 - 已锁定的任务渲染为不可点击的斜体灰色占位符，使用本地化键 `guidenh.compat.bq.locked`
 - 隐藏 / 机密的任务渲染为更深的斜体占位符，使用 `guidenh.compat.bq.hidden`
-- 未知 UUID 渲染为红色占位符，使用 `guidenh.compat.bq.missing`
+- 未知任务 id 渲染为红色占位符，使用 `guidenh.compat.bq.missing`
 
 示例：
 
 ````md
 下一步请参考 <QuestLink id="01234567-89ab-cdef-0123-456789abcdef" />。
 <QuestLink id="01234567-89ab-cdef-0123-456789abcdef" text="第二阶段任务" />
+然后再看 <QuestLink id="AAAAAAAAAAAAAAAAAAAMug==" text="紧凑 quest id 示例" />。
 ````
 
 ### `<QuestCard>`
@@ -701,7 +702,7 @@ $$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$
 
 | 属性 | 含义 |
 | --- | --- |
-| `id` | 必填，任务 UUID |
+| `id` | 必填，BetterQuesting 任务 id；支持标准 UUID 字符串和紧凑 Base64 id |
 | `show_desc` | 可选布尔，默认 `true`；设为 `false` 可隐藏描述正文 |
 
 卡片边框颜色随任务状态变化：已完成绿色、锁定 / 隐藏灰色、缺失红色、可见时使用标准链接色。
@@ -711,4 +712,5 @@ $$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$
 ````md
 <QuestCard id="01234567-89ab-cdef-0123-456789abcdef" />
 <QuestCard id="01234567-89ab-cdef-0123-456789abcdef" show_desc="false" />
+<QuestCard id="AAAAAAAAAAAAAAAAAAAMug==" />
 ````

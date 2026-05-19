@@ -253,7 +253,7 @@ GuideNH 会读取第一个 YAML frontmatter 块，并解析这些已知键：
 | `categories` | 字符串列表 | 将页面加入分类索引 |
 | `item_ids` | 物品引用列表 | 让页面可被 `<ItemLink>` 发现 |
 | `ore_ids` | 矿辞名列表 | 让页面可被矿辞物品（如 `ingotIron`、`oreCopper`）索引 |
-| `quest_ids` | BetterQuesting 任务 UUID 字符串列表 | 让页面可被 `<QuestLink>` / `<QuestCard>` 以及 BQ 任务 GUI 中的打开指南快捷键发现。仅在 BetterQuesting 加载时生效。参见 [模组兼容](Mod-Compatibility-zh-CN) |
+| `quest_ids` | BetterQuesting 任务 id 列表 | 让页面可被 `<QuestLink>` / `<QuestCard>` 以及 BQ 任务 GUI 中的打开指南快捷键发现。支持标准 UUID 字符串和 BetterQuesting 的紧凑 Base64 形式。仅在 BetterQuesting 加载时生效。参见 [模组兼容](Mod-Compatibility-zh-CN) |
 | `author` | string | 单一作者名称。显示在底部栏中。 |
 | `authors` | 字符串列表或 `{name: ...}` 映射列表 | 多位作者名称。最多显示两位，多余的用 `...` 替代。与 `author` 同时存在时以 `authors` 为准。 |
 | `date` | 字符串或 YYYY-MM-DD 日期 | 内容创建日期。显示在底部栏中。 |
@@ -315,10 +315,18 @@ ore_ids:
   - oreCopper
 quest_ids:
   - 01234567-89ab-cdef-0123-456789abcdef
+  - AAAAAAAAAAAAAAAAAAAMug==
 author: 示例作者
 date: 2024-01-15
 updated: 2024-06-01
 ```
+
+对于 BetterQuesting 集成，`quest_ids` 支持两种格式：
+
+- 标准 UUID 字符串，例如 `01234567-89ab-cdef-0123-456789abcdef`
+- BetterQuesting 的紧凑 quest id，例如 `AAAAAAAAAAAAAAAAAAAMug==`
+
+不要在同一页面的 `quest_ids` 中同时填写同一个任务的两种写法；它们会归一化成同一个内部 UUID，并被视为重复项。
 
 当 `author`、`authors`、`date` 或 `updated` 中任意一项存在时，GuideNH 会在
 指南界面底部显示一个与顶部工具栏风格一致的底部栏，靠右对齐显示形如：
