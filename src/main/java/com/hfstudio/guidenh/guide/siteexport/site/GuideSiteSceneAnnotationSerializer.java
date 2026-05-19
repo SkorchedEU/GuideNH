@@ -696,7 +696,7 @@ public final class GuideSiteSceneAnnotationSerializer {
         private static void appendTable(StringBuilder html, LytTable table, @Nullable ResourceLocation currentPageId,
             @Nullable GuideSitePageAssetExporter assetExporter, GuideSiteItemIconResolver itemIconResolver,
             @Nullable GuideSiteTemplateRegistry templates, boolean allowNestedItemTooltips) {
-            html.append("<table>");
+            html.append("<div class=\"guide-table-wrap\"><table class=\"guide-table\">");
             List<LytTableRow> rows = table.getChildren();
             if (!rows.isEmpty()) {
                 html.append("<thead>");
@@ -726,7 +726,7 @@ public final class GuideSiteSceneAnnotationSerializer {
                 }
                 html.append("</tbody>");
             }
-            html.append("</table>");
+            html.append("</table></div>");
         }
 
         private static void appendTableRow(StringBuilder html, LytTableRow row, String cellTagName,

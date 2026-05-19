@@ -65,6 +65,10 @@ public class GuideLightweightReloadService {
             GuideRegistry.updatePages(entry.getKey(), entry.getValue());
         }
 
+        for (MutableGuide guide : GuideRegistry.getAll()) {
+            guide.resetWarmup();
+        }
+
         try {
             GuideME.getSearch()
                 .indexAll();

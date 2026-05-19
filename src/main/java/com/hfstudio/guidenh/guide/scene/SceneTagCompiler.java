@@ -164,32 +164,12 @@ public class SceneTagCompiler extends BlockTagCompiler {
                 cam.setOffsetX(0f);
                 cam.setOffsetY(0f);
 
-                int[] bounds = scene.getLevel()
-                    .getBounds();
-                float lx = bounds[0];
-                float ly = bounds[1];
-                float lz = bounds[2];
-                float hx = bounds[3] + 1f;
-                float hy = bounds[4] + 1f;
-                float hz = bounds[5] + 1f;
-
-                float minSX = Float.MAX_VALUE;
-                float maxSX = -Float.MAX_VALUE;
-                float minSY = Float.MAX_VALUE;
-                float maxSY = -Float.MAX_VALUE;
-                for (int ci = 0; ci < 8; ci++) {
-                    float wx = (ci & 1) == 0 ? lx : hx;
-                    float wy = (ci & 2) == 0 ? ly : hy;
-                    float wz = (ci & 4) == 0 ? lz : hz;
-                    var sp = cam.worldToScreen(wx, wy, wz);
-                    if (sp.x < minSX) minSX = sp.x;
-                    if (sp.x > maxSX) maxSX = sp.x;
-                    if (sp.y < minSY) minSY = sp.y;
-                    if (sp.y > maxSY) maxSY = sp.y;
-                }
-
-                float spanX = maxSX - minSX;
-                float spanY = maxSY - minSY;
+                SceneViewportMetrics metrics = measureSceneViewport(
+                    cam,
+                    scene.getLevel()
+                        .getBounds());
+                float spanX = metrics.spanX();
+                float spanY = metrics.spanY();
                 float autoZoom = 1f;
                 if (spanX > 0.5f || spanY > 0.5f) {
                     float zX = spanX > 0.5f ? (float) w / spanX : Float.MAX_VALUE;
@@ -213,35 +193,22 @@ public class SceneTagCompiler extends BlockTagCompiler {
                 cam.setOffsetX(0f);
                 cam.setOffsetY(0f);
 
-                int[] szBounds = scene.getLevel()
-                    .getBounds();
-                float szLX = szBounds[0], szLY = szBounds[1], szLZ = szBounds[2];
-                float szHX = szBounds[3] + 1f, szHY = szBounds[4] + 1f, szHZ = szBounds[5] + 1f;
-
-                float szMinSX = Float.MAX_VALUE, szMaxSX = -Float.MAX_VALUE;
-                float szMinSY = Float.MAX_VALUE, szMaxSY = -Float.MAX_VALUE;
-                for (int ci = 0; ci < 8; ci++) {
-                    float wx = (ci & 1) == 0 ? szLX : szHX;
-                    float wy = (ci & 2) == 0 ? szLY : szHY;
-                    float wz = (ci & 4) == 0 ? szLZ : szHZ;
-                    var sp = cam.worldToScreen(wx, wy, wz);
-                    if (sp.x < szMinSX) szMinSX = sp.x;
-                    if (sp.x > szMaxSX) szMaxSX = sp.x;
-                    if (sp.y < szMinSY) szMinSY = sp.y;
-                    if (sp.y > szMaxSY) szMaxSY = sp.y;
-                }
+                SceneViewportMetrics metrics = measureSceneViewport(
+                    cam,
+                    scene.getLevel()
+                        .getBounds());
 
                 // Add a small border so the scene content never touches the viewport edge.
-                final int AUTO_PADDING = 16;
-                final int AUTO_MIN_DIM = 64;
-                final int AUTO_MAX_DIM = 512;
-                float szSpanX = szMaxSX - szMinSX;
-                float szSpanY = szMaxSY - szMinSY;
+                int autoPadding = 16;
+                int autoMinDim = 64;
+                int autoMaxDim = 512;
+                float szSpanX = metrics.spanX();
+                float szSpanY = metrics.spanY();
                 if (!explicitWidth && szSpanX > 0.5f) {
-                    w = Math.min(AUTO_MAX_DIM, Math.max(AUTO_MIN_DIM, (int) Math.ceil(szSpanX) + AUTO_PADDING));
+                    w = Math.min(autoMaxDim, Math.max(autoMinDim, (int) Math.ceil(szSpanX) + autoPadding));
                 }
                 if (!explicitHeight && szSpanY > 0.5f) {
-                    h = Math.min(AUTO_MAX_DIM, Math.max(AUTO_MIN_DIM, (int) Math.ceil(szSpanY) + AUTO_PADDING));
+                    h = Math.min(autoMaxDim, Math.max(autoMinDim, (int) Math.ceil(szSpanY) + autoPadding));
                 }
                 scene.setSceneSize(w, h);
                 cam.setViewportSize(w, h);
@@ -269,6 +236,30 @@ public class SceneTagCompiler extends BlockTagCompiler {
         scene.captureInitialInteractiveState();
 
         parent.append(scene);
+    }
+
+    private SceneViewportMetrics measureSceneViewport(CameraSettings camera, int[] bounds) {
+        float lx = bounds[0];
+        float ly = bounds[1];
+        float lz = bounds[2];
+        float hx = bounds[3] + 1f;
+        float hy = bounds[4] + 1f;
+        float hz = bounds[5] + 1f;
+        float minSX = Float.MAX_VALUE;
+        float maxSX = -Float.MAX_VALUE;
+        float minSY = Float.MAX_VALUE;
+        float maxSY = -Float.MAX_VALUE;
+        for (int cornerIndex = 0; cornerIndex < 8; cornerIndex++) {
+            float wx = (cornerIndex & 1) == 0 ? lx : hx;
+            float wy = (cornerIndex & 2) == 0 ? ly : hy;
+            float wz = (cornerIndex & 4) == 0 ? lz : hz;
+            var screenPoint = camera.worldToScreen(wx, wy, wz);
+            if (screenPoint.x < minSX) minSX = screenPoint.x;
+            if (screenPoint.x > maxSX) maxSX = screenPoint.x;
+            if (screenPoint.y < minSY) minSY = screenPoint.y;
+            if (screenPoint.y > maxSY) maxSY = screenPoint.y;
+        }
+        return new SceneViewportMetrics(minSX, maxSX, minSY, maxSY);
     }
 
     private boolean compileSceneChildren(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,

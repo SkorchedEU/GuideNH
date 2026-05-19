@@ -1029,7 +1029,7 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
                 .trim();
         }
         if (csvText.isEmpty()) {
-            return "<table class=\"guide-csv-table\"></table>";
+            return "<div class=\"guide-csv-table-wrap\"><table class=\"guide-csv-table\"></table></div>";
         }
         return GuideSiteGraphRenderer.renderCsvTable(csvText, hasHeader);
     }

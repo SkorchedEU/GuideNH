@@ -6,10 +6,13 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,10 +29,12 @@ import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.GuideItemSettings;
 import com.hfstudio.guidenh.guide.GuidePage;
 import com.hfstudio.guidenh.guide.GuidePageChange;
+import com.hfstudio.guidenh.guide.PageAnchor;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.extensions.ExtensionCollection;
 import com.hfstudio.guidenh.guide.indices.PageIndex;
+import com.hfstudio.guidenh.guide.internal.home.GuideScreenHomeHistory;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.navigation.NavigationNode;
@@ -293,11 +298,8 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         return watcher != null;
     }
 
-    /**
-     * Whether a warm-up page has already been pre-warmed (compiled and cached) or a warm attempt has been made.
-     * Resets to false when {@link #setPages} is called with fresh page data.
-     */
-    private boolean warmupPageWarmed = false;
+    private final Deque<ResourceLocation> warmupPageQueue = new ArrayDeque<>();
+    private final HashSet<ResourceLocation> queuedWarmupPages = new HashSet<>();
 
     /**
      * Called each client tick to pre-compile one representative page in the background, eliminating the 5-6 second
@@ -305,7 +307,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
      * guidebook preview world creation).
      */
     public void tickWarmup() {
-        if (warmupPageWarmed || pages == null) {
+        if (pages == null) {
             return;
         }
         // GuidebookFakeWorld (needed for <GameScene> blocks) requires an active NetHandler.
@@ -314,11 +316,10 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
             .getNetHandler() == null) {
             return;
         }
-        ResourceLocation pageId = resolveWarmupPageId();
+        ResourceLocation pageId = pollWarmupPage();
         if (pageId == null) {
             return;
         }
-        warmupPageWarmed = true;
         try {
             warmPage(pageId);
         } catch (Throwable t) {
@@ -331,7 +332,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     }
 
     public void resetWarmup() {
-        warmupPageWarmed = false;
+        rebuildWarmupQueue();
     }
 
     public void tick() {
@@ -374,6 +375,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
                 developmentPages.remove(pageId);
             }
             removeCompiledPage(pageId);
+            prioritizeWarmupPage(pageId);
 
             deduplicatedChanges
                 .set(i, new GuidePageChange(change.language(), pageId, initialPages.get(pageId), newPage));
@@ -448,7 +450,6 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
     public void setPages(Map<ResourceLocation, ParsedGuidePage> pages) {
         this.pages = Collections.unmodifiableMap(new HashMap<>(pages));
         compiledPages.clear();
-        warmupPageWarmed = false;
 
         if (watcher != null) {
             watcher.clearChanges(); // Since we'll load them all now, ignore all changes up to now
@@ -462,6 +463,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         navigationTree = buildNavigation();
         GuideRegistry.invalidateMergedNavigationTree();
         refreshPageFailures();
+        rebuildWarmupQueue();
         // Do not eagerly compile pages here. Some packs register or rewrite recipes
         // during FMLLoadComplete, after the initial resource reload has already parsed the guide.
         // Deferring compilation until first display avoids caching stale "missing recipe" error blocks.
@@ -479,6 +481,7 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         ResourceLocation pageId = parsedPage.getId();
         developmentPages.put(pageId, parsedPage);
         removeCompiledPage(pageId);
+        prioritizeWarmupPage(pageId);
         if (parsedPage.hasParseFailure()) {
             recordParseFailure(parsedPage);
         } else {
@@ -491,6 +494,103 @@ public class MutableGuide implements Guide, GuideDevWatcherPump.TickableGuide {
         synchronized (compiledPages) {
             compiledPages.keySet()
                 .removeIf(page -> page != null && pageId.equals(page.getId()));
+        }
+    }
+
+    private void rebuildWarmupQueue() {
+        warmupPageQueue.clear();
+        queuedWarmupPages.clear();
+        queueWarmupPage(resolveRememberedWarmupPageId());
+        queueWarmupBookmarkedPages();
+        queueWarmupHistoryPages();
+        ResourceLocation firstNavigationPage = resolveWarmupPageId();
+        if (firstNavigationPage != null) {
+            queueWarmupPage(firstNavigationPage);
+        }
+        if (pages != null) {
+            for (ParsedGuidePage parsedPage : pages.values()) {
+                queueWarmupPage(parsedPage.getId());
+            }
+        }
+        for (ParsedGuidePage parsedPage : developmentPages.values()) {
+            queueWarmupPage(parsedPage.getId());
+        }
+    }
+
+    private void prioritizeWarmupPage(ResourceLocation pageId) {
+        if (pageId == null || compiledPageExists(pageId)) {
+            return;
+        }
+        if (queuedWarmupPages.remove(pageId)) {
+            warmupPageQueue.remove(pageId);
+        }
+        warmupPageQueue.offerFirst(pageId);
+        queuedWarmupPages.add(pageId);
+    }
+
+    @Nullable
+    private ResourceLocation pollWarmupPage() {
+        while (!warmupPageQueue.isEmpty()) {
+            ResourceLocation pageId = warmupPageQueue.poll();
+            if (pageId == null) {
+                return null;
+            }
+            queuedWarmupPages.remove(pageId);
+            if (!compiledPageExists(pageId) && getParsedPage(pageId) != null) {
+                return pageId;
+            }
+        }
+        return null;
+    }
+
+    private void queueWarmupPage(@Nullable ResourceLocation pageId) {
+        if (pageId == null || compiledPageExists(pageId) || !queuedWarmupPages.add(pageId)) {
+            return;
+        }
+        warmupPageQueue.offerLast(pageId);
+    }
+
+    @Nullable
+    private ResourceLocation resolveRememberedWarmupPageId() {
+        GuideScreenViewState state = GuideScreenMemory.recallLastContentState();
+        if (state == null || state.route() == null
+            || state.route()
+                .guideId() == null
+            || !id.equals(
+                state.route()
+                    .guideId())) {
+            return null;
+        }
+        PageAnchor anchor = state.route()
+            .anchor();
+        return anchor != null ? anchor.pageId() : null;
+    }
+
+    private void queueWarmupBookmarkedPages() {
+        for (ResourceLocation pageId : GuideBookmarkState.getSharedInstance()
+            .getBookmarksView()) {
+            if (pageExists(pageId)) {
+                queueWarmupPage(pageId);
+            }
+        }
+    }
+
+    private void queueWarmupHistoryPages() {
+        for (GuideScreenHomeHistory.Entry entry : GuideScreenHomeHistory.shared()
+            .snapshot()) {
+            if (id.equals(entry.guideId()) && pageExists(entry.pageId())) {
+                queueWarmupPage(entry.pageId());
+            }
+        }
+    }
+
+    private boolean compiledPageExists(ResourceLocation pageId) {
+        ParsedGuidePage parsedPage = getParsedPage(pageId);
+        if (parsedPage == null) {
+            return false;
+        }
+        synchronized (compiledPages) {
+            return compiledPages.containsKey(parsedPage);
         }
     }
 

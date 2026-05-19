@@ -63,6 +63,7 @@ public class GuidebookPreviewBlockPlacer {
         PlacementData placementData = resolvePlacementData(block, meta, previewTileTag);
         logPlacementRequest(x, y, z, block, meta, previewTileTag, explicitBlockId, placementData);
         World previewWorld = null;
+        World effectiveWorld = null;
 
         // Place the block before loading its tile so world-aware tile initialization sees the correct block/meta.
         level.setBlock(x, y, z, block, placementData.blockMeta, null);
@@ -72,6 +73,7 @@ public class GuidebookPreviewBlockPlacer {
         if (previewTileTag != null || block.hasTileEntity(placementData.blockMeta)) {
             try {
                 previewWorld = level.getOrCreateFakeWorld();
+                effectiveWorld = previewWorld;
                 tileEntity = GuidebookTileEntityLoader
                     .load(previewWorld, block, placementData.blockMeta, x, y, z, previewTileTag);
             } catch (Throwable t) {
@@ -89,7 +91,7 @@ public class GuidebookPreviewBlockPlacer {
             TileEntity residentTile = preferPreparedTileEntity(
                 tileEntity,
                 resolveWorldResidentTile(
-                    previewWorld != null ? previewWorld : level.getOrCreateFakeWorld(),
+                    effectiveWorld != null ? effectiveWorld : level.getOrCreateFakeWorld(),
                     x,
                     y,
                     z,
@@ -115,7 +117,8 @@ public class GuidebookPreviewBlockPlacer {
                 placementData.metaTileId,
                 GuideGregTechTileSupport.describeTileTag(previewTileTag));
         }
-        invokeOnBlockAdded(block, previewWorld != null ? previewWorld : level.getOrCreateFakeWorld(), x, y, z);
+        World blockAddedWorld = effectiveWorld != null ? effectiveWorld : level.getOrCreateFakeWorld();
+        invokeOnBlockAdded(block, blockAddedWorld, x, y, z);
         tileEntity = restoreTileAfterOnBlockAdded(
             level,
             x,

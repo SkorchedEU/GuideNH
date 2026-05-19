@@ -38,6 +38,8 @@ import com.hfstudio.guidenh.guide.document.block.LytBlock;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.document.block.LytCodeBlock;
 import com.hfstudio.guidenh.guide.document.block.LytDocument;
+import com.hfstudio.guidenh.guide.document.block.LytDocumentFloat;
+import com.hfstudio.guidenh.guide.document.block.LytFloatAwareBlock;
 import com.hfstudio.guidenh.guide.document.block.LytHeading;
 import com.hfstudio.guidenh.guide.document.block.LytImage;
 import com.hfstudio.guidenh.guide.document.block.LytItemImage;
@@ -555,6 +557,7 @@ public class PageCompiler {
             }
 
             if (layoutChild != null) {
+                layoutChild = wrapFloatAwareIfNeeded(layoutChild);
                 if (child instanceof MdAstNode astNode) {
                     layoutChild.setSourceNode(astNode);
                 }
@@ -605,7 +608,7 @@ public class PageCompiler {
                 alertBox.setMarginBottom(DEFAULT_ELEMENT_SPACING);
                 compileDirectiveBody(directive, alertBox);
                 normalizeBlockMargins(alertBox);
-                return alertBox;
+                return wrapFloatAwareIfNeeded(alertBox);
             }
 
             var quoteBox = new LytQuoteBox();
@@ -615,7 +618,7 @@ public class PageCompiler {
             compileDirectiveBody(directive, quoteBox);
             normalizeBlockMargins(quoteBox);
             shiftFirstParagraphDown(quoteBox, 1);
-            return quoteBox;
+            return wrapFloatAwareIfNeeded(quoteBox);
         }
 
         var blockquote = new LytVBox();
@@ -628,7 +631,7 @@ public class PageCompiler {
         compileBlockContext(astBlockquote, blockquote);
         normalizeBlockMargins(blockquote);
         shiftFirstParagraphDown(blockquote, 1);
-        return blockquote;
+        return wrapFloatAwareIfNeeded(blockquote);
     }
 
     private void normalizeBlockMargins(LytNode box) {
@@ -770,7 +773,7 @@ public class PageCompiler {
                         .build());
                 displayBlock.setMarginTop(DEFAULT_ELEMENT_SPACING);
                 displayBlock.setMarginBottom(DEFAULT_ELEMENT_SPACING);
-                parent.append(displayBlock);
+                parent.append(wrapFloatAwareIfNeeded(displayBlock));
                 return;
             }
         }
@@ -782,7 +785,7 @@ public class PageCompiler {
             .isEmpty() && paragraph.isEmpty()) {
             return;
         }
-        parent.append(paragraph);
+        parent.append(wrapFloatAwareIfNeeded(paragraph));
     }
 
     private LytBlock compileTable(GfmTable astTable, List<Integer> widthHints) {
@@ -839,7 +842,14 @@ public class PageCompiler {
             rowIndex++;
         }
 
-        return table;
+        return wrapFloatAwareIfNeeded(table);
+    }
+
+    public static LytBlock wrapFloatAwareIfNeeded(LytBlock block) {
+        if (block instanceof LytParagraph || block instanceof LytDocumentFloat || block instanceof LytFloatAwareBlock) {
+            return block;
+        }
+        return new LytFloatAwareBlock(block);
     }
 
     private @Nullable String getTableRowText(GfmTableRow row) {

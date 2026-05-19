@@ -70,26 +70,30 @@ public class LytFileTree extends LytBlock {
             Row row = rows.get(i);
             int iconX = x + row.slots.size() * indentPx;
             int payloadX;
+            int iconHeight = 0;
             if (row.iconBlock != null) {
                 // Give the icon enough headroom so its natural width can be measured. Cap it to
                 // half of the remaining row space so a runaway label cannot eat the whole row.
                 int iconAvailable = Math.max(iconBoxPx, (x + availableWidth - iconX) / 2);
                 row.iconBlock.layout(context, iconX, currentY, Math.max(1, iconAvailable));
-                int actualIconWidth = row.iconBlock.getBounds()
-                    .width();
+                LytRect iconBounds = row.iconBlock.getBounds();
+                int actualIconWidth = iconBounds.width();
                 int reservedIconWidth = Math.max(iconBoxPx, actualIconWidth);
+                iconHeight = iconBounds.height();
                 payloadX = iconX + reservedIconWidth + iconGapPx;
             } else {
                 payloadX = iconX;
             }
             int payloadAvailable = Math.max(1, x + availableWidth - payloadX);
             LytRect payloadBounds = row.payload.layout(context, payloadX, currentY, payloadAvailable);
-            int rowHeight = Math.max(
-                payloadBounds.height(),
-                row.iconBlock != null ? row.iconBlock.getBounds()
-                    .height() : 0);
+            int payloadHeight = payloadBounds.height();
+            int rowHeight = Math.max(payloadHeight, iconHeight);
             if (rowHeight <= 0) {
                 rowHeight = 1;
+            }
+            centerRowChild(row.payload, rowHeight, payloadHeight);
+            if (row.iconBlock != null) {
+                centerRowChild(row.iconBlock, rowHeight, iconHeight);
             }
             row.rowY = currentY;
             row.rowHeight = rowHeight;
@@ -134,7 +138,7 @@ public class LytFileTree extends LytBlock {
         for (Row row : rows) {
             int rowY = row.rowY;
             int rowHeight = row.rowHeight;
-            int rowMidY = rowY + rowHeight / 2;
+            int rowMidY = rowY + Math.max(0, rowHeight - CONNECTOR_THICKNESS) / 2;
             int rowBottomY = rowY + rowHeight + rowGapPx;
             int slotCount = row.slots.size();
             int columnCenterX = baseX + halfIndent;
@@ -166,6 +170,13 @@ public class LytFileTree extends LytBlock {
                 }
             }
         }
+    }
+
+    private void centerRowChild(LytBlock child, int rowHeight, int childHeight) {
+        if (childHeight <= 0 || childHeight >= rowHeight) {
+            return;
+        }
+        child.moveLayoutPos(0, (rowHeight - childHeight) / 2);
     }
 
     private static void drawVerticalLine(RenderContext context, int x, int yStart, int yEnd, int color) {

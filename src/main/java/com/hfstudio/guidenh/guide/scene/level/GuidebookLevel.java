@@ -111,7 +111,6 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
         // before compat helpers read their state.
         tickPreviewWorld();
         GuidePreviewStateSupport.prepare(this);
-        previewStateDirty = false;
     }
 
     public void setBlock(int x, int y, int z, @Nullable Block block, int meta, @Nullable TileEntity tileEntity) {
@@ -172,9 +171,7 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
         long key = packPos(x, y, z);
         TileEntity existing = tileEntities.get(key);
         if (existing == tileEntity) {
-            if (tileEntity != null) {
-                bindTileEntity(tileEntity, x, y, z, getOrCreateFakeWorld());
-            }
+            previewStateDirty = true;
             return;
         }
         if (tileEntity == null) {

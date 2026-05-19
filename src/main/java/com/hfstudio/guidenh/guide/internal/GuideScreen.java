@@ -164,6 +164,9 @@ public class GuideScreen extends GuiContainer
     private GuidePage currentPage;
     @Nullable
     private LytDocument document;
+    private boolean pageLoadInProgress;
+    private int pageLoadRequestId;
+    private int pendingPageLoadRequestId;
 
     private final Deque<GuideScreenViewState> history = new ArrayDeque<>();
     private final Deque<GuideScreenViewState> forwardHistory = new ArrayDeque<>();
@@ -658,6 +661,7 @@ public class GuideScreen extends GuiContainer
 
     @Override
     public void updateScreen() {
+        completePendingContentPageLoadIfNeeded();
         GuideScreenNeiBridge.tick(this);
         updateGuideEditorHotkeyFocusSuppression();
         for (LytGuidebookScene scene : registeredScenes) {
@@ -800,7 +804,11 @@ public class GuideScreen extends GuiContainer
     }
 
     private boolean isGuideEditorActive() {
-        return GuideScreenEditorState.isEnabled() && currentPage != null && !isSearchPage() && !isItemLinksPage();
+        return GuideScreenEditorState.isEnabled() && hasEditableContentRoute();
+    }
+
+    private boolean hasEditableContentRoute() {
+        return hasContentRoute() && !isSearchPage() && !isItemLinksPage();
     }
 
     private void syncGuideEditorStateFromConfig() {
@@ -2183,6 +2191,7 @@ public class GuideScreen extends GuiContainer
         lastLayoutWidth = -1;
         cachedBottomBarText = null;
         cachedBottomBarPage = null;
+        cancelPendingPageLoad();
         if (currentRoute != null && currentRoute.isHome()) {
             currentPage = null;
             document = null;
@@ -2199,18 +2208,9 @@ public class GuideScreen extends GuiContainer
             document = buildItemLinksDocument(stack);
         } else {
             searchField = null;
-            try {
-                currentPage = guide.getPage(currentAnchor.pageId());
-            } catch (Throwable t) {
-                FMLLog.severe("Failed to compile guide page {}", currentAnchor.pageId(), t);
-                currentPage = null;
-            }
-            if (currentPage != null) {
-                document = currentPage.document();
-                registerPageScenes();
-            } else {
-                document = null;
-            }
+            currentPage = null;
+            document = null;
+            schedulePendingContentPageLoad();
         }
         refreshCurrentPageTitle();
         if (isGuideEditorActive()) {
@@ -2239,6 +2239,43 @@ public class GuideScreen extends GuiContainer
                     .rememberScene(label, structureText);
             }
         }
+    }
+
+    private void schedulePendingContentPageLoad() {
+        if (!hasContentRoute()) {
+            return;
+        }
+        pageLoadInProgress = true;
+        pendingPageLoadRequestId = ++pageLoadRequestId;
+    }
+
+    private void cancelPendingPageLoad() {
+        pendingPageLoadRequestId = ++pageLoadRequestId;
+        pageLoadInProgress = false;
+    }
+
+    private void completePendingContentPageLoadIfNeeded() {
+        if (!pageLoadInProgress || !hasContentRoute()) {
+            return;
+        }
+        int requestId = pendingPageLoadRequestId;
+        GuidePage loadedPage = null;
+        try {
+            loadedPage = guide.getPage(currentAnchor.pageId());
+        } catch (Throwable t) {
+            FMLLog.severe("Failed to compile guide page {}", currentAnchor.pageId(), t);
+        }
+        if (!pageLoadInProgress || requestId != pendingPageLoadRequestId) {
+            return;
+        }
+        currentPage = loadedPage;
+        document = loadedPage != null ? loadedPage.document() : null;
+        if (loadedPage != null) {
+            registerPageScenes();
+        }
+        pageLoadInProgress = false;
+        refreshCurrentPageTitle();
+        updateToolbarButtonState();
     }
 
     private void tickGuideEditorPreviewScenes() {
@@ -2422,6 +2459,8 @@ public class GuideScreen extends GuiContainer
             var activeDocument = getActiveDocument();
             if (isExactHomeRoute()) {
                 drawHomeContent(contentMouseX, contentMouseY);
+            } else if (pageLoadInProgress) {
+                drawLoadingMessage();
             } else if (activeDocument != null) {
                 if (isCenteredSearchStateDocument(activeDocument)) {
                     drawCenteredSearchStateMessage(activeDocument);
@@ -3995,6 +4034,24 @@ public class GuideScreen extends GuiContainer
         String msg = GuidebookText.PageNotFound.text(currentAnchor.pageId());
         int tw = fr.getStringWidth(msg);
         fr.drawStringWithShadow(msg, panelX + (panelW - tw) / 2, panelY + panelH / 2 - fr.FONT_HEIGHT / 2, 0xFFFF5555);
+    }
+
+    private void drawLoadingMessage() {
+        long tick = mc.theWorld != null ? mc.theWorld.getTotalWorldTime() : Minecraft.getSystemTime() / 100L;
+        int dots = (int) (Math.abs(tick / 8L) % 4L);
+        StringBuilder builder = new StringBuilder("Loading");
+        for (int index = 0; index < dots; index++) {
+            builder.append('.');
+        }
+        FontRenderer fr = mc.fontRenderer;
+        int tw = fr.getStringWidth(builder.toString());
+        int documentY = getDocumentViewportY();
+        int documentH = Math.max(0, getDocumentViewportHeight());
+        fr.drawStringWithShadow(
+            builder.toString(),
+            contentX + (contentW - tw) / 2,
+            documentY + documentH / 2 - fr.FONT_HEIGHT / 2,
+            0xFFCCCCCC);
     }
 
     private void updateToolbarButtonState() {

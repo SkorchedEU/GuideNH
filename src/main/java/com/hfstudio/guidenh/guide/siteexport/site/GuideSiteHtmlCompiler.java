@@ -1232,23 +1232,48 @@ public class GuideSiteHtmlCompiler {
         }
         html.append(">");
         String title = directive.title();
-        if (title != null && !title.isEmpty()) {
+        QuoteIconSpec icon = directive.icon();
+        if ((title != null && !title.isEmpty()) || icon != null) {
             html.append("<div class=\"guide-quote-title\">");
-            QuoteIconSpec icon = directive.icon();
             if (icon != null) {
                 String iconHtml = renderQuoteIcon(icon, templates, defaultNamespace, currentPageId, sceneResolver);
                 if (!iconHtml.isEmpty()) {
                     html.append(iconHtml);
                 }
             }
-            html.append("<span class=\"guide-quote-title-text\">")
-                .append(escapeHtml(title))
-                .append("</span></div>");
+            if (title != null && !title.isEmpty()) {
+                html.append("<span class=\"guide-quote-title-text\">")
+                    .append(escapeHtml(title))
+                    .append("</span>");
+            }
+            html.append("</div>");
         }
         html.append("<div class=\"guide-quote-body\">")
-            .append(compileChildren(blockquote.children(), templates, defaultNamespace, currentPageId, sceneResolver))
+            .append(compileDirectiveBody(directive, templates, defaultNamespace, currentPageId, sceneResolver))
             .append("</div></blockquote>");
         return html.toString();
+    }
+
+    private String compileDirectiveBody(BlockquoteDirective directive, GuideSiteTemplateRegistry templates,
+        String defaultNamespace, @Nullable ResourceLocation currentPageId, SceneResolver sceneResolver) {
+        List<? extends MdAstAnyContent> children = directive.children();
+        if (!children.isEmpty() && directive.firstParagraph() != null
+            && children.get(0) == directive.firstParagraph()) {
+            MdAstParagraph firstParagraph = cloneParagraphWithLeadingTextOverride(
+                directive.firstParagraph(),
+                directive.remainingText());
+            StringBuilder html = new StringBuilder();
+            if (!firstParagraph.children()
+                .isEmpty()) {
+                html.append(compileNode(firstParagraph, templates, defaultNamespace, currentPageId, sceneResolver));
+            }
+            for (int index = 1; index < children.size(); index++) {
+                html.append(
+                    compileNode(children.get(index), templates, defaultNamespace, currentPageId, sceneResolver));
+            }
+            return html.toString();
+        }
+        return compileChildren(children, templates, defaultNamespace, currentPageId, sceneResolver);
     }
 
     /**
@@ -1311,7 +1336,7 @@ public class GuideSiteHtmlCompiler {
     private String compileTable(GfmTable table, GuideSiteTemplateRegistry templates, String defaultNamespace,
         @Nullable ResourceLocation currentPageId, SceneResolver sceneResolver) {
         StringBuilder html = new StringBuilder();
-        html.append("<table>");
+        html.append("<div class=\"guide-table-wrap\"><table class=\"guide-table\">");
         List<GfmTableRow> rows = table.children();
         if (!rows.isEmpty()) {
             html.append("<thead>");
@@ -1341,7 +1366,7 @@ public class GuideSiteHtmlCompiler {
             }
             html.append("</tbody>");
         }
-        html.append("</table>");
+        html.append("</table></div>");
         return html.toString();
     }
 

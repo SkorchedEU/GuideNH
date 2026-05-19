@@ -472,10 +472,10 @@ public final class GuideSiteGraphRenderer {
 
     public static String renderCsvTable(List<List<String>> rows, boolean hasHeader) {
         if (rows.isEmpty()) {
-            return "<table class=\"guide-csv-table\"></table>";
+            return "<div class=\"guide-csv-table-wrap\"><table class=\"guide-csv-table\"></table></div>";
         }
         StringBuilder html = new StringBuilder();
-        html.append("<table class=\"guide-csv-table\">");
+        html.append("<div class=\"guide-csv-table-wrap\"><table class=\"guide-csv-table\">");
         int start = 0;
         if (hasHeader) {
             html.append("<thead><tr>");
@@ -500,7 +500,7 @@ public final class GuideSiteGraphRenderer {
             }
             html.append("</tbody>");
         }
-        html.append("</table>");
+        html.append("</table></div>");
         return html.toString();
     }
 
@@ -845,7 +845,7 @@ public final class GuideSiteGraphRenderer {
         if (showLegend) {
             renderLegend(svg, series, left, bottom + AXIS_PAD_BOTTOM + LEGEND_GAP, w - 2 * PADDING);
         }
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -1014,7 +1014,7 @@ public final class GuideSiteGraphRenderer {
         if (showLegend) {
             renderLegend(svg, series, left, bottom + AXIS_PAD_BOTTOM + LEGEND_GAP, w - 2 * PADDING);
         }
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -1238,7 +1238,7 @@ public final class GuideSiteGraphRenderer {
         if (showLegend) {
             renderLegend(svg, series, left, bottom + AXIS_PAD_BOTTOM + LEGEND_GAP, w - 2 * PADDING);
         }
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -1334,7 +1334,7 @@ public final class GuideSiteGraphRenderer {
             }
             renderLegend(svg, legendItems, PADDING, bottom + LEGEND_GAP, w - 2 * PADDING);
         }
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -1487,7 +1487,7 @@ public final class GuideSiteGraphRenderer {
         if (showLegend) {
             renderLegend(svg, series, left, bottom + AXIS_PAD_BOTTOM + LEGEND_GAP, w - 2 * PADDING);
         }
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -1830,7 +1830,7 @@ public final class GuideSiteGraphRenderer {
             cornerLegendWidth,
             cornerLegendHeight,
             cornerLegendBackgroundColor);
-        return svg.append("</svg>")
+        return svg.append("</svg></div>")
             .toString();
     }
 
@@ -2338,7 +2338,7 @@ public final class GuideSiteGraphRenderer {
 
     private static StringBuilder openSvg(int w, int h, String cls, int bgColor, int borderColor) {
         StringBuilder svg = new StringBuilder();
-        svg.append("<svg class=\"")
+        svg.append("<div class=\"guide-svg-wrap\"><svg class=\"")
             .append(cls)
             .append("\" width=\"")
             .append(w)

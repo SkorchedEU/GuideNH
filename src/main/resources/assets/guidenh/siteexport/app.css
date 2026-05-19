@@ -155,6 +155,21 @@ table {
     border-collapse: collapse;
 }
 
+.guide-table-wrap,
+.guide-csv-table-wrap {
+    display: flow-root;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 0.8em;
+}
+
+.guide-table-wrap > table,
+.guide-csv-table-wrap > table {
+    width: max-content;
+    min-width: 100%;
+    margin-bottom: 0;
+}
+
 table td, table th {
     padding: 6px;
 }
@@ -182,6 +197,7 @@ code {
 }
 
 pre {
+    display: flow-root;
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(124, 124, 124, 0.4);
     padding: 12px;
@@ -195,6 +211,7 @@ pre code {
 }
 
 blockquote {
+    display: flow-root;
     border-left: calc(2px * var(--gui-scale)) solid rgba(210, 210, 210, 0.35);
     margin-left: 0;
     padding-left: 1em;
@@ -203,6 +220,7 @@ blockquote {
 
 .guide-quote {
     --guide-quote-accent: rgba(124, 135, 149, 1);
+    display: flow-root;
     border-left: calc(2px * var(--gui-scale)) solid var(--guide-quote-accent);
     background: rgba(64, 64, 64, 0.25);
     padding: 6px 10px;
@@ -1249,6 +1267,7 @@ p {
 }
 
 .guide-file-tree {
+    display: flow-root;
     background: rgb(27, 31, 35);
     border: 1px solid rgb(58, 64, 71);
     padding: 8px;
@@ -1299,6 +1318,17 @@ p {
     image-rendering: pixelated;
 }
 
+.guide-svg-wrap {
+    display: flow-root;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 0.8em;
+}
+
+.guide-svg-wrap > svg {
+    margin-bottom: 0;
+}
+
 .guide-chart-shape {
     transition: opacity 0.1s ease, filter 0.1s ease;
     cursor: pointer;
@@ -1315,9 +1345,11 @@ p {
 
 .guide-csv-table {
     border-collapse: collapse;
-    width: 100%;
     font-size: 11px;
-    margin-bottom: 0.8em;
+}
+
+.guide-table {
+    margin-bottom: 0;
 }
 
 .guide-csv-table th,
@@ -1374,6 +1406,7 @@ p {
 }
 
 .guide-mermaid-pan {
+    display: flow-root;
     position: relative;
     overflow: hidden;
     max-width: 100%;
