@@ -561,6 +561,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
         boolean annotationsVisible = scene.isAnnotationsVisible();
         boolean hatchHighlightEnabled = scene.isStructureLibHatchHighlightEnabled();
         boolean gridVisible = scene.isGridVisible();
+        boolean blockStatsVisible = scene.isBlockStatsVisible();
         scene.captureInitialStructureStateIfAbsent();
         scene.getAnnotations()
             .clear();
@@ -595,6 +596,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
         }
         applyImplicitBlockStats(scene, blockStatsDeclared);
         scene.applyDefaultBlockStatsMaxSizeFromScene();
+        scene.setBlockStatsVisible(blockStatsVisible);
         if (!scene.getLevel()
             .isEmpty() && !explicitCenter) {
             var center = scene.getLevel()
