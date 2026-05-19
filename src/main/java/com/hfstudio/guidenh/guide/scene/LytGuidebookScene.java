@@ -46,6 +46,7 @@ import com.hfstudio.guidenh.guide.document.DefaultStyles;
 import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.document.LytSize;
 import com.hfstudio.guidenh.guide.document.block.LytBlock;
+import com.hfstudio.guidenh.guide.document.block.ResponsiveVisualSizing;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
@@ -103,6 +104,7 @@ public class LytGuidebookScene extends LytBlock {
     public static final float WHEEL_ZOOM_STEP = 1.1f;
     public static final float MIN_ZOOM = 0.1f;
     public static final float MAX_ZOOM = 10f;
+    private static final int MIN_RESPONSIVE_SCENE_SIZE = 16;
     public static final int SCENE_SLIDER_AREA_HEIGHT = 14;
     public static final int SCENE_SLIDER_SIDE_PADDING = 8;
     public static final float ORIGIN_AXIS_LENGTH = 1.5f;
@@ -1777,6 +1779,8 @@ public class LytGuidebookScene extends LytBlock {
 
     @Override
     protected LytRect computeLayout(LayoutContext context, int x, int y, int availableWidth) {
+        int targetSceneWidth = ResponsiveVisualSizing
+            .scaleWidth(width, context.getVisualScale(), MIN_RESPONSIVE_SCENE_SIZE);
         int reserve = buttonColumnReserve();
         int leftDock = blockStatsDock == BlockStatsDock.LEFT
             ? blockStatsDockLengthForLayout(false) + BLOCK_STATS_DOCK_GAP
@@ -1788,9 +1792,9 @@ public class LytGuidebookScene extends LytBlock {
         int bottomDock = blockStatsDock == BlockStatsDock.BOTTOM
             ? blockStatsDockHeightForLayout() + BLOCK_STATS_DOCK_GAP
             : 0;
-        int totalDesired = width + reserve + leftDock + rightDock;
-        int w = Math.min(totalDesired, Math.max(reserve + 16, availableWidth));
-        int availableForDocks = Math.max(0, w - reserve - width);
+        int totalDesired = targetSceneWidth + reserve + leftDock + rightDock;
+        int w = Math.min(totalDesired, Math.max(reserve + MIN_RESPONSIVE_SCENE_SIZE, availableWidth));
+        int availableForDocks = Math.max(0, w - reserve - targetSceneWidth);
         if (leftDock + rightDock > availableForDocks) {
             if (leftDock > 0 && rightDock > 0) {
                 leftDock = Math.min(leftDock, availableForDocks / 2);
@@ -1808,18 +1812,29 @@ public class LytGuidebookScene extends LytBlock {
         if (rightDock > 0 && rightDock < minDockSpace) {
             rightDock = 0;
         }
-        int sceneW = Math.max(16, w - reserve - leftDock - rightDock);
+        int sceneW = Math.max(MIN_RESPONSIVE_SCENE_SIZE, w - reserve - leftDock - rightDock);
         int buttonCount = interactive && sceneButtonsVisible ? cachedSceneButtonRoles().length : 0;
         int buttonsTotalH = interactive && sceneButtonsVisible
             ? (BTN_SIZE * buttonCount + BTN_GAP * Math.max(0, buttonCount - 1))
             : 0;
-        int sceneH = Math.max(height, buttonsTotalH);
+        int sceneH = computeResponsiveSceneHeight(sceneW, buttonsTotalH);
         int h = topDock + sceneH + (reserveBottomControlArea ? getBottomControlAreaHeight() : 0) + bottomDock;
         this.layoutSceneWidth = sceneW;
         this.layoutSceneHeight = sceneH;
         this.layoutSceneOffsetX = leftDock;
         this.layoutSceneOffsetY = topDock;
         return new LytRect(x, y, w, h);
+    }
+
+    private int computeResponsiveSceneHeight(int sceneWidth, int buttonsTotalHeight) {
+        int baseWidth = Math.max(1, width);
+        int baseHeight = Math.max(1, height);
+        if (sceneWidth >= baseWidth) {
+            return Math.max(baseHeight, buttonsTotalHeight);
+        }
+        float scale = sceneWidth / (float) baseWidth;
+        int scaledHeight = Math.max(MIN_RESPONSIVE_SCENE_SIZE, Math.round(baseHeight * scale));
+        return Math.max(scaledHeight, buttonsTotalHeight);
     }
 
     @Override

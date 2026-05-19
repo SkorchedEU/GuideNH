@@ -107,12 +107,18 @@ public class LytMermaidMindmapCanvas extends LytBlock implements DocumentDragTar
 
     @Override
     protected LytRect computeLayout(LayoutContext context, int x, int y, int availableWidth) {
-        int safeWidth = preferredWidth > 0 ? Math.max(MIN_WIDTH, Math.min(preferredWidth, availableWidth))
-            : Math.max(MIN_WIDTH, availableWidth);
+        int preferredViewportWidth = preferredWidth > 0
+            ? ResponsiveVisualSizing.scaleWidth(preferredWidth, context.getVisualScale(), 1)
+            : 0;
+        int safeWidth = preferredViewportWidth > 0 ? Math.max(1, Math.min(preferredViewportWidth, availableWidth))
+            : Math.max(1, availableWidth);
         layout = buildLayout(context, safeWidth);
         int desiredHeight = layout.diagramHeight() + CANVAS_PADDING * 2;
         int viewportHeight = preferredHeight > 0 ? Math.max(48, preferredHeight)
             : Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, desiredHeight));
+        if (preferredHeight > 0 && safeWidth < resolvePreferredViewportWidth()) {
+            viewportHeight = Math.max(viewportHeight, Math.min(MAX_HEIGHT, desiredHeight));
+        }
         centerDiagram(safeWidth, viewportHeight);
         return new LytRect(x, y, safeWidth, viewportHeight);
     }
@@ -733,6 +739,10 @@ public class LytMermaidMindmapCanvas extends LytBlock implements DocumentDragTar
             bounds.y() + CANVAS_PADDING,
             Math.max(1, bounds.width() - CANVAS_PADDING * 2),
             Math.max(1, bounds.height() - CANVAS_PADDING * 2));
+    }
+
+    private int resolvePreferredViewportWidth() {
+        return preferredWidth > 0 ? preferredWidth : MIN_WIDTH;
     }
 
     private int scaled(int base, int value) {

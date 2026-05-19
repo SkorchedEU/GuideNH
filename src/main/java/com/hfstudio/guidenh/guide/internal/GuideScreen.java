@@ -175,7 +175,9 @@ public class GuideScreen extends GuiContainer
     private int scrollY;
     private boolean pendingAnchorScroll;
     private float currentZoom = 1.0f;
+    private float currentVisualScale = 1.0f;
     private int lastLayoutWidth = -1;
+    private int lastLayoutVisualScalePermille = -1;
     private long lastPageWheelScrollAtMillis;
     private int lastPanelX = Integer.MIN_VALUE;
     private int lastPanelY = Integer.MIN_VALUE;
@@ -315,6 +317,7 @@ public class GuideScreen extends GuiContainer
     private boolean guideEditorDraggingPreviewScrollbar;
     private int guideEditorPreviewScrollbarGrabOffset;
     private int guideEditorPreviewScrollY;
+    private int guideEditorPreviewVisualScalePermille = -1;
     private long guideEditorDividerHoverStartedAtMillis;
     private int guideEditorActionToolbarBottom;
     private int guideEditorEditorTop;
@@ -777,9 +780,11 @@ public class GuideScreen extends GuiContainer
         int baseContentX = panelX + PANEL_PADDING + navReservedWidth;
         contentY = panelY + TOOLBAR_H + 2;
         int baseContentW = Math.max(20, panelW - PANEL_PADDING * 2 - navReservedWidth);
+        int visualReferenceContentW = Math.max(20, panelW - PANEL_PADDING * 2 - GuideNavBar.WIDTH_CLOSED);
         int narrowReadingInset = resolveNarrowReadingInset(baseContentW);
         contentX = baseContentX + narrowReadingInset;
         contentW = Math.max(20, baseContentW - narrowReadingInset * 2);
+        currentVisualScale = resolveVisualScale(visualReferenceContentW, contentW);
         contentH = Math.max(20, panelH - TOOLBAR_H - PANEL_PADDING - 2);
         if (hasBottomBar()) {
             contentH = Math.max(20, contentH - TOOLBAR_H);
@@ -1302,8 +1307,12 @@ public class GuideScreen extends GuiContainer
             int previewWidth = getGuideEditorPreviewLayoutWidth();
             if (guideEditorPreviewPage != null && guideEditorPreviewPage.document() != null) {
                 guideEditorPreviewPage.document()
-                    .updateLayout(new LayoutContext(layoutFontMetrics), Math.max(1, previewWidth));
+                    .updateLayout(
+                        createLayoutContext(previewWidth, getVisualReferenceContentWidth()),
+                        Math.max(1, previewWidth));
                 guideEditorPreviewPage.prepareForDisplay();
+                guideEditorPreviewVisualScalePermille = visualScalePermille(
+                    resolveVisualScale(getVisualReferenceContentWidth(), previewWidth));
             }
             guideEditorPreviewDirty = false;
             if (canApplyGuideEditorParsedPage(parsedDraft)) {
@@ -2357,15 +2366,38 @@ public class GuideScreen extends GuiContainer
         return global * (perPage > 0f ? perPage : 1.0f);
     }
 
+    private static float resolveVisualScale(int referenceWidth, int actualWidth) {
+        if (referenceWidth <= 0 || actualWidth >= referenceWidth) {
+            return 1.0f;
+        }
+        return Math.max(0.35f, Math.min(1.0f, actualWidth / (float) referenceWidth));
+    }
+
+    private int getVisualReferenceContentWidth() {
+        return Math.max(20, panelW - PANEL_PADDING * 2 - GuideNavBar.WIDTH_CLOSED);
+    }
+
+    private int visualScalePermille(float visualScale) {
+        return Math.round(Math.max(0.1f, Math.min(1.0f, visualScale)) * 1000.0f);
+    }
+
+    private LayoutContext createLayoutContext(int actualWidth, int referenceWidth) {
+        return new LayoutContext(layoutFontMetrics).withVisualScale(resolveVisualScale(referenceWidth, actualWidth));
+    }
+
     private void ensureLayout() {
         var activeDocument = getActiveDocument();
         if (activeDocument == null) return;
         int layoutWidth = Math.max(1, Math.round(contentW / currentZoom));
-        if (!activeDocument.hasLayout() || layoutDocument != activeDocument || lastLayoutWidth != layoutWidth) {
+        int layoutVisualScalePermille = visualScalePermille(currentVisualScale);
+        if (!activeDocument.hasLayout() || layoutDocument != activeDocument
+            || lastLayoutWidth != layoutWidth
+            || lastLayoutVisualScalePermille != layoutVisualScalePermille) {
             clearInteractionState();
-            activeDocument.updateLayout(new LayoutContext(layoutFontMetrics), layoutWidth);
+            activeDocument.updateLayout(createLayoutContext(contentW, getVisualReferenceContentWidth()), layoutWidth);
             layoutDocument = activeDocument;
             lastLayoutWidth = layoutWidth;
+            lastLayoutVisualScalePermille = layoutVisualScalePermille;
         }
     }
 
@@ -2800,8 +2832,13 @@ public class GuideScreen extends GuiContainer
         }
         int renderWidth = Math.max(1, width);
         int layoutWidth = Math.max(1, renderWidth - SCROLLBAR_W - 1);
-        if (!previewDocument.hasLayout() || previewDocument.getAvailableWidth() != layoutWidth) {
-            previewDocument.updateLayout(new LayoutContext(layoutFontMetrics), layoutWidth);
+        int previewVisualScalePermille = visualScalePermille(
+            resolveVisualScale(getVisualReferenceContentWidth(), layoutWidth));
+        if (!previewDocument.hasLayout() || previewDocument.getAvailableWidth() != layoutWidth
+            || guideEditorPreviewVisualScalePermille != previewVisualScalePermille) {
+            previewDocument
+                .updateLayout(createLayoutContext(layoutWidth, getVisualReferenceContentWidth()), layoutWidth);
+            guideEditorPreviewVisualScalePermille = previewVisualScalePermille;
         }
         int renderHeight = Math.max(1, height);
         int maxScroll = Math.max(0, previewDocument.getContentHeight() - renderHeight);
