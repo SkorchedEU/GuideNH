@@ -101,6 +101,7 @@ import com.hfstudio.guidenh.guide.internal.search.GuideItemLinksPage;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchPage;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchResultDocumentBuilder;
 import com.hfstudio.guidenh.guide.internal.search.GuideSearchSnippetFormatter;
+import com.hfstudio.guidenh.guide.internal.structure.GuideStructureData;
 import com.hfstudio.guidenh.guide.internal.tooltip.GuideItemTooltipLines;
 import com.hfstudio.guidenh.guide.internal.tooltip.GuideItemTooltipRenderSupport;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
@@ -2270,11 +2271,11 @@ public class GuideScreen extends GuiContainer
             int sizeY = bounds[4] - bounds[1] + 1;
             int sizeZ = bounds[5] - bounds[2] + 1;
             String label = currentAnchor != null ? currentAnchor.pageId() + "#" + i : "scene#" + i;
-            String structureText = RegionWandItem
-                .exportRegionAsStructureSnbt(level, bounds[0], bounds[1], bounds[2], sizeX, sizeY, sizeZ);
-            if (structureText != null) {
+            GuideStructureData structureData = RegionWandItem
+                .exportRegionAsStructureData(level, bounds[0], bounds[1], bounds[2], sizeX, sizeY, sizeZ);
+            if (structureData != null) {
                 GuideNhClientBridgeController.getInstance()
-                    .rememberScene(label, structureText);
+                    .rememberScene(label, structureData);
             }
         }
     }

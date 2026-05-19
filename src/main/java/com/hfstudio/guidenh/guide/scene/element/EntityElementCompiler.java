@@ -18,6 +18,7 @@ import com.hfstudio.guidenh.guide.document.LytErrorSink;
 import com.hfstudio.guidenh.guide.internal.scene.GuidebookPreviewPlayerPose;
 import com.hfstudio.guidenh.guide.internal.scene.GuidebookScenePreviewPlayerEntity;
 import com.hfstudio.guidenh.guide.scene.CameraSettings;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
@@ -31,6 +32,9 @@ public class EntityElementCompiler implements SceneElementTagCompiler {
     @Override
     public void compile(GuidebookLevel level, CameraSettings camera, PageCompiler compiler, LytErrorSink errorSink,
         MdxJsxElementFields el) {
+        if (!GuideSceneStructureCompileScope.isStructureMutationEnabled()) {
+            return;
+        }
         String id = MdxAttrs.getString(compiler, errorSink, el, "id", null);
         if (id == null || id.trim()
             .isEmpty()) {

@@ -1114,6 +1114,7 @@ public class LytGuidebookScene extends LytBlock {
             this.structureLibCurrentTier = 1;
             this.structureLibHatchHighlightEnabled = false;
             this.hoveredStructureLibHatch = null;
+            this.pendingStructureLibPreviewSelection = null;
             return;
         }
         this.structureLibCurrentTier = binding.getCurrentTier();
@@ -1139,7 +1140,7 @@ public class LytGuidebookScene extends LytBlock {
             this.hoveredStructureLibHatch = null;
         }
         binding.setSelectionChangeListener(structureLibSelectionChangeListener);
-        binding.setPendingSelection(pendingStructureLibPreviewSelection);
+        pendingStructureLibPreviewSelection = binding.getPendingSelection();
     }
 
     public void setStructureLibSceneMetadata(@Nullable StructureLibSceneMetadata structureLibSceneMetadata) {

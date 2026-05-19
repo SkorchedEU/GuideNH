@@ -16,6 +16,7 @@ import com.hfstudio.guidenh.guide.scene.CameraSettings;
 import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
 import com.hfstudio.guidenh.guide.scene.StructureLibSceneBinding;
 import com.hfstudio.guidenh.guide.scene.annotation.compiler.AnnotationTagCompiler;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookPreviewBlockPlacer;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibImportRequest;
@@ -45,6 +46,9 @@ public class ImportStructureLibElementCompiler implements SceneElementTagCompile
     @Override
     public void compile(GuidebookLevel level, CameraSettings camera, PageCompiler compiler, LytErrorSink errorSink,
         MdxJsxElementFields el) {
+        if (!GuideSceneStructureCompileScope.isStructureMutationEnabled()) {
+            return;
+        }
         LytGuidebookScene scene = AnnotationTagCompiler.CURRENT_SCENE.get();
         if (scene == null) {
             errorSink.appendError(compiler, "ImportStructureLib used outside <GameScene>", el);

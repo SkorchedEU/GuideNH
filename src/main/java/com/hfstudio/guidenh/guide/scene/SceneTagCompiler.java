@@ -23,6 +23,11 @@ import com.hfstudio.guidenh.guide.document.LytErrorSink;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.extensions.ExtensionCollection;
 import com.hfstudio.guidenh.guide.scene.annotation.compiler.AnnotationTagCompiler;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCache;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCacheEntry;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCacheKey;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureFingerprintResolver;
 import com.hfstudio.guidenh.guide.scene.element.SceneElementTagCompiler;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.integration.structurelib.StructureLibPreviewSelection;
@@ -39,6 +44,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
     public static final LytErrorSink NOOP_ERROR_SINK = (compiler, text, node) -> {};
 
     private Map<String, SceneElementTagCompiler> elementCompilers = Collections.emptyMap();
+    private final GuideSceneStructureFingerprintResolver structureFingerprintResolver = new GuideSceneStructureFingerprintResolver();
 
     @Override
     public Set<String> getTagNames() {
@@ -269,7 +275,12 @@ public class SceneTagCompiler extends BlockTagCompiler {
             boolean[] result = new boolean[1];
             compiler.withBlockTagChildrenSourceContext(
                 flow,
-                () -> result[0] = compileSceneChildren(scene, compiler, errorSink, children));
+                () -> result[0] = compileSceneChildrenWithCache(
+                    scene,
+                    compiler,
+                    errorSink,
+                    children,
+                    Collections.emptyMap()));
             return result[0];
         });
     }
@@ -288,32 +299,118 @@ public class SceneTagCompiler extends BlockTagCompiler {
         }
     }
 
+    private boolean compileSceneChildrenWithCache(LytGuidebookScene scene, PageCompiler compiler,
+        LytErrorSink errorSink, List<? extends MdAstAnyContent> children,
+        Map<String, StructureLibPreviewSelection> structureLibSelections) {
+        GuideSceneStructureCacheKey cacheKey = structureFingerprintResolver
+            .buildForGameScene(compiler, children, structureLibSelections);
+        if (cacheKey == null) {
+            return compileSceneChildrenDetailed(scene, compiler, errorSink, children, true).isBlockStatsDeclared();
+        }
+
+        GuideSceneStructureCacheEntry cacheEntry = GuideSceneStructureCache.global()
+            .restore(cacheKey);
+        if (cacheEntry != null) {
+            cacheEntry.restoreInto(scene);
+            return compileSceneChildren(scene, compiler, errorSink, children, false);
+        }
+
+        SceneChildrenCompileResult result = compileSceneChildrenDetailed(scene, compiler, errorSink, children, true);
+        if (result.isStructureCacheable()) {
+            GuideSceneStructureCache.global()
+                .put(cacheKey, GuideSceneStructureCacheEntry.capture(scene));
+        }
+        return result.isBlockStatsDeclared();
+    }
+
     private boolean compileSceneChildren(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,
         List<? extends MdAstAnyContent> children) {
-        boolean blockStatsDeclared = false;
-        for (var child : children) {
-            UnistNode childNode = child;
-            MdxJsxElementFields childEl = unwrapSceneElement(childNode);
-            if (childEl == null) {
-                continue;
+        return compileSceneChildren(scene, compiler, errorSink, children, true);
+    }
+
+    private boolean compileSceneChildren(LytGuidebookScene scene, PageCompiler compiler, LytErrorSink errorSink,
+        List<? extends MdAstAnyContent> children, boolean structureMutationEnabled) {
+        return compileSceneChildrenDetailed(scene, compiler, errorSink, children, structureMutationEnabled)
+            .isBlockStatsDeclared();
+    }
+
+    private SceneChildrenCompileResult compileSceneChildrenDetailed(LytGuidebookScene scene, PageCompiler compiler,
+        LytErrorSink errorSink, List<? extends MdAstAnyContent> children, boolean structureMutationEnabled) {
+        CountingErrorSink trackingErrorSink = new CountingErrorSink(errorSink);
+        return GuideSceneStructureCompileScope.supply(structureMutationEnabled, () -> {
+            boolean blockStatsDeclared = false;
+            boolean structureCacheable = true;
+            for (var child : children) {
+                UnistNode childNode = child;
+                MdxJsxElementFields childEl = unwrapSceneElement(childNode);
+                if (childEl == null) {
+                    continue;
+                }
+                String name = childEl.name();
+                if (name == null) {
+                    continue;
+                }
+                var elCompiler = elementCompilers.get(name);
+                if ("BlockStats".equals(name)) {
+                    compileBlockStatsElement(scene, compiler, trackingErrorSink, childEl);
+                    blockStatsDeclared = true;
+                    continue;
+                }
+                if (elCompiler == null) {
+                    trackingErrorSink.appendError(compiler, "Unknown scene element <" + name + ">", childNode);
+                    if (structureMutationEnabled && structureFingerprintResolver.isStructuralSceneElement(name)) {
+                        structureCacheable = false;
+                    }
+                    continue;
+                }
+                int errorCountBefore = trackingErrorSink.getErrorCount();
+                elCompiler.compile(scene.getLevel(), scene.getCamera(), compiler, trackingErrorSink, childEl);
+                if (structureMutationEnabled && structureFingerprintResolver.isStructuralSceneElement(name)
+                    && trackingErrorSink.getErrorCount() > errorCountBefore) {
+                    structureCacheable = false;
+                }
             }
-            String name = childEl.name();
-            if (name == null) {
-                continue;
-            }
-            var elCompiler = elementCompilers.get(name);
-            if ("BlockStats".equals(name)) {
-                compileBlockStatsElement(scene, compiler, errorSink, childEl);
-                blockStatsDeclared = true;
-                continue;
-            }
-            if (elCompiler == null) {
-                errorSink.appendError(compiler, "Unknown scene element <" + name + ">", childNode);
-                continue;
-            }
-            elCompiler.compile(scene.getLevel(), scene.getCamera(), compiler, errorSink, childEl);
+            return new SceneChildrenCompileResult(blockStatsDeclared, structureCacheable);
+        });
+    }
+
+    private static class SceneChildrenCompileResult {
+
+        private final boolean blockStatsDeclared;
+        private final boolean structureCacheable;
+
+        private SceneChildrenCompileResult(boolean blockStatsDeclared, boolean structureCacheable) {
+            this.blockStatsDeclared = blockStatsDeclared;
+            this.structureCacheable = structureCacheable;
         }
-        return blockStatsDeclared;
+
+        public boolean isBlockStatsDeclared() {
+            return blockStatsDeclared;
+        }
+
+        public boolean isStructureCacheable() {
+            return structureCacheable;
+        }
+    }
+
+    private static class CountingErrorSink implements LytErrorSink {
+
+        private final LytErrorSink delegate;
+        private int errorCount;
+
+        private CountingErrorSink(LytErrorSink delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void appendError(PageCompiler compiler, String text, UnistNode node) {
+            errorCount++;
+            delegate.appendError(compiler, text, node);
+        }
+
+        public int getErrorCount() {
+            return errorCount;
+        }
     }
 
     private static void applyImplicitBlockStats(LytGuidebookScene scene, boolean blockStatsDeclared) {
@@ -477,7 +574,19 @@ public class SceneTagCompiler extends BlockTagCompiler {
         scene.resetBlockStatsConfiguration();
         boolean blockStatsDeclared;
         try {
-            blockStatsDeclared = compileSceneChildren(scene, compiler, NOOP_ERROR_SINK, flow);
+            blockStatsDeclared = withCurrentAnnotationScene(scene, () -> {
+                List<? extends MdAstAnyContent> children = compiler.reparseBlockTagChildren(flow);
+                boolean[] result = new boolean[1];
+                compiler.withBlockTagChildrenSourceContext(
+                    flow,
+                    () -> result[0] = compileSceneChildrenWithCache(
+                        scene,
+                        compiler,
+                        NOOP_ERROR_SINK,
+                        children,
+                        bindingSelections));
+                return result[0];
+            });
             scene.initializePonderTimelineBaseline();
             configureStructureLibSelectionListeners(scene, compiler, flow, explicitCenter);
         } finally {

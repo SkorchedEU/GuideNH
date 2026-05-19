@@ -38,6 +38,7 @@ import com.hfstudio.guidenh.GuideNH;
 import com.hfstudio.guidenh.config.ModConfig;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.internal.structure.GuideNhStructureExportAccess;
+import com.hfstudio.guidenh.guide.internal.structure.GuideStructureData;
 import com.hfstudio.guidenh.guide.internal.structure.GuideStructureFileStore;
 import com.hfstudio.guidenh.guide.internal.structure.GuideStructureVolume;
 import com.hfstudio.guidenh.guide.internal.structure.GuideTextNbtCodec;
@@ -253,6 +254,13 @@ public class RegionWandItem extends Item {
     @Nullable
     public static String exportRegionAsStructureSnbt(GuidebookLevel level, int minX, int minY, int minZ, int sizeX,
         int sizeY, int sizeZ) {
+        GuideStructureData structureData = exportRegionAsStructureData(level, minX, minY, minZ, sizeX, sizeY, sizeZ);
+        return structureData != null ? GuideTextNbtCodec.writeStructureSnbt(structureData.getRoot()) : null;
+    }
+
+    @Nullable
+    public static GuideStructureData exportRegionAsStructureData(GuidebookLevel level, int minX, int minY, int minZ,
+        int sizeX, int sizeY, int sizeZ) {
         if (level == null || sizeX <= 0 || sizeY <= 0 || sizeZ <= 0) {
             return null;
         }
@@ -262,7 +270,7 @@ public class RegionWandItem extends Item {
         int maxX = minX + sizeX - 1;
         int maxY = minY + sizeY - 1;
         int maxZ = minZ + sizeZ - 1;
-        return exportSnbt(
+        return exportStructure(
             new GuidebookLevelStructureExportAccess(level),
             minX,
             minY,
@@ -272,7 +280,7 @@ public class RegionWandItem extends Item {
             maxZ,
             sizeX,
             sizeY,
-            sizeZ).text();
+            sizeZ).structure();
     }
 
     public static void exportToClipboard(ItemStack stack, EntityPlayer player, World world) {
@@ -525,6 +533,23 @@ public class RegionWandItem extends Item {
 
     private static ExportResult exportSnbt(StructureExportAccess access, int minX, int minY, int minZ, int maxX,
         int maxY, int maxZ, int dx, int dy, int dz, List<Entity> entities) {
+        ExportPayload payload = exportStructure(access, minX, minY, minZ, maxX, maxY, maxZ, dx, dy, dz, entities);
+        return new ExportResult(
+            GuideTextNbtCodec.writeStructureSnbt(
+                payload.structure()
+                    .getRoot()),
+            payload.nonAir(),
+            payload.teCount(),
+            payload.entityCount());
+    }
+
+    private static ExportPayload exportStructure(StructureExportAccess access, int minX, int minY, int minZ, int maxX,
+        int maxY, int maxZ, int dx, int dy, int dz) {
+        return exportStructure(access, minX, minY, minZ, maxX, maxY, maxZ, dx, dy, dz, Collections.emptyList());
+    }
+
+    private static ExportPayload exportStructure(StructureExportAccess access, int minX, int minY, int minZ, int maxX,
+        int maxY, int maxZ, int dx, int dy, int dz, List<Entity> entities) {
         Map<String, Integer> paletteIndex = new HashMap<>();
         NBTTagList paletteList = new NBTTagList();
         NBTTagList blocksList = new NBTTagList();
@@ -632,11 +657,14 @@ public class RegionWandItem extends Item {
                 root.setTag("entities", entitiesList);
             }
         }
-        return new ExportResult(GuideTextNbtCodec.writeStructureSnbt(root), nonAir, teCount, entityCount);
+        return new ExportPayload(new GuideStructureData(root, dx, dy, dz), nonAir, teCount, entityCount);
     }
 
     @Desugar
     public record ExportResult(String text, int nonAir, int teCount, int entityCount) {}
+
+    @Desugar
+    private record ExportPayload(GuideStructureData structure, int nonAir, int teCount, int entityCount) {}
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override

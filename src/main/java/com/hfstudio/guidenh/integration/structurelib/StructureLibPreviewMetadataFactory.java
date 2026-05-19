@@ -3,19 +3,23 @@ package com.hfstudio.guidenh.integration.structurelib;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.structurelib.structure.IStructureElement;
+import com.gtnewhorizon.structurelib.structure.IStructureElementChain;
 
 public class StructureLibPreviewMetadataFactory {
 
@@ -62,9 +66,10 @@ public class StructureLibPreviewMetadataFactory {
             request.getFacing(),
             request.getRotation(),
             request.getFlip());
-        if (maxTier > 0) {
+        int resolvedMaxTier = Math.max(maxTier, resolveHintMaxTier(visitedElementsByPos, constructable));
+        if (resolvedMaxTier > 0) {
             metadata = metadata
-                .withTierData(1, Math.max(1, maxTier), selection.getMasterTier(), selection.getMasterTier());
+                .withTierData(1, Math.max(1, resolvedMaxTier), selection.getMasterTier(), selection.getMasterTier());
         }
         if (channelMaxTierMap != null && !channelMaxTierMap.isEmpty()) {
             for (Map.Entry<String, Integer> entry : channelMaxTierMap.entrySet()) {
@@ -116,6 +121,77 @@ public class StructureLibPreviewMetadataFactory {
                 createTooltipData(details));
         }
         return metadata.withBlockTooltips(tooltipDataByPos);
+    }
+
+    public static int resolveHintMaxTier(@Nullable Map<Long, IStructureElement<?>> visitedElementsByPos,
+        @Nullable Object constructable) {
+        if (visitedElementsByPos == null || visitedElementsByPos.isEmpty()) {
+            return 0;
+        }
+        IdentityHashMap<IStructureElement<?>, Boolean> visited = new IdentityHashMap<>();
+        int maxTier = 0;
+        for (IStructureElement<?> element : visitedElementsByPos.values()) {
+            maxTier = Math.max(maxTier, resolveHintMaxTier(element, constructable, visited));
+        }
+        return maxTier;
+    }
+
+    public static int resolveHintMaxTier(@Nullable IStructureElement<?> element, @Nullable Object constructable,
+        IdentityHashMap<IStructureElement<?>, Boolean> visited) {
+        if (element == null || visited.put(element, Boolean.TRUE) != null) {
+            return 0;
+        }
+        int maxTier = resolveCapturedHintTierCount(element);
+        if (element instanceof IStructureElementChain<?>chain) {
+            for (IStructureElement<?> fallback : chain.fallbacks()) {
+                maxTier = Math.max(maxTier, resolveHintMaxTier(fallback, constructable, visited));
+            }
+        }
+        IStructureElement<?> lazyElement = StructureLibElementTooltipResolver.unwrapLazyElement(element, constructable);
+        if (lazyElement != null) {
+            maxTier = Math.max(maxTier, resolveHintMaxTier(lazyElement, constructable, visited));
+        }
+        for (IStructureElement<?> wrappedElement : StructureLibElementTooltipResolver.unwrapCapturedElements(element)) {
+            maxTier = Math.max(maxTier, resolveHintMaxTier(wrappedElement, constructable, visited));
+        }
+        return maxTier;
+    }
+
+    public static int resolveCapturedHintTierCount(IStructureElement<?> element) {
+        if (element == null) {
+            return 0;
+        }
+        int maxTier = 0;
+        for (Field field : element.getClass()
+            .getDeclaredFields()) {
+            if (!List.class.isAssignableFrom(field.getType())) {
+                continue;
+            }
+            try {
+                field.setAccessible(true);
+                Object value = field.get(element);
+                if (!(value instanceof List<?>list) || list.isEmpty() || !isTierHintList(list)) {
+                    continue;
+                }
+                maxTier = Math.max(maxTier, list.size());
+            } catch (IllegalAccessException ignored) {}
+        }
+        return maxTier;
+    }
+
+    public static boolean isTierHintList(List<?> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return false;
+        }
+        for (Object candidate : candidates) {
+            if (!(candidate instanceof Pair<?, ?>pair)) {
+                return false;
+            }
+            if (!(pair.getLeft() instanceof Block) || !(pair.getRight() instanceof Integer)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static StructureLibSceneMetadata.BlockTooltipData createTooltipData(

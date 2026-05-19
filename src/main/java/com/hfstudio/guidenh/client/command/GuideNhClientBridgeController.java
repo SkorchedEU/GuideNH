@@ -17,6 +17,7 @@ import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.internal.editor.io.SceneEditorStructureCache;
 import com.hfstudio.guidenh.guide.internal.editor.io.SceneEditorStructureImportService;
 import com.hfstudio.guidenh.guide.internal.structure.GuideNhStructureRuntime;
+import com.hfstudio.guidenh.guide.internal.structure.GuideStructureData;
 import com.hfstudio.guidenh.guide.internal.structure.GuideStructureFileStore;
 import com.hfstudio.guidenh.network.GuideNhNetwork;
 import com.hfstudio.guidenh.network.GuideNhRegionExportReplyMessage;
@@ -97,11 +98,19 @@ public class GuideNhClientBridgeController {
 
     public void rememberScene(String label, String structureText) {
         try {
-            var entry = GuideNhStructureRuntime.getClientMemoryStore()
+            GuideNhStructureRuntime.getClientMemoryStore()
                 .remember(label, structureText);
         } catch (Exception e) {
             // Silently ignore parse failures for auto-registered scenes
         }
+    }
+
+    public void rememberScene(String label, GuideStructureData structureData) {
+        if (structureData == null) {
+            return;
+        }
+        GuideNhStructureRuntime.getClientMemoryStore()
+            .remember(label, structureData);
     }
 
     public void onServerHello() {

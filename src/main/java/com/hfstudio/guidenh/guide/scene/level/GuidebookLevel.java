@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
@@ -163,6 +164,55 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
         previewStateDirty = true;
     }
 
+    public void restoreBlockFast(int x, int y, int z, @Nullable Block block, int meta) {
+        restoreBlockFast(x, y, z, block, meta, null);
+    }
+
+    public void restoreBlockFast(int x, int y, int z, @Nullable Block block, int meta,
+        @Nullable String explicitBlockId) {
+        if (y < 0 || y >= 256) {
+            return;
+        }
+
+        boolean isAir = block == null || block == Blocks.air;
+        ChunkCoordIntPair pair = new ChunkCoordIntPair(x >> 4, z >> 4);
+        GuidebookChunk chunk = chunks.get(pair);
+        if (chunk == null) {
+            if (isAir) {
+                return;
+            }
+            chunk = new GuidebookChunk(x >> 4, z >> 4);
+            chunks.put(pair, chunk);
+        }
+
+        chunk.setBlock(x, y, z, isAir ? null : block, meta);
+        long key = packPos(x, y, z);
+        if (isAir) {
+            filledBlocks.remove(key);
+            tileEntities.remove(key);
+            explicitBlockIds.remove(key);
+            previewAuthorityStore.clearAt(key);
+        } else {
+            if (!filledBlocks.containsKey(key)) {
+                filledBlocks.put(key, new int[] { x, y, z });
+            }
+            String normalizedBlockId = trimToNull(explicitBlockId);
+            if (normalizedBlockId != null) {
+                explicitBlockIds.put(key, normalizedBlockId);
+            } else {
+                explicitBlockIds.remove(key);
+            }
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (z < minZ) minZ = z;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+            if (z > maxZ) maxZ = z;
+        }
+        boundsDirty = true;
+        previewStateDirty = true;
+    }
+
     public void setBlock(int x, int y, int z, @Nullable Block block, int meta) {
         setBlock(x, y, z, block, meta, null);
     }
@@ -181,6 +231,22 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
             tileEntity.validate();
             tileEntities.put(key, tileEntity);
         }
+        previewStateDirty = true;
+    }
+
+    public void restoreTileEntityFast(int x, int y, int z, @Nullable TileEntity tileEntity) {
+        long key = packPos(x, y, z);
+        if (tileEntity == null) {
+            tileEntities.remove(key);
+            previewStateDirty = true;
+            return;
+        }
+        tileEntity.xCoord = x;
+        tileEntity.yCoord = y;
+        tileEntity.zCoord = z;
+        tileEntity.blockType = getBlock(x, y, z);
+        tileEntity.blockMetadata = getBlockMetadata(x, y, z);
+        tileEntities.put(key, tileEntity);
         previewStateDirty = true;
     }
 
@@ -280,6 +346,10 @@ public class GuidebookLevel implements IBlockAccess, GuidebookChunkSource {
 
     public Collection<Entity> getEntities() {
         return entitiesView;
+    }
+
+    public Map<Long, String> snapshotExplicitBlockIds() {
+        return new LinkedHashMap<>(explicitBlockIds);
     }
 
     public void addEntity(@Nullable Entity entity) {

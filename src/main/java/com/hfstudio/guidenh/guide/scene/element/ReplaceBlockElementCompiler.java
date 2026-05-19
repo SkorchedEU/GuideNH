@@ -11,6 +11,7 @@ import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.document.LytErrorSink;
 import com.hfstudio.guidenh.guide.internal.structure.GuideTextNbtCodec;
 import com.hfstudio.guidenh.guide.scene.CameraSettings;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.support.GuideBlockMatcher;
 import com.hfstudio.guidenh.guide.scene.support.ReplaceBlockExecutor;
@@ -26,6 +27,9 @@ public class ReplaceBlockElementCompiler implements SceneElementTagCompiler {
     @Override
     public void compile(GuidebookLevel level, CameraSettings camera, PageCompiler compiler, LytErrorSink errorSink,
         MdxJsxElementFields el) {
+        if (!GuideSceneStructureCompileScope.isStructureMutationEnabled()) {
+            return;
+        }
         String fromRaw = MdxAttrs.getString(compiler, errorSink, el, "from", null);
         if (fromRaw == null || fromRaw.trim()
             .isEmpty()) {

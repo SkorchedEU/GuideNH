@@ -63,6 +63,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
     public static final int MAX_CONTROL_ANALYSIS_CACHE_ENTRIES = 128;
     public static final int MAX_ANALYSIS_SNAPSHOT_CACHE_ENTRIES = 512;
     public static final int MAX_IMPORT_RESULT_CACHE_ENTRIES = 64;
+    public static final int MAX_STABLE_ANALYSIS_FINGERPRINT_RUN = 2;
     public static final StructureLibPreviewMetadataFactory PREVIEW_METADATA_FACTORY = new StructureLibPreviewMetadataFactory(
         new StructureLibElementTooltipResolver());
     public static final StructureLibBoundedCache<AnalysisKey, ControlAnalysis> CONTROL_ANALYSIS_CACHE = new StructureLibBoundedCache<>(
@@ -142,8 +143,8 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
             StructureLibSceneMetadata metadata = PREVIEW_METADATA_FACTORY.createMetadata(
                 request,
                 effectiveSelection,
-                controlAnalysis.maxTotalTier,
-                controlAnalysis.channelMaxTierMap,
+                Math.max(controlAnalysis.maxTotalTier, effectiveSelection.getMasterTier()),
+                mergeChannelMaxTierMap(controlAnalysis.channelMaxTierMap, effectiveSelection),
                 snapshot.absoluteBlocks,
                 snapshot.visitedElementsByPos,
                 snapshot.triggerStack,
@@ -230,6 +231,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
         }
         collectChannelIds(previous, discoveredChannels);
         String previousFingerprint = previous.fingerprint;
+        int stableFingerprintRun = 0;
         for (int tier = MIN_TIER + 1; tier <= MAX_TIER; tier++) {
             BuildSnapshot current = getOrCreateAnalysisSnapshot(
                 request,
@@ -241,9 +243,14 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
             }
             collectChannelIds(current, discoveredChannels);
             if (previousFingerprint.equals(current.fingerprint)) {
-                return Math.max(MIN_TIER, tier - 1);
+                stableFingerprintRun++;
+                if (stableFingerprintRun >= MAX_STABLE_ANALYSIS_FINGERPRINT_RUN) {
+                    return Math.max(MIN_TIER, tier - stableFingerprintRun);
+                }
+                continue;
             }
             previousFingerprint = current.fingerprint;
+            stableFingerprintRun = 0;
         }
         return MAX_TIER;
     }
@@ -287,6 +294,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
 
             int maxTier = MIN_TIER;
             String previousFingerprint = previous.fingerprint;
+            int stableFingerprintRun = 0;
             for (int tier = MIN_TIER + 1; tier <= MAX_TIER; tier++) {
                 StructureLibPreviewSelection selection = StructureLibPreviewSelection.ofMasterTier(MIN_TIER)
                     .withChannelOverride(channelId, tier);
@@ -299,9 +307,14 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
                     channelsToProcess = new ArrayList<>(discoveredChannels);
                 }
                 if (previousFingerprint.equals(current.fingerprint)) {
-                    break;
+                    stableFingerprintRun++;
+                    if (stableFingerprintRun >= MAX_STABLE_ANALYSIS_FINGERPRINT_RUN) {
+                        break;
+                    }
+                    continue;
                 }
                 previousFingerprint = current.fingerprint;
+                stableFingerprintRun = 0;
                 maxTier = tier;
             }
 
@@ -310,6 +323,31 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
             }
         }
         return resolved;
+    }
+
+    public static Map<String, Integer> mergeChannelMaxTierMap(Map<String, Integer> base,
+        StructureLibPreviewSelection selection) {
+        if ((base == null || base.isEmpty()) && (selection == null || selection.getChannelOverrides()
+            .isEmpty())) {
+            return Collections.emptyMap();
+        }
+        LinkedHashMap<String, Integer> merged = new LinkedHashMap<>();
+        if (base != null && !base.isEmpty()) {
+            merged.putAll(base);
+        }
+        if (selection != null) {
+            for (Map.Entry<String, Integer> entry : selection.getChannelOverrides()
+                .entrySet()) {
+                String channelId = StructureLibPreviewSelection.normalizeChannelId(entry.getKey());
+                Integer selectedValue = entry.getValue();
+                if (channelId == null || selectedValue == null || selectedValue <= 0) {
+                    continue;
+                }
+                Integer knownMax = merged.get(channelId);
+                merged.put(channelId, knownMax != null ? Math.max(knownMax, selectedValue) : selectedValue);
+            }
+        }
+        return merged.isEmpty() ? Collections.emptyMap() : merged;
     }
 
     public static void collectChannelIds(BuildSnapshot snapshot, Set<String> discoveredChannels) {
@@ -359,7 +397,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
         }
         SnapshotBlocksResult snapshotBlocks = snapshotBlocks(prepared.level);
         if (snapshotBlocks.blocks.isEmpty()) {
-            context.clear();
+            context.resetPreviewState();
             return BuildSnapshot.failure("StructureLib preview did not place any blocks.");
         }
         BuildSnapshot snapshot = BuildSnapshot.success(
@@ -402,7 +440,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
         }
         String fingerprint = buildLevelFingerprint(prepared.level);
         if (fingerprint.isEmpty()) {
-            context.clear();
+            context.resetPreviewState();
             return BuildSnapshot.failure("StructureLib preview did not place any blocks.");
         }
         LinkedHashSet<String> channelIds = new LinkedHashSet<>();
@@ -413,13 +451,13 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
     public static PreparedPreviewWorld preparePreviewWorld(StructureLibImportRequest request,
         ResolvedController controller, StructureLibPreviewSelection selection, List<String> warnings,
         BuildContext context) {
-        context.clear();
+        context.resetPreviewState();
         GuidebookLevel level = context.getLevel();
         World world = context.getWorld();
         PreviewFakePlayer fakePlayer = context.getFakePlayer();
         TileEntity controllerTile = placeController(level, world, fakePlayer, controller, warnings);
         if (controllerTile == null) {
-            context.clear();
+            context.resetPreviewState();
             return PreparedPreviewWorld.failure(
                 "Failed to create a controller tile for " + request.getController() + " in the preview world.");
         }
@@ -429,7 +467,7 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
         fakePlayer.configureForControllerFacing(resolveControllerFacing(controllerTile));
         IConstructable constructable = resolveConstructable(controllerTile);
         if (constructable == null) {
-            context.clear();
+            context.resetPreviewState();
             return PreparedPreviewWorld.failure(
                 "Failed to resolve a StructureLib constructable for controller " + request.getController() + ".");
         }
@@ -465,13 +503,13 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
                 selection,
                 warnings);
             if (!buildResult.success) {
-                context.clear();
+                context.resetPreviewState();
                 return PreparedPreviewWorld.failure(buildResult.errorMessage);
             }
             synchronizePreviewState(controllerTile, triggerStack, selection, warnings);
         } catch (Throwable t) {
             GuideDebugLog.warn(LOG, "StructureLib construct() failed for controller {}", request.getController(), t);
-            context.clear();
+            context.resetPreviewState();
             return PreparedPreviewWorld.failure("StructureLib construct() failed: " + sanitizeMessage(t.getMessage()));
         } finally {
             if (instrumentEnabled) {
@@ -1236,9 +1274,13 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
             return fakePlayer;
         }
 
-        public void clear() {
+        public void resetPreviewState() {
             level.clear();
             fakePlayer.inventory.clearInventory(null, -1);
+        }
+
+        public void clear() {
+            resetPreviewState();
         }
     }
 
@@ -1361,12 +1403,28 @@ public class StructureLibRuntimeFacade implements StructureLibFacade {
             List<StructureLibPreviewMetadataFactory.AbsolutePreviewBlock> absoluteBlocks,
             Map<Long, IStructureElement<?>> visitedElementsByPos, String fingerprint, World world,
             ItemStack triggerStack, Object constructable, EntityPlayer actor) {
+            return success(
+                blocks,
+                absoluteBlocks,
+                visitedElementsByPos,
+                Collections.emptySet(),
+                fingerprint,
+                world,
+                triggerStack,
+                constructable,
+                actor);
+        }
+
+        public static BuildSnapshot success(List<StructureLibImportResult.PlacedBlock> blocks,
+            List<StructureLibPreviewMetadataFactory.AbsolutePreviewBlock> absoluteBlocks,
+            Map<Long, IStructureElement<?>> visitedElementsByPos, Set<String> channelIds, String fingerprint,
+            World world, ItemStack triggerStack, Object constructable, EntityPlayer actor) {
             return new BuildSnapshot(
                 true,
                 blocks,
                 absoluteBlocks,
                 visitedElementsByPos,
-                Collections.emptySet(),
+                channelIds,
                 fingerprint,
                 world,
                 triggerStack,

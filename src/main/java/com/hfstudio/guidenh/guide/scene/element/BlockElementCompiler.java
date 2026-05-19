@@ -14,6 +14,7 @@ import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.document.LytErrorSink;
 import com.hfstudio.guidenh.guide.internal.structure.GuideTextNbtCodec;
 import com.hfstudio.guidenh.guide.scene.CameraSettings;
+import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookPreviewBlockPlacer;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
@@ -28,6 +29,9 @@ public class BlockElementCompiler implements SceneElementTagCompiler {
     @Override
     public void compile(GuidebookLevel level, CameraSettings camera, PageCompiler compiler, LytErrorSink errorSink,
         MdxJsxElementFields el) {
+        if (!GuideSceneStructureCompileScope.isStructureMutationEnabled()) {
+            return;
+        }
         var blockReference = MdxAttrs.getRequiredBlockReference(compiler, errorSink, el, "id");
         if (blockReference == null) return;
         Block block = blockReference.block();
