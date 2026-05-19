@@ -35,29 +35,29 @@ Microsoft Word's "Text Wrapping" options.
 
 ## Inline (Default)
 
-A block image in default inline mode — it sits in the vertical flow.
+A block preview in default inline mode. It sits in the vertical flow.
 
 <BlockImage id="minecraft:stone" />
 
-Some text after the block.
+Some text after the block preview.
 
 ## Top-Bottom, Centred
 
 <BlockImage id="minecraft:planks" align="center" />
 
-Text only appears above and below the block, which is centred horizontally.
+Text only appears above and below the placed-block preview, which is centred horizontally.
 
 ## Top-Bottom, Right-Aligned
 
 <BlockImage id="minecraft:planks" align="right" />
 
-Block is pushed to the right edge.
+The placed-block preview is pushed to the right edge.
 
 ## Square Float Left
 
 <BlockImage id="minecraft:stone" wrap="square" align="left" scale={2} />
 
-This paragraph will flow to the right of the block image. The block registers as
+This paragraph will flow to the right of the block preview. The preview registers as
 a left-side document float and subsequent paragraphs automatically shrink their
 available width to avoid it, just like a CSS `float: left`. More text here to
 demonstrate the wrapping effect across multiple lines of content.
@@ -66,7 +66,7 @@ demonstrate the wrapping effect across multiple lines of content.
 
 <BlockImage id="minecraft:glass" wrap="square" align="right" scale={2} />
 
-This paragraph flows to the left of the block image. `wrap="square"` combined
+This paragraph flows to the left of the block preview. `wrap="square"` combined
 with `align="right"` registers a right-side float in the layout engine. Longer
 sentences will wrap across several lines on the left of the float.
 
@@ -74,7 +74,7 @@ sentences will wrap across several lines on the left of the float.
 
 <BlockImage id="minecraft:diamond_block" align="center" scale={2} />
 
-The block is centred horizontally. No text flows to the sides.
+The placed-block preview is centred horizontally. No text flows to the sides.
 
 ## Item Images
 

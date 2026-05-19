@@ -56,6 +56,7 @@ import com.hfstudio.guidenh.libs.mdast.model.MdAstListItem;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstNode;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstParagraph;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstParent;
+import com.hfstudio.guidenh.libs.mdast.model.MdAstPhrasingContent;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstStrong;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstText;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstThematicBreak;
@@ -215,6 +216,28 @@ public class GuideSiteHtmlCompiler {
     public String compileFragment(List<? extends MdAstAnyContent> children, GuideSiteTemplateRegistry templates,
         String defaultNamespace, SceneResolver sceneResolver, @Nullable ResourceLocation currentPageId) {
         return compileChildren(children, templates, defaultNamespace, currentPageId, sceneResolver);
+    }
+
+    public String compileInlineFragment(List<? extends MdAstAnyContent> children, GuideSiteTemplateRegistry templates,
+        String defaultNamespace, SceneResolver sceneResolver, @Nullable ResourceLocation currentPageId) {
+        StringBuilder html = new StringBuilder();
+        for (MdAstAnyContent child : children) {
+            if (child instanceof MdAstParagraph paragraph) {
+                html.append(
+                    compileChildren(paragraph.children(), templates, defaultNamespace, currentPageId, sceneResolver));
+            } else if (child instanceof MdAstParent<?>nestedParent && !(child instanceof MdAstPhrasingContent)) {
+                html.append(
+                    compileChildren(
+                        nestedParent.children(),
+                        templates,
+                        defaultNamespace,
+                        currentPageId,
+                        sceneResolver));
+            } else {
+                html.append(compileNode(child, templates, defaultNamespace, currentPageId, sceneResolver));
+            }
+        }
+        return html.toString();
     }
 
     private String compileChildren(List<? extends MdAstAnyContent> children, GuideSiteTemplateRegistry templates,
@@ -523,11 +546,15 @@ public class GuideSiteHtmlCompiler {
 
     private String compileFloatingImage(MdxJsxElementFields element, GuideSiteTemplateRegistry templates,
         String defaultNamespace, @Nullable ResourceLocation currentPageId, SceneResolver sceneResolver) {
+        String rawSrc = element.getAttributeString("src", "");
+        if (!hasText(rawSrc)) {
+            return renderExportError("FloatingImage requires a non-empty src attribute.");
+        }
         String title = element.getAttributeString("title", null);
         String alt = element.getAttributeString("alt", title != null ? title : "");
         Integer width = parsePositiveInt(element.getAttributeString("width", null));
         Integer height = parsePositiveInt(element.getAttributeString("height", null));
-        String src = resolveImageSource(element.getAttributeString("src", ""), currentPageId);
+        String src = resolveImageSource(rawSrc, currentPageId);
 
         StringBuilder style = new StringBuilder();
         if ("right".equals(element.getAttributeString("align", "left"))) {
@@ -598,6 +625,14 @@ public class GuideSiteHtmlCompiler {
         GuideSiteTemplateRegistry templates, String defaultNamespace, @Nullable ResourceLocation currentPageId,
         SceneResolver sceneResolver, @Nullable Integer imageWidth, @Nullable Integer imageHeight) {
         List<ImageAnnotationExport> annotations = new ArrayList<>();
+        ImageAnnotationExport wholeImageSound = buildWholeImageSoundAnnotation(
+            element,
+            imageWidth,
+            imageHeight,
+            currentPageId);
+        if (wholeImageSound != null) {
+            annotations.add(wholeImageSound);
+        }
         for (MdAstAnyContent child : element.children()) {
             if (!(child instanceof MdxJsxElementFields childElement)
                 || (!"ImageAnnotation".equals(childElement.name()) && !"SoundArea".equals(childElement.name()))) {
@@ -608,13 +643,26 @@ public class GuideSiteHtmlCompiler {
                 : "";
             String templateId = tooltipHtml.trim()
                 .isEmpty() ? null : templates.create(tooltipHtml);
-            annotations.add(buildImageAnnotation(childElement, templateId, imageWidth, imageHeight, currentPageId));
+            annotations
+                .add(buildImageAnnotation(childElement, templateId, imageWidth, imageHeight, currentPageId, "src"));
         }
         return annotations;
     }
 
-    private ImageAnnotationExport buildImageAnnotation(MdxJsxElementFields element, @Nullable String templateId,
+    @Nullable
+    private ImageAnnotationExport buildWholeImageSoundAnnotation(MdxJsxElementFields element,
         @Nullable Integer imageWidth, @Nullable Integer imageHeight, @Nullable ResourceLocation currentPageId) {
+        String sound = element.getAttributeString("sound", null);
+        String soundSrc = element.getAttributeString("soundSrc", null);
+        if (!hasText(sound) && !hasText(soundSrc)) {
+            return null;
+        }
+        return buildImageAnnotation(element, null, imageWidth, imageHeight, currentPageId, "soundSrc");
+    }
+
+    private ImageAnnotationExport buildImageAnnotation(MdxJsxElementFields element, @Nullable String templateId,
+        @Nullable Integer imageWidth, @Nullable Integer imageHeight, @Nullable ResourceLocation currentPageId,
+        String soundSourceAttributeName) {
         Integer x = parsePositiveOrZeroInt(element.getAttributeString("x", null));
         Integer y = parsePositiveOrZeroInt(element.getAttributeString("y", null));
         Integer w = parsePositiveInt(element.getAttributeString("w", null));
@@ -634,13 +682,13 @@ public class GuideSiteHtmlCompiler {
                 .append(escapeCssColor(element.getAttributeString("borderColor", "#FFFFFFFF")))
                 .append(";");
         }
+        GuideSiteSoundExport.MdxSoundAttributes soundAttributes = soundAttributes(element, soundSourceAttributeName);
         GuideSoundSpec sound = GuideSiteSoundExport.parse(
-            name -> element.getAttributeString(name, null),
+            soundAttributes,
             currentPageId != null ? currentPageId.getResourceDomain() : "guidenh",
             currentPageId);
         String soundSrc = sound != null
-            ? GuideSiteSoundExport
-                .exportSource(sound, name -> element.getAttributeString(name, null), currentPageId, assetExporter)
+            ? GuideSiteSoundExport.exportSource(sound, soundAttributes, currentPageId, assetExporter)
             : "";
         return new ImageAnnotationExport(
             templateId,
@@ -654,6 +702,20 @@ public class GuideSiteHtmlCompiler {
                 ? GuideSoundTrigger.parse(element.getAttributeString("trigger", null), GuideSoundTrigger.CLICK)
                 : GuideSoundTrigger.CLICK,
             soundSrc);
+    }
+
+    private GuideSiteSoundExport.MdxSoundAttributes soundAttributes(MdxJsxElementFields element,
+        String soundSourceAttributeName) {
+        return new GuideSiteSoundExport.MdxSoundAttributes() {
+
+            @Override
+            public @Nullable String value(String name) {
+                if ("src".equals(name) && !"src".equals(soundSourceAttributeName)) {
+                    return element.getAttributeString(soundSourceAttributeName, null);
+                }
+                return element.getAttributeString(name, null);
+            }
+        };
     }
 
     private void appendOptionalDataAttribute(StringBuilder html, String name, @Nullable Integer value) {
@@ -1235,6 +1297,15 @@ public class GuideSiteHtmlCompiler {
         int g = (argb >>> 8) & 0xFF;
         int b = argb & 0xFF;
         return "rgba(" + r + "," + g + "," + b + "," + (a / 255.0f) + ")";
+    }
+
+    private boolean hasText(@Nullable String value) {
+        return value != null && !value.trim()
+            .isEmpty();
+    }
+
+    private String renderExportError(String message) {
+        return "<span class=\"guide-export-error\">" + escapeHtml(message) + "</span>";
     }
 
     private String compileTable(GfmTable table, GuideSiteTemplateRegistry templates, String defaultNamespace,

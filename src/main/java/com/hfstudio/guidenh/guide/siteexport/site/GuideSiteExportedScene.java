@@ -4,6 +4,8 @@ public class GuideSiteExportedScene {
 
     private final String placeholderPath;
     private final String scenePath;
+    private final int logicalWidth;
+    private final int logicalHeight;
     private final String inWorldJson;
     private final String overlayJson;
     private final String hoverTargetsJson;
@@ -19,28 +21,40 @@ public class GuideSiteExportedScene {
     private final boolean blockStatsVisible;
 
     public GuideSiteExportedScene(String placeholderPath, String scenePath) {
-        this(placeholderPath, scenePath, null, null, null, null);
+        this(placeholderPath, scenePath, -1, -1, null, null, null, null, null);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson) {
-        this(placeholderPath, scenePath, inWorldJson, overlayJson, null, null);
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight) {
+        this(placeholderPath, scenePath, logicalWidth, logicalHeight, null, null, null, null, null);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson) {
-        this(placeholderPath, scenePath, inWorldJson, overlayJson, hoverTargetsJson, null, null);
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson) {
+        this(placeholderPath, scenePath, logicalWidth, logicalHeight, inWorldJson, overlayJson, null, null, null);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson, String stateManifestPath) {
-        this(placeholderPath, scenePath, inWorldJson, overlayJson, hoverTargetsJson, null, stateManifestPath, null);
-    }
-
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson, String sceneSoundsJson, String stateManifestPath) {
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson, String hoverTargetsJson) {
         this(
             placeholderPath,
             scenePath,
+            logicalWidth,
+            logicalHeight,
+            inWorldJson,
+            overlayJson,
+            hoverTargetsJson,
+            null,
+            null);
+    }
+
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson, String hoverTargetsJson, String sceneSoundsJson,
+        String stateManifestPath) {
+        this(
+            placeholderPath,
+            scenePath,
+            logicalWidth,
+            logicalHeight,
             inWorldJson,
             overlayJson,
             hoverTargetsJson,
@@ -49,11 +63,14 @@ public class GuideSiteExportedScene {
             null);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson, String sceneSoundsJson, String stateManifestPath, String blockStatsHtml) {
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson, String hoverTargetsJson, String sceneSoundsJson,
+        String stateManifestPath, String blockStatsHtml) {
         this(
             placeholderPath,
             scenePath,
+            logicalWidth,
+            logicalHeight,
             inWorldJson,
             overlayJson,
             hoverTargetsJson,
@@ -64,12 +81,14 @@ public class GuideSiteExportedScene {
             null);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson, String sceneSoundsJson, String stateManifestPath, String blockStatsHtml,
-        String blockStatsLayoutClass, String blockStatsLayoutStyle) {
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson, String hoverTargetsJson, String sceneSoundsJson,
+        String stateManifestPath, String blockStatsHtml, String blockStatsLayoutClass, String blockStatsLayoutStyle) {
         this(
             placeholderPath,
             scenePath,
+            logicalWidth,
+            logicalHeight,
             inWorldJson,
             overlayJson,
             hoverTargetsJson,
@@ -85,12 +104,15 @@ public class GuideSiteExportedScene {
             false);
     }
 
-    public GuideSiteExportedScene(String placeholderPath, String scenePath, String inWorldJson, String overlayJson,
-        String hoverTargetsJson, String sceneSoundsJson, String stateManifestPath, String blockStatsHtml,
-        String blockStatsLayoutClass, String blockStatsLayoutStyle, boolean gridButtonEnabled, boolean gridVisible,
-        String gridAnnotationJson, boolean blockStatsButtonEnabled, boolean blockStatsVisible) {
+    public GuideSiteExportedScene(String placeholderPath, String scenePath, int logicalWidth, int logicalHeight,
+        String inWorldJson, String overlayJson, String hoverTargetsJson, String sceneSoundsJson,
+        String stateManifestPath, String blockStatsHtml, String blockStatsLayoutClass, String blockStatsLayoutStyle,
+        boolean gridButtonEnabled, boolean gridVisible, String gridAnnotationJson, boolean blockStatsButtonEnabled,
+        boolean blockStatsVisible) {
         this.placeholderPath = placeholderPath;
         this.scenePath = scenePath;
+        this.logicalWidth = logicalWidth;
+        this.logicalHeight = logicalHeight;
         this.inWorldJson = inWorldJson;
         this.overlayJson = overlayJson;
         this.hoverTargetsJson = hoverTargetsJson;
@@ -112,6 +134,14 @@ public class GuideSiteExportedScene {
 
     public String scenePath() {
         return scenePath;
+    }
+
+    public int logicalWidth() {
+        return logicalWidth;
+    }
+
+    public int logicalHeight() {
+        return logicalHeight;
     }
 
     public String inWorldJson() {

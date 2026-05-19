@@ -459,11 +459,17 @@ public class PageCompiler {
             return;
         }
         ParsedGuidePage parsed = parse(sourcePack, "en_us", pageId, source);
-        for (MdAstAnyContent child : parsed.getAstRoot()
-            .children()) {
+        compileInlineFragment(
+            parsed.getAstRoot()
+                .children(),
+            layoutParent);
+    }
+
+    public void compileInlineFragment(Collection<? extends MdAstAnyContent> children, LytFlowParent layoutParent) {
+        for (MdAstAnyContent child : children) {
             if (child instanceof MdAstParagraph paragraph) {
                 compileFlowContext(paragraph, layoutParent);
-            } else if (child instanceof MdAstParent<?>nestedParent) {
+            } else if (child instanceof MdAstParent<?>nestedParent && !(child instanceof MdAstPhrasingContent)) {
                 for (var nestedChild : nestedParent.children()) {
                     compileFlowContent(layoutParent, nestedChild);
                 }
@@ -953,36 +959,36 @@ public class PageCompiler {
         }
 
         List<MarkdownActionLink.Segment> segments = MarkdownActionLink.split(text);
-        boolean foundLink = false;
-        for (var segment : segments) {
-            if (segment.isLink() && GuideSoundParsers.parseActionUri(this, segment.href()) != null) {
-                foundLink = true;
-                break;
-            }
-        }
-        if (!foundLink) {
-            return false;
-        }
-
+        ArrayList<LytFlowContent> rendered = new ArrayList<>(segments.size());
+        boolean foundSoundLink = false;
         for (var segment : segments) {
             if (!segment.isLink()) {
                 if (!segment.text()
                     .isEmpty()) {
-                    layoutParent.appendText(segment.text());
+                    rendered.add(LytFlowText.of(segment.text()));
                 }
                 continue;
             }
 
             var sound = GuideSoundParsers.parseActionUri(this, segment.href());
             if (sound == null) {
-                layoutParent.appendText("&[" + segment.text() + "](" + segment.href() + ")");
+                rendered.add(LytFlowText.of("&[" + segment.text() + "](" + segment.href() + ")"));
                 continue;
             }
+
             var link = new LytFlowLink();
             link.setClickSoundSpec(sound);
             link.setClickCallback(uiHost -> {});
             link.appendText(segment.text());
-            layoutParent.append(link);
+            rendered.add(link);
+            foundSoundLink = true;
+        }
+        if (!foundSoundLink) {
+            return false;
+        }
+
+        for (var content : rendered) {
+            layoutParent.append(content);
         }
         return true;
     }
@@ -1034,6 +1040,13 @@ public class PageCompiler {
 
     private LytFlowContent compileLink(MdAstLink astLink, LytErrorSink errorSink) {
         var link = new LytFlowLink();
+        var sound = GuideSoundParsers.parseActionUri(this, astLink.url);
+        if (sound != null) {
+            link.setClickSoundSpec(sound);
+            link.setClickCallback(uiHost -> {});
+            compileFlowContext(astLink, link);
+            return link;
+        }
         if (astLink.title != null && !astLink.title.isEmpty()) {
             link.setTooltip(new TextTooltip(astLink.title));
         }

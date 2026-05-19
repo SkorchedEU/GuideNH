@@ -118,7 +118,7 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             return renderItemImage(element, defaultNamespace, currentPageId, templates, true);
         }
         if ("BlockImage".equals(name)) {
-            return renderBlockImage(element, defaultNamespace, currentPageId, templates);
+            return renderBlockImage(element, defaultNamespace, currentPageId, templates, sceneResolver);
         }
         if ("ItemGrid".equals(name)) {
             return renderItemGrid(element, defaultNamespace, currentPageId, templates);
@@ -253,7 +253,7 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
         GuideSiteHtmlCompiler.SceneResolver sceneResolver, GuideSiteHtmlCompiler compiler) {
         String body = compiler
-            .compileFragment(element.children(), templates, defaultNamespace, sceneResolver, currentPageId);
+            .compileInlineFragment(element.children(), templates, defaultNamespace, sceneResolver, currentPageId);
         GuideSoundSpec sound = GuideSiteSoundExport
             .parse(name -> readOptional(element, name), defaultNamespace, currentPageId);
         if (sound == null) {
@@ -689,7 +689,8 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
     }
 
     private String renderBlockImage(MdxJsxElementFields element, String defaultNamespace,
-        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates) {
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver) {
         String rawId = readOptional(element, "id");
         String rawOre = readOptional(element, "ore");
         GuideItemReferenceResolver.ResolvedBlockReference block = GuideItemReferenceResolver
@@ -704,6 +705,16 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
                 false,
                 readFloat(element, "scale"));
         }
+
+        GuideSiteExportedScene exportedScene = sceneResolver.nextScene();
+        if (exportedScene != null) {
+            int logicalWidth = exportedScene.logicalWidth() > 0 ? exportedScene.logicalWidth() : 256;
+            int logicalHeight = exportedScene.logicalHeight() > 0 ? exportedScene.logicalHeight() : 192;
+            String sceneHtml = GuideSiteSceneTagRenderer
+                .renderSceneHtml(logicalWidth, logicalHeight, false, defaultNamespace, null, exportedScene);
+            return wrapBlockImageFloat(element, sceneHtml);
+        }
+
         return renderItemStack(
             block.registryId(),
             block.stack(),
@@ -712,6 +723,32 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             false,
             readFloat(element, "scale"),
             true);
+    }
+
+    private String wrapBlockImageFloat(MdxJsxElementFields element, String html) {
+        String floatDirection = resolveBlockFloatDirection(element);
+        if (floatDirection == null) {
+            return html;
+        }
+
+        String style = "right".equals(floatDirection) ? "float:right;margin:0 0 5px 5px;"
+            : "float:left;margin:0 5px 5px 0;";
+        return "<span class=\"guide-floating-image-wrap\" style=\"" + escapeAttribute(style) + "\">" + html + "</span>";
+    }
+
+    @Nullable
+    private String resolveBlockFloatDirection(MdxJsxElementFields element) {
+        String wrap = readOptional(element, "wrap");
+        if ("square".equalsIgnoreCase(wrap) || "tight".equalsIgnoreCase(wrap) || "through".equalsIgnoreCase(wrap)) {
+            String align = readOptional(element, "align");
+            return "right".equalsIgnoreCase(align) ? "right" : "left";
+        }
+
+        String legacyFloat = readOptional(element, "float");
+        if ("left".equalsIgnoreCase(legacyFloat) || "right".equalsIgnoreCase(legacyFloat)) {
+            return legacyFloat.toLowerCase(Locale.ROOT);
+        }
+        return null;
     }
 
     private String renderItemGrid(MdxJsxElementFields element, String defaultNamespace,

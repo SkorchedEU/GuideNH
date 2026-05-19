@@ -53,7 +53,7 @@ categories:
 <GameScene zoom={4} interactive={true}>
   <Block id="minecraft:furnace" x="2" facing="south" />
   <Block ore="logWood" x="3" />
-  <Block id="minecraft:chest" x="4" nbt="{id:\"Chest\",Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b,Damage:0s}]}" />
+  <Block id="minecraft:chest" x="4" nbt='{id:"Chest",Items:[{Slot:0b,id:"minecraft:diamond",Count:1b,Damage:0s}]}' />
 </GameScene>
 ```
 

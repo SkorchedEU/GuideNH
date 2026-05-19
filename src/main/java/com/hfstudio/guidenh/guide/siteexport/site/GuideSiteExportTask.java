@@ -704,6 +704,8 @@ public class GuideSiteExportTask {
         return new GuideSiteExportedScene(
             baseScene.placeholderPath(),
             baseScene.scenePath(),
+            baseScene.logicalWidth(),
+            baseScene.logicalHeight(),
             baseScene.inWorldJson(),
             baseScene.overlayJson(),
             baseScene.hoverTargetsJson(),
@@ -733,6 +735,8 @@ public class GuideSiteExportTask {
         return new GuideSiteExportedScene(
             runtimeExport.placeholderPath(),
             runtimeExport.scenePath(),
+            runtimeExport.logicalWidth(),
+            runtimeExport.logicalHeight(),
             annotationPayload.inWorldJson(),
             annotationPayload.overlayJson(),
             hoverTargetsJson,

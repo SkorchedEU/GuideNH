@@ -51,7 +51,7 @@ Inline markdown also supports action links for sound playback:
 | `<Column>` | vertical flex layout | `gap`, `alignItems`, `fullWidth`, `width` |
 | `<FootnoteList>` | width-constrained footnote container used by runtime markdown footnotes | `width` |
 | `<ItemGrid>` | compact grid of item icons | children must be `<ItemIcon id="..."/>` or `<ItemIcon ore="..."/>` |
-| `<BlockImage>` | block item-form icon | `id` or `ore`, `scale` |
+| `<BlockImage>` | non-interactive 3D single-block preview | `id` or `ore`, `scale`, `float`, `perspective`, `nbt` |
 | `<FloatingImage>` | floated image block | `src`, `align`, `title`, `width`, `height` |
 | `<SubPages>` | navigation child listing | `id`, `alphabetical` |
 | `<CategoryIndex>` | list pages from a category | `category` |
@@ -417,11 +417,36 @@ Renders a compact item grid. Children must be raw `<ItemIcon>` elements, which a
 
 ### `<BlockImage>`
 
-Renders the item form of a block. `ore` must resolve to a block item stack.
+Renders a non-interactive 3D single-block scene. The preview has no scene background, no scene
+buttons, no layer controls, and no annotation features, but hovering the block still shows the
+selection outline and tooltip. `ore` must resolve to a block item stack.
+
+| Attribute | Meaning |
+| --- | --- |
+| `id` | block id; supports the normal `modid:block[:meta][:{snbt}]` spelling |
+| `ore` | ore dictionary lookup; the first matching block item wins |
+| `scale` | camera zoom multiplier, default `1` |
+| `float` | legacy flow float support: `left` or `right` |
+| `perspective` | `isometric-north-east` (default), `isometric-north-west`, or `up` |
+| `nbt` | optional SNBT tile-entity data merged onto any inline SNBT from `id` |
+
+Notes:
+
+- inline SNBT inside `id` is still accepted for compatibility, but `nbt="..."` is the preferred
+  authoring form
+- when both inline SNBT and `nbt` are present, the `nbt` attribute is merged last and therefore
+  overrides conflicting keys
+- GuideNH 1.7.10 does not support modern block-state property syntax here, so GuideME-style
+  `p:<state>` attributes are intentionally not supported
 
 ````md
 <BlockImage id="minecraft:crafting_table" scale="3" />
-<BlockImage ore="logWood" scale="3" />
+<BlockImage ore="logWood" scale="3" perspective="isometric-north-west" />
+<BlockImage
+  id="minecraft:chest"
+  scale="2"
+  nbt='{id:"Chest",Items:[{Slot:0b,id:"minecraft:diamond",Count:1b,Damage:0s}]}'
+/>
 ````
 
 ### `<FloatingImage>`

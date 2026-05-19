@@ -58,7 +58,11 @@ public class GuideSiteSceneRuntimeExporter {
 
         GuideSiteSceneExporter exporter = new GuideSiteSceneExporter(assets, () -> placeholderBytes, () -> sceneBytes);
         GuideSiteSceneExporter.SceneFiles files = exporter.writeSceneAssets();
-        return new GuideSiteExportedScene(files.placeholderPath(), files.scenePath());
+        return new GuideSiteExportedScene(
+            files.placeholderPath(),
+            files.scenePath(),
+            scene.getSceneWidth(),
+            scene.getSceneHeight());
     }
 
     private byte[] renderPlaceholder(LytGuidebookScene scene) throws Exception {
