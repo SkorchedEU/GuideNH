@@ -76,7 +76,7 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
         int width = readDimension(element, "width", 256);
         int height = readDimension(element, "height", 192);
         boolean interactive = readBooleanValue(element, "interactive", true);
-        String background = readOptional(element, "background");
+        String background = readBooleanValue(element, "showBackground", true) ? null : "transparent";
         AnnotationPayload payload = resolveAnnotationPayload(
             element,
             defaultNamespace,

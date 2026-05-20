@@ -431,11 +431,11 @@ public class PageCompiler {
     }
 
     public List<? extends MdAstAnyContent> reparseBlockTagChildren(MdxJsxElementFields element) {
-        BlockTagChildSource reparsed = extractBlockTagChildrenSource(element);
-        if (reparsed == null) {
+        String sourceText = getBlockTagChildrenSource(element);
+        if (sourceText == null) {
             return element.children();
         }
-        ParsedGuidePage parsed = parse(sourcePack, "en_us", pageId, reparsed.source());
+        ParsedGuidePage parsed = parse(sourcePack, "en_us", pageId, sourceText);
         return parsed.getAstRoot()
             .children();
     }
@@ -447,7 +447,10 @@ public class PageCompiler {
      */
     public @Nullable String getBlockTagChildrenSource(MdxJsxElementFields element) {
         BlockTagChildSource reparsed = extractBlockTagChildrenSource(element);
-        return reparsed != null ? reparsed.source() : null;
+        if (reparsed != null) {
+            return reparsed.source();
+        }
+        return sourceForChildren(element.children());
     }
 
     /**
@@ -493,6 +496,14 @@ public class PageCompiler {
             return;
         }
         withChildrenSourceContext(element.children(), action);
+    }
+
+    public void withSourceContext(String sourceText, Runnable action) {
+        if (sourceText == null) {
+            action.run();
+            return;
+        }
+        withSourceSlice(sourceText, action);
     }
 
     public void compileBlockContext(List<? extends MdAstAnyContent> children, LytBlockContainer layoutParent) {

@@ -127,6 +127,7 @@ public class SceneTagCompiler extends BlockTagCompiler {
 
         boolean interactive = MdxAttrs.getBoolean(compiler, parent, el, "interactive", true);
         scene.setInteractive(interactive);
+        scene.setShowBackground(resolveShowBackground(compiler, parent, el));
         boolean allowLayerSlider = MdxAttrs
             .getBoolean(compiler, parent, el, "allowLayerSlider", ModConfig.ui.sceneLayerSliderEnabled);
         scene.setVisibleLayerSliderEnabled(allowLayerSlider);
@@ -242,6 +243,10 @@ public class SceneTagCompiler extends BlockTagCompiler {
         scene.captureInitialInteractiveState();
 
         parent.append(scene);
+    }
+
+    private boolean resolveShowBackground(PageCompiler compiler, LytBlockContainer parent, MdxJsxElementFields el) {
+        return MdxAttrs.getBoolean(compiler, parent, el, "showBackground", true);
     }
 
     private SceneViewportMetrics measureSceneViewport(CameraSettings camera, int[] bounds) {

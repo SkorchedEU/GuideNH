@@ -3132,6 +3132,9 @@ public class SceneEditorScreen extends GuiScreen {
         previewScene.setVisibleLayerSliderEnabled(
             session.getSceneModel()
                 .isAllowLayerSlider() || ModConfig.ui.sceneLayerSliderEnabled);
+        previewScene.setShowBackground(
+            session.getSceneModel()
+                .isShowBackground());
         previewBridge.rebuildAnnotations(session, previewScene);
         previewCameraController.applyResolvedPreviewCamera(previewScene, session.getSceneModel());
         previewDirty = false;

@@ -47,7 +47,7 @@
 | 标签 | 用途 | 关键属性 |
 | --- | --- | --- |
 | `<div>` | 透传块包装器 | 无 |
-| `<details>` | 可折叠运行时块 | `open` |
+| `<details>` | 可折叠运行时块 | `open`、`width`、`height`、`wrap`、`align` |
 | `<FileTree>` | 目录树式大纲（带连接线） | `indent`、`gap` |
 | `<Row>` | 横向 flex 布局 | `gap`, `alignItems`, `fullWidth`, `width` |
 | `<Column>` | 纵向 flex 布局 | `gap`, `alignItems`, `fullWidth`, `width` |
@@ -113,19 +113,29 @@ Water is H<sub>2</sub>O and x<sup>2</sup> is a square.
 
 ### `<details>`
 
-用于创建可折叠的运行时内容块：
+用于创建可折叠的运行时内容块。`<summary>` 行支持常规行内 Markdown/标签内容，正文则可以放普通文本与任意块级标签，例如 `<BlockImage>`、`<FloatingImage>`、`<GameScene>`、表格、图表或布局容器。
 
 ````md
-<details open>
-<summary>More</summary>
+<details open width="220" height="140" wrap="square" align="right">
+<summary>更多 <ItemImage id="minecraft:diamond" /></summary>
 
-Hidden-by-default body text
+默认折叠的正文文本，里面可以放[普通页面链接](./index.md)。
+
+<BlockImage id="minecraft:diamond_block" align="center" scale={2} />
 </details>
 ````
 
+属性：
+
+- `open` — 存在时默认展开
+- `width` — 外层首选宽度，单位像素
+- `height` — 正文视口首选高度，单位像素；超出部分会在游戏内和站点导出中变为可滚动区域
+- `wrap` — 支持常见块嵌入模式，例如 `square`、`tight`、`through`
+- `align` — `left`、`center` 或 `right`；与浮动型 `wrap` 搭配时会让整个 details 块浮动
+
 ### `<FileTree>`
 
-渲染目录树式大纲，并依据每行前缀符号绘制真实的连接线。前缀同时支持 Unicode 框线（`│ ├ └ ─`）与 ASCII 形式（`| +-- \-- ` / 4 个空格），可任意混用。每行的文本部分支持常规行内 Markdown（链接、**加粗**、`代码` 等）。等价语法是 ` ```tree ` / ` ```filetree ` 围栏代码块。
+渲染目录树式大纲，并依据每行前缀符号绘制真实的连接线。前缀同时支持 Unicode 框线（`│ ├ └ ─`）与 ASCII 形式（`| +-- \-- ` / 4 个空格），可任意混用。每行的文本部分支持常规行内 Markdown（链接、**加粗**、`代码` 等），这些链接在游戏内和内置站点导出中都可以点击。等价语法是 ` ```tree ` / ` ```filetree ` 围栏代码块。
 
 ````md
 <FileTree indent="14" gap="0">

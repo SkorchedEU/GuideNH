@@ -2,6 +2,11 @@
 
 GuideNH builds its navigation tree from page frontmatter.
 
+In the in-game sidebar, expanded ancestor pages stay pinned at the top while their still-visible
+descendants scroll underneath. Multiple expanded ancestor levels can stack at once, and each sticky
+row is pushed away only when its entire visible subtree scrolls out, similar to the VSCode file
+explorer.
+
 ## Navigation Frontmatter
 
 The `navigation` map controls whether a page appears in the guide tree.

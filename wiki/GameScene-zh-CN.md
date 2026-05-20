@@ -21,6 +21,7 @@
 | `centerY` | float | auto | 显式世界旋转中心 Y |
 | `centerZ` | float | auto | 显式世界旋转中心 Z |
 | `interactive` | boolean expression | `true` | 是否启用鼠标交互 |
+| `showBackground` | boolean expression | `true` | 是否显示场景背景与边框 |
 | `allowLayerSlider` | boolean | `true` | 是否显示垂直层滑块 |
 | `gridButtonEnabled` | boolean | `true` | 是否显示地板网格切换按钮 |
 | `showGrid` | boolean | `false` | 地板网格的初始可见性 |

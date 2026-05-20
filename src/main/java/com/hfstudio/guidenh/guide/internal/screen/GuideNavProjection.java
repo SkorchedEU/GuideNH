@@ -19,6 +19,54 @@ import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 
 public class GuideNavProjection {
 
+    public static class ProjectionResult {
+
+        private final List<ProjectedRow> rows;
+
+        public ProjectionResult(List<ProjectedRow> rows) {
+            this.rows = rows;
+        }
+
+        public List<ProjectedRow> rows() {
+            return rows;
+        }
+    }
+
+    public static class ProjectedRow {
+
+        private final DisplayRow displayRow;
+        private final int rowIndex;
+        private final int parentRowIndex;
+        private int subtreeEndRowIndexExclusive;
+
+        public ProjectedRow(DisplayRow displayRow, int rowIndex, int parentRowIndex) {
+            this.displayRow = displayRow;
+            this.rowIndex = rowIndex;
+            this.parentRowIndex = parentRowIndex;
+            this.subtreeEndRowIndexExclusive = rowIndex + 1;
+        }
+
+        public DisplayRow displayRow() {
+            return displayRow;
+        }
+
+        public int rowIndex() {
+            return rowIndex;
+        }
+
+        public int parentRowIndex() {
+            return parentRowIndex;
+        }
+
+        public int subtreeEndRowIndexExclusive() {
+            return subtreeEndRowIndexExclusive;
+        }
+
+        public void setSubtreeEndRowIndexExclusive(int subtreeEndRowIndexExclusive) {
+            this.subtreeEndRowIndexExclusive = Math.max(rowIndex + 1, subtreeEndRowIndexExclusive);
+        }
+    }
+
     public enum RowKind {
         BOOKMARK_GROUP,
         BOOKMARK_PAGE,
@@ -94,13 +142,13 @@ public class GuideNavProjection {
             row -> row.pageId() != null ? row.pageId()
                 .toString() : "");
 
-    public List<DisplayRow> project(@Nullable NavigationTree tree, GuideBookmarkState bookmarkState,
+    public ProjectionResult project(@Nullable NavigationTree tree, GuideBookmarkState bookmarkState,
         Set<ResourceLocation> expandedTreePageIds, boolean bookmarkGroupExpanded) {
         if (tree == null) {
-            return Collections.emptyList();
+            return new ProjectionResult(Collections.<ProjectedRow>emptyList());
         }
 
-        var rows = new ArrayList<DisplayRow>();
+        var rows = new ArrayList<ProjectedRow>();
         if (!bookmarkState.isEmpty()) {
             var validPageIds = collectValidPageIds(tree);
             bookmarkState.pruneInvalid(validPageIds);
@@ -108,7 +156,8 @@ public class GuideNavProjection {
 
         var bookmarkRows = buildBookmarkRows(tree, bookmarkState);
         if (!bookmarkRows.isEmpty()) {
-            rows.add(
+            var bookmarkGroupRow = appendRow(
+                rows,
                 new DisplayRow(
                     RowKind.BOOKMARK_GROUP,
                     0,
@@ -117,16 +166,20 @@ public class GuideNavProjection {
                     null,
                     null,
                     true,
-                    false));
+                    false),
+                -1);
             if (bookmarkGroupExpanded) {
-                rows.addAll(bookmarkRows);
+                for (DisplayRow bookmarkRow : bookmarkRows) {
+                    appendRow(rows, bookmarkRow, bookmarkGroupRow.rowIndex());
+                }
             }
+            bookmarkGroupRow.setSubtreeEndRowIndexExclusive(rows.size());
         }
 
         for (var root : tree.getRootNodes()) {
-            addTreeRows(rows, root, 0, expandedTreePageIds);
+            addTreeRows(rows, root, 0, expandedTreePageIds, -1);
         }
-        return rows;
+        return new ProjectionResult(rows);
     }
 
     private Set<ResourceLocation> collectValidPageIds(NavigationTree tree) {
@@ -171,9 +224,16 @@ public class GuideNavProjection {
         return rows;
     }
 
-    private void addTreeRows(List<DisplayRow> rows, NavigationNode node, int depth,
-        Set<ResourceLocation> expandedTreePageIds) {
-        rows.add(
+    private ProjectedRow appendRow(List<ProjectedRow> rows, DisplayRow displayRow, int parentRowIndex) {
+        ProjectedRow row = new ProjectedRow(displayRow, rows.size(), parentRowIndex);
+        rows.add(row);
+        return row;
+    }
+
+    private void addTreeRows(List<ProjectedRow> rows, NavigationNode node, int depth,
+        Set<ResourceLocation> expandedTreePageIds, int parentRowIndex) {
+        ProjectedRow row = appendRow(
+            rows,
             new DisplayRow(
                 RowKind.TREE_PAGE,
                 depth,
@@ -183,11 +243,13 @@ public class GuideNavProjection {
                 node.pageId(),
                 !node.children()
                     .isEmpty(),
-                node.hasPage()));
+                node.hasPage()),
+            parentRowIndex);
         if (node.pageId() != null && expandedTreePageIds.contains(node.pageId())) {
             for (var child : node.children()) {
-                addTreeRows(rows, child, depth + 1, expandedTreePageIds);
+                addTreeRows(rows, child, depth + 1, expandedTreePageIds, row.rowIndex());
             }
         }
+        row.setSubtreeEndRowIndexExclusive(rows.size());
     }
 }

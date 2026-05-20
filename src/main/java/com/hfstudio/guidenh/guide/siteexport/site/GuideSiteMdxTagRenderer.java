@@ -49,6 +49,11 @@ import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
 import com.hfstudio.guidenh.guide.indices.CategoryIndex;
 import com.hfstudio.guidenh.guide.indices.ItemIndex;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
+import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser;
+import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser.FileTreeEntry;
+import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser.FileTreeIcon;
+import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser.FileTreeModel;
+import com.hfstudio.guidenh.guide.internal.markdown.FileTreeParser.SlotKind;
 import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapDocument;
 import com.hfstudio.guidenh.guide.internal.mermaid.MermaidMindmapParser;
 import com.hfstudio.guidenh.guide.internal.util.GuideStringLines;
@@ -57,7 +62,9 @@ import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
 import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttribute;
+import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxAttributeNode;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
+import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxFlowElement;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstAnyContent;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstBreak;
 import com.hfstudio.guidenh.libs.mdast.model.MdAstLiteral;
@@ -193,7 +200,7 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             return renderDetails(element, defaultNamespace, currentPageId, templates, sceneResolver, compiler);
         }
         if ("FileTree".equals(name)) {
-            return renderFileTree(element);
+            return renderFileTree(element, defaultNamespace, currentPageId, templates, sceneResolver, compiler);
         }
         if ("FootnoteList".equals(name)) {
             return "<div class=\"guide-footnote-list\">"
@@ -942,8 +949,15 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
         GuideSiteHtmlCompiler.SceneResolver sceneResolver, GuideSiteHtmlCompiler compiler) {
         boolean open = readOptional(element, "open") != null;
+        String detailsStyle = buildDetailsStyle(element);
+        String bodyStyle = buildDetailsBodyStyle(element);
         StringBuilder html = new StringBuilder();
-        html.append("<details");
+        html.append("<details class=\"guide-details\"");
+        if (!detailsStyle.isEmpty()) {
+            html.append(" style=\"")
+                .append(escapeAttribute(detailsStyle))
+                .append("\"");
+        }
         if (open) {
             html.append(" open");
         }
@@ -961,6 +975,13 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
         } else {
             html.append("<summary>Details</summary>");
         }
+        html.append("<div class=\"guide-details-body\"");
+        if (!bodyStyle.isEmpty()) {
+            html.append(" style=\"")
+                .append(escapeAttribute(bodyStyle))
+                .append("\"");
+        }
+        html.append(">");
         html.append(
             compiler.compileFragment(
                 children.subList(bodyStart, children.size()),
@@ -968,16 +989,168 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
                 defaultNamespace,
                 sceneResolver,
                 currentPageId));
+        html.append("</div>");
         html.append("</details>");
         return html.toString();
     }
 
-    private String renderFileTree(MdxJsxElementFields element) {
+    private String renderFileTree(MdxJsxElementFields element, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver, GuideSiteHtmlCompiler compiler) {
         StringBuilder text = new StringBuilder();
         collectStructureText(text, element.children());
-        return GuideSiteGraphRenderer.renderFileTree(
+        FileTreeModel model = FileTreeParser.parse(
             text.toString()
                 .trim());
+        StringBuilder html = new StringBuilder();
+        html.append("<div class=\"guide-file-tree\">");
+        for (FileTreeEntry entry : model.entries()) {
+            html.append("<div class=\"guide-file-tree-row\">");
+            appendFileTreePrefix(html, entry.slots());
+            appendFileTreeIcon(html, entry.icon(), defaultNamespace, currentPageId, templates, sceneResolver);
+            html.append("<span class=\"guide-file-tree-name\">")
+                .append(
+                    renderFileTreePayload(
+                        entry.payloadSource(),
+                        defaultNamespace,
+                        currentPageId,
+                        templates,
+                        sceneResolver,
+                        compiler))
+                .append("</span></div>");
+        }
+        html.append("</div>");
+        return html.toString();
+    }
+
+    private String buildDetailsStyle(MdxJsxElementFields element) {
+        StringBuilder style = new StringBuilder();
+        Integer width = readPositiveInt(readOptional(element, "width"));
+        if (width != null) {
+            style.append("max-width:")
+                .append(width)
+                .append("px;width:100%;");
+        }
+        String wrap = readOptional(element, "wrap");
+        String align = readOptional(element, "align");
+        if (isFloatWrapMode(wrap)) {
+            if ("right".equalsIgnoreCase(align)) {
+                style.append("float:right;margin:0 0 12px 12px;");
+            } else {
+                style.append("float:left;margin:0 12px 12px 0;");
+            }
+        } else if ("center".equalsIgnoreCase(align)) {
+            style.append("margin-left:auto;margin-right:auto;");
+        } else if ("right".equalsIgnoreCase(align)) {
+            style.append("margin-left:auto;");
+        }
+        return style.toString();
+    }
+
+    private String buildDetailsBodyStyle(MdxJsxElementFields element) {
+        Integer height = readPositiveInt(readOptional(element, "height"));
+        if (height == null) {
+            return "";
+        }
+        return "max-height:" + height + "px;overflow:auto;";
+    }
+
+    private boolean isFloatWrapMode(@Nullable String wrap) {
+        return "square".equalsIgnoreCase(wrap) || "tight".equalsIgnoreCase(wrap) || "through".equalsIgnoreCase(wrap);
+    }
+
+    private void appendFileTreePrefix(StringBuilder html, List<SlotKind> slots) {
+        if (slots.isEmpty()) {
+            return;
+        }
+        StringBuilder prefix = new StringBuilder();
+        for (SlotKind slot : slots) {
+            switch (slot) {
+                case VERTICAL:
+                    prefix.append("|   ");
+                    break;
+                case BRANCH:
+                    prefix.append("|-- ");
+                    break;
+                case LAST_BRANCH:
+                    prefix.append("`-- ");
+                    break;
+                case EMPTY:
+                    prefix.append("    ");
+                    break;
+            }
+        }
+        html.append("<span class=\"guide-file-tree-prefix\">")
+            .append(escapeHtml(prefix.toString()))
+            .append("</span>");
+    }
+
+    private void appendFileTreeIcon(StringBuilder html, @Nullable FileTreeIcon icon, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver) {
+        if (icon == null || icon.value() == null
+            || icon.value()
+                .isEmpty()) {
+            return;
+        }
+        String rendered = switch (icon.kind()) {
+            case TEXT -> escapeHtml(icon.value());
+            case PNG -> "<img src=\"" + escapeAttribute(resolveFileTreeImage(icon.value(), currentPageId))
+                + "\" alt=\"\" decoding=\"async\">";
+            case ITEM -> renderFileTreeItemIcon(
+                icon.value(),
+                defaultNamespace,
+                currentPageId,
+                templates,
+                sceneResolver);
+        };
+        if (rendered.isEmpty()) {
+            return;
+        }
+        html.append("<span class=\"guide-file-tree-icon\">")
+            .append(rendered)
+            .append("</span> ");
+    }
+
+    private String resolveFileTreeImage(String value, @Nullable ResourceLocation currentPageId) {
+        String resolved = assetExporter != null ? assetExporter.resolveImageSrc(value, currentPageId) : null;
+        if (resolved != null && !resolved.isEmpty()) {
+            return resolved;
+        }
+        return value;
+    }
+
+    private String renderFileTreeItemIcon(String value, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver) {
+        List<MdxJsxAttributeNode> attrs = new ArrayList<>();
+        attrs.add(new MdxJsxAttribute("id", value));
+        attrs.add(new MdxJsxAttribute("scale", "0.85"));
+        MdxJsxFlowElement synthetic = new MdxJsxFlowElement("ItemImage", attrs);
+        String rendered = renderItemImage(synthetic, defaultNamespace, currentPageId, templates, true);
+        return rendered != null ? rendered : escapeHtml(value);
+    }
+
+    private String renderFileTreePayload(@Nullable String source, String defaultNamespace,
+        @Nullable ResourceLocation currentPageId, GuideSiteTemplateRegistry templates,
+        GuideSiteHtmlCompiler.SceneResolver sceneResolver, GuideSiteHtmlCompiler compiler) {
+        String payloadSource = source != null ? source : "";
+        if (payloadSource.trim()
+            .isEmpty()) {
+            return "";
+        }
+        if (currentPageId == null) {
+            return escapeHtml(payloadSource);
+        }
+        ParsedGuidePage parsed = PageCompiler
+            .parse(resolveSourcePack(currentPageId), "en_us", currentPageId, payloadSource);
+        return compiler.compileInlineFragment(
+            parsed.getAstRoot()
+                .children(),
+            templates,
+            defaultNamespace,
+            sceneResolver,
+            currentPageId);
     }
 
     private String renderMermaid(MdxJsxElementFields element, @Nullable ResourceLocation currentPageId) {
@@ -2035,6 +2208,28 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             }
         }
         return builder.toString();
+    }
+
+    private String resolveSourcePack(ResourceLocation pageId) {
+        ParsedGuidePage parsedPage = parsedPagesById.get(pageId);
+        if (parsedPage != null && parsedPage.getSourcePack() != null) {
+            return parsedPage.getSourcePack();
+        }
+        return "site-export";
+    }
+
+    @Nullable
+    private Integer readPositiveInt(@Nullable String raw) {
+        if (raw == null || raw.trim()
+            .isEmpty()) {
+            return null;
+        }
+        try {
+            int value = Integer.parseInt(raw.trim());
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String renderFallbackItemLabel(String itemId, @Nullable ResourceLocation currentPageId,

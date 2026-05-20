@@ -1,6 +1,7 @@
 package com.hfstudio.guidenh.guide.internal.screen;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -113,7 +114,7 @@ public class GuideNavBar {
     public static final int CONTENT_PADDING = 2;
     public static final int TITLE_H = 16;
     public static final int ROW_H = 12;
-    public static final int CHILD_INDENT = 12;
+    public static final int CHILD_INDENT = 3;
     public static final int EXPAND_INDENT = 8;
     public static final int ICON_SIZE = 9;
     public static final int ACTION_SLOT_W = 12;
@@ -129,6 +130,7 @@ public class GuideNavBar {
     private final List<Row> rows = new ArrayList<Row>();
     private final Set<ResourceLocation> expandedPageIds = new HashSet<ResourceLocation>();
     private final GuideNavProjection projection = new GuideNavProjection();
+    private final StickyStack stickyStack = new StickyStack();
     @Nullable
     private NavigationTree lastTree;
     private int lastBookmarkStateVersion;
@@ -222,9 +224,10 @@ public class GuideNavBar {
             lastExpandedStateHash = expandedPageIds.hashCode();
             return;
         }
-        for (GuideNavProjection.DisplayRow displayRow : projection
-            .project(tree, bookmarkState, expandedPageIds, bookmarkGroupExpanded)) {
-            rows.add(new Row(displayRow));
+        GuideNavProjection.ProjectionResult projected = projection
+            .project(tree, bookmarkState, expandedPageIds, bookmarkGroupExpanded);
+        for (GuideNavProjection.ProjectedRow projectedRow : projected.rows()) {
+            rows.add(new Row(projectedRow));
         }
         lastBookmarkStateVersion = bookmarkState.version();
         lastExpandedStateHash = expandedPageIds.hashCode();
@@ -265,7 +268,10 @@ public class GuideNavBar {
             setScissor(mc, x, bodyY, w, bodyHeight, sf);
 
             FontRenderer fr = mc.fontRenderer;
+            StickyStack stickyStack = computeStickyStack(bodyY);
             int firstVisibleRow = getFirstVisibleRowIndex();
+            int stickyPointer = 0;
+            int nextStickyRowIndex = stickyStack.size() > 0 ? stickyStack.rowIndexAt(0) : Integer.MAX_VALUE;
             boolean titleScrollActive = false;
             for (int rowIndex = firstVisibleRow; rowIndex < rows.size(); rowIndex++) {
                 Row row = rows.get(rowIndex);
@@ -273,43 +279,46 @@ public class GuideNavBar {
                 if (rowY >= y + height) {
                     break;
                 }
-
-                int indent = row.displayRow.depth() * CHILD_INDENT;
-                int rowX = x + 2 + indent;
-                boolean hovered = mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowY + ROW_H;
-                boolean current = isCurrentRow(row.displayRow, currentGuideId, currentPageId);
-                if (current) {
-                    Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x40FFFFFF);
-                } else if (hovered) {
-                    Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x20FFFFFF);
+                if (rowIndex == nextStickyRowIndex) {
+                    stickyPointer++;
+                    nextStickyRowIndex = stickyPointer < stickyStack.size() ? stickyStack.rowIndexAt(stickyPointer)
+                        : Integer.MAX_VALUE;
+                    continue;
                 }
-
-                if (row.displayRow.hasChildren()) {
-                    boolean collapsed = isCollapsed(row.displayRow);
-                    drawArrow(rowX, rowY + 2, collapsed, 0xFFCCCCCC);
-                }
-
-                int textX = rowX + EXPAND_INDENT;
-                GuidePageIcon icon = row.displayRow.icon();
-                if (icon != null) {
-                    int iy = rowY + (ROW_H - ICON_SIZE) / 2;
-                    drawMiniIcon(mc, icon, textX, iy);
-                    textX += ICON_SIZE + 2;
-                }
-
-                int textRight = textRightBase;
-                if (canToggleBookmark(row.displayRow)) {
-                    textRight -= ACTION_SLOT_W;
-                }
-                int maxTw = textRight - textX;
-                if (maxTw > 0) {
-                    boolean failed = row.displayRow.pageId() != null && pageCollection != null
-                        && pageCollection.isPageFailed(row.displayRow.pageId());
-                    int color = getRowTextColor(current, hovered, failed);
-                    titleScrollActive |= renderRowTitle(mc, fr, row, textX, rowY, maxTw, color, hovered, sf);
-                }
-
-                renderBookmarkIcon(mc, row.displayRow, rowY, hovered, bookmarkState, bookmarkIconX);
+                titleScrollActive |= renderRow(
+                    mc,
+                    fr,
+                    row,
+                    rowY,
+                    mouseX,
+                    mouseY,
+                    rowRight,
+                    textRightBase,
+                    currentGuideId,
+                    currentPageId,
+                    pageCollection,
+                    bookmarkState,
+                    bookmarkIconX,
+                    sf,
+                    false);
+            }
+            for (int stackIndex = 0; stackIndex < stickyStack.size(); stackIndex++) {
+                titleScrollActive |= renderRow(
+                    mc,
+                    fr,
+                    stickyStack.rowAt(stackIndex),
+                    stickyStack.rowYAt(stackIndex),
+                    mouseX,
+                    mouseY,
+                    rowRight,
+                    textRightBase,
+                    currentGuideId,
+                    currentPageId,
+                    pageCollection,
+                    bookmarkState,
+                    bookmarkIconX,
+                    sf,
+                    true);
             }
             if (!titleScrollActive) {
                 resetTitleScroll();
@@ -320,6 +329,117 @@ public class GuideNavBar {
             GL11.glEnable(GL11.GL_TEXTURE_2D);
             GL11.glColor4f(1f, 1f, 1f, 1f);
         }
+    }
+
+    private boolean renderRow(Minecraft mc, FontRenderer fr, Row row, int rowY, int mouseX, int mouseY, int rowRight,
+        int textRightBase, @Nullable ResourceLocation currentGuideId, @Nullable ResourceLocation currentPageId,
+        @Nullable PageCollection pageCollection, GuideBookmarkState bookmarkState, int bookmarkIconX, int scaleFactor,
+        boolean sticky) {
+        GuideNavProjection.DisplayRow displayRow = row.displayRow();
+        int indent = displayRow.depth() * CHILD_INDENT;
+        int rowX = x + 2 + indent;
+        boolean hovered = mouseX >= x && mouseX < rowRight && mouseY >= rowY && mouseY < rowY + ROW_H;
+        boolean current = isCurrentRow(displayRow, currentGuideId, currentPageId);
+
+        if (sticky) {
+            Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0xF0181818);
+            Gui.drawRect(x, rowY + ROW_H - 1, rowRight, rowY + ROW_H, 0x802A2A2A);
+        }
+        if (current) {
+            Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x40FFFFFF);
+        } else if (hovered) {
+            Gui.drawRect(x, rowY, rowRight, rowY + ROW_H, 0x20FFFFFF);
+        }
+
+        if (displayRow.hasChildren()) {
+            boolean collapsed = isCollapsed(displayRow);
+            drawArrow(rowX, rowY + 2, collapsed, 0xFFCCCCCC);
+        }
+
+        int textX = rowX + EXPAND_INDENT;
+        GuidePageIcon icon = displayRow.icon();
+        if (icon != null) {
+            int iconY = rowY + (ROW_H - ICON_SIZE) / 2;
+            drawMiniIcon(mc, icon, textX, iconY);
+            textX += ICON_SIZE + 2;
+        }
+
+        int textRight = textRightBase;
+        if (canToggleBookmark(displayRow)) {
+            textRight -= ACTION_SLOT_W;
+        }
+        int maxTw = textRight - textX;
+        boolean titleScrollActive = false;
+        if (maxTw > 0) {
+            boolean failed = displayRow.pageId() != null && pageCollection != null
+                && pageCollection.isPageFailed(displayRow.pageId());
+            int color = getRowTextColor(current, hovered, failed);
+            titleScrollActive = renderRowTitle(mc, fr, row, textX, rowY, maxTw, color, hovered, scaleFactor);
+        }
+
+        renderBookmarkIcon(mc, displayRow, rowY, hovered, bookmarkState, bookmarkIconX);
+        return titleScrollActive;
+    }
+
+    private StickyStack computeStickyStack(int bodyY) {
+        stickyStack.clear();
+        if (rows.isEmpty()) {
+            return stickyStack;
+        }
+
+        int firstVisibleRow = getFirstVisibleRowIndex();
+        if (firstVisibleRow < 0 || firstVisibleRow >= rows.size()) {
+            return stickyStack;
+        }
+
+        Row anchorRow = rows.get(firstVisibleRow);
+        collectStickyAncestors(anchorRow);
+        if (isStickyCandidate(anchorRow) && getRowY(anchorRow.rowIndex()) < bodyY) {
+            stickyStack.add(anchorRow);
+        }
+        if (stickyStack.isEmpty()) {
+            return stickyStack;
+        }
+
+        int nextRowY = Integer.MAX_VALUE;
+        for (int index = stickyStack.size() - 1; index >= 0; index--) {
+            Row row = stickyStack.rowAt(index);
+            int defaultRowY = bodyY + index * ROW_H;
+            int subtreeBoundaryY = getRowY(
+                row.projectedRow()
+                    .subtreeEndRowIndexExclusive());
+            int rowBottomLimit = Math.min(nextRowY, subtreeBoundaryY);
+            int stickyRowY = Math.min(defaultRowY, rowBottomLimit - ROW_H);
+            stickyStack.setRowYAt(index, stickyRowY);
+            nextRowY = stickyRowY;
+        }
+        return stickyStack;
+    }
+
+    private void collectStickyAncestors(Row anchorRow) {
+        collectStickyAncestorChain(
+            anchorRow.projectedRow()
+                .parentRowIndex());
+    }
+
+    private void collectStickyAncestorChain(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return;
+        }
+        Row parentRow = rows.get(rowIndex);
+        collectStickyAncestorChain(
+            parentRow.projectedRow()
+                .parentRowIndex());
+        if (isStickyCandidate(parentRow)) {
+            stickyStack.add(parentRow);
+        }
+    }
+
+    private boolean isStickyCandidate(Row row) {
+        GuideNavProjection.DisplayRow displayRow = row.displayRow();
+        return displayRow.kind() == GuideNavProjection.RowKind.TREE_PAGE && displayRow.hasChildren()
+            && row.projectedRow()
+                .subtreeEndRowIndexExclusive() > row.rowIndex() + 1;
     }
 
     private void resetTitleScroll() {
@@ -416,40 +536,40 @@ public class GuideNavBar {
             }
             return ClickResult.none();
         }
-        int rowIndex = getRowIndexAt(mouseY);
-        if (rowIndex < 0) {
+        StickyStack stickyStack = computeStickyStack(y + TITLE_H + CONTENT_PADDING);
+        RowHit rowHit = pickRowAt(mouseY, stickyStack);
+        if (rowHit == null) {
             return null;
         }
 
-        Row row = rows.get(rowIndex);
-        int rowY = getRowY(rowIndex);
-        if (canToggleBookmark(row.displayRow) && isInsideBookmarkAction(mouseX, row, rowY)
-            && row.displayRow.pageId() != null) {
-            return ClickResult.toggleBookmark(row.displayRow.pageId());
+        Row row = rowHit.row();
+        GuideNavProjection.DisplayRow displayRow = row.displayRow();
+        if (canToggleBookmark(displayRow) && isInsideBookmarkAction(mouseX, row) && displayRow.pageId() != null) {
+            return ClickResult.toggleBookmark(displayRow.pageId());
         }
 
-        if (row.displayRow.hasChildren() && isInsideExpandArrow(mouseX, row)) {
-            toggleExpand(row.displayRow, bookmarkState);
+        if (displayRow.hasChildren() && isInsideExpandArrow(mouseX, row)) {
+            toggleExpand(displayRow, bookmarkState);
             return ClickResult.none();
         }
 
-        if (row.displayRow.kind() == GuideNavProjection.RowKind.BOOKMARK_GROUP) {
+        if (displayRow.kind() == GuideNavProjection.RowKind.BOOKMARK_GROUP) {
             bookmarkGroupExpanded = !bookmarkGroupExpanded;
             rebuildRows(lastTree, bookmarkState);
             return ClickResult.none();
         }
 
-        if (row.displayRow.hasChildren() && row.displayRow.kind() == GuideNavProjection.RowKind.TREE_PAGE) {
-            boolean alreadyExpanded = isExpanded(row.displayRow);
+        if (displayRow.hasChildren() && displayRow.kind() == GuideNavProjection.RowKind.TREE_PAGE) {
+            boolean alreadyExpanded = isExpanded(displayRow);
             if (!alreadyExpanded) {
-                toggleExpand(row.displayRow, bookmarkState);
-            } else if (isCurrentRow(row.displayRow, currentGuideId, currentPageId)) {
-                toggleExpand(row.displayRow, bookmarkState);
+                toggleExpand(displayRow, bookmarkState);
+            } else if (isCurrentRow(displayRow, currentGuideId, currentPageId)) {
+                toggleExpand(displayRow, bookmarkState);
             }
         }
 
-        if (row.displayRow.pageId() != null && row.displayRow.hasPage()) {
-            return ClickResult.navigate(row.displayRow.guideId(), row.displayRow.pageId());
+        if (displayRow.pageId() != null && displayRow.hasPage()) {
+            return ClickResult.navigate(displayRow.guideId(), displayRow.pageId());
         }
         return ClickResult.none();
     }
@@ -483,8 +603,8 @@ public class GuideNavBar {
         GuideIconButton.drawIcon(mc, role, bookmarkIconX, iconY, ACTION_ICON_SIZE, ACTION_ICON_SIZE, color);
     }
 
-    private boolean isInsideBookmarkAction(int mouseX, Row row, int rowY) {
-        if (!canToggleBookmark(row.displayRow)) {
+    private boolean isInsideBookmarkAction(int mouseX, Row row) {
+        if (!canToggleBookmark(row.displayRow())) {
             return false;
         }
         int iconX = x + currentWidth() - ACTION_SLOT_W;
@@ -497,7 +617,9 @@ public class GuideNavBar {
     }
 
     private boolean isInsideExpandArrow(int mouseX, Row row) {
-        int arrowX = x + 2 + row.displayRow.depth() * CHILD_INDENT;
+        int arrowX = x + 2
+            + row.displayRow()
+                .depth() * CHILD_INDENT;
         return mouseX >= arrowX && mouseX < arrowX + EXPAND_INDENT;
     }
 
@@ -555,13 +677,27 @@ public class GuideNavBar {
         return Math.max(0, Math.min(firstVisibleRow, rows.size()));
     }
 
-    private int getRowIndexAt(int mouseY) {
+    @Nullable
+    private RowHit pickRowAt(int mouseY, StickyStack stickyStack) {
+        for (int index = 0; index < stickyStack.size(); index++) {
+            int rowY = stickyStack.rowYAt(index);
+            if (mouseY >= rowY && mouseY < rowY + ROW_H) {
+                return new RowHit(stickyStack.rowAt(index));
+            }
+        }
+
         int relativeY = mouseY - y - TITLE_H + scrollY - CONTENT_PADDING;
         if (relativeY < 0) {
-            return -1;
+            return null;
         }
         int rowIndex = relativeY / ROW_H;
-        return rowIndex >= 0 && rowIndex < rows.size() ? rowIndex : -1;
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return null;
+        }
+        if (stickyStack.containsRowIndex(rowIndex)) {
+            return null;
+        }
+        return new RowHit(rows.get(rowIndex));
     }
 
     private int getRowY(int rowIndex) {
@@ -708,7 +844,7 @@ public class GuideNavBar {
 
     public static class Row {
 
-        private final GuideNavProjection.DisplayRow displayRow;
+        private final GuideNavProjection.ProjectedRow projectedRow;
         @Nullable
         private String cachedTitle;
         @Nullable
@@ -717,15 +853,27 @@ public class GuideNavBar {
         private int cachedTitleWidth = -1;
         private int cachedScrollCycleWidth = -1;
 
-        public Row(GuideNavProjection.DisplayRow displayRow) {
-            this.displayRow = displayRow;
+        public Row(GuideNavProjection.ProjectedRow projectedRow) {
+            this.projectedRow = projectedRow;
+        }
+
+        public GuideNavProjection.ProjectedRow projectedRow() {
+            return projectedRow;
+        }
+
+        public GuideNavProjection.DisplayRow displayRow() {
+            return projectedRow.displayRow();
+        }
+
+        public int rowIndex() {
+            return projectedRow.rowIndex();
         }
 
         public String getTitle(FontRenderer fr, int maxTw) {
             if (maxTw == cachedMaxTw && cachedTitle != null) {
                 return cachedTitle;
             }
-            String title = displayRow.title();
+            String title = displayRow().title();
             cachedTitle = getTitleWidth(fr) > maxTw ? fr.trimStringToWidth(title, Math.max(0, maxTw - 4)) + "\u2026"
                 : title;
             cachedMaxTw = maxTw;
@@ -734,24 +882,97 @@ public class GuideNavBar {
 
         public int getTitleWidth(FontRenderer fr) {
             if (cachedTitleWidth < 0) {
-                cachedTitleWidth = fr.getStringWidth(displayRow.title());
+                cachedTitleWidth = fr.getStringWidth(displayRow().title());
             }
             return cachedTitleWidth;
         }
 
         public int getScrollCycleWidth(FontRenderer fr) {
             if (cachedScrollCycleWidth < 0) {
-                cachedScrollCycleWidth = fr.getStringWidth(displayRow.title() + TITLE_SCROLL_GAP);
+                cachedScrollCycleWidth = fr.getStringWidth(displayRow().title() + TITLE_SCROLL_GAP);
             }
             return cachedScrollCycleWidth;
         }
 
         public String getScrollingTitle() {
             if (cachedScrollingTitle == null) {
-                String title = displayRow.title();
+                String title = displayRow().title();
                 cachedScrollingTitle = title + TITLE_SCROLL_GAP + title;
             }
             return cachedScrollingTitle;
+        }
+    }
+
+    private static class StickyStack {
+
+        private final List<Row> rows = new ArrayList<Row>();
+        private int[] rowYs = new int[0];
+        private int[] rowIndices = new int[0];
+
+        public void clear() {
+            rows.clear();
+        }
+
+        public boolean isEmpty() {
+            return rows.isEmpty();
+        }
+
+        public void add(Row row) {
+            int index = rows.size();
+            ensureCapacity(index + 1);
+            rows.add(row);
+            rowIndices[index] = row.rowIndex();
+        }
+
+        public void setRowYAt(int index, int rowY) {
+            rowYs[index] = rowY;
+        }
+
+        public int size() {
+            return rows.size();
+        }
+
+        public Row rowAt(int index) {
+            return rows.get(index);
+        }
+
+        public int rowYAt(int index) {
+            return rowYs[index];
+        }
+
+        public int rowIndexAt(int index) {
+            return rowIndices[index];
+        }
+
+        public boolean containsRowIndex(int rowIndex) {
+            for (int index = 0; index < rows.size(); index++) {
+                if (rowIndices[index] == rowIndex) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void ensureCapacity(int size) {
+            if (rowYs.length >= size) {
+                return;
+            }
+            int newSize = Math.max(size, Math.max(4, rowYs.length * 2));
+            rowYs = Arrays.copyOf(rowYs, newSize);
+            rowIndices = Arrays.copyOf(rowIndices, newSize);
+        }
+    }
+
+    private static class RowHit {
+
+        private final Row row;
+
+        private RowHit(Row row) {
+            this.row = row;
+        }
+
+        public Row row() {
+            return row;
         }
     }
 }

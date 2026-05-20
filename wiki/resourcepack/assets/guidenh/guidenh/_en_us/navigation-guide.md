@@ -12,6 +12,10 @@ categories:
 
 GuideNH uses YAML frontmatter to declare navigation structure — no `index.md` hardcoding, no manifest files. Every page controls where it appears in the sidebar through its own frontmatter.
 
+When nested pages are expanded in the in-game sidebar, every expanded ancestor that still owns
+visible descendants stays pinned at the top. Multiple ancestor levels can stack there at once,
+making deep trees easier to track while scrolling.
+
 ## Quick Example
 
 ```yaml

@@ -29,6 +29,7 @@ public class LytFileTree extends LytBlock {
     private static final int CONNECTOR_THICKNESS = 1;
 
     private final List<Row> rows = new ArrayList<>();
+    private final List<LytNode> childNodes = new ArrayList<>();
     private int indentPx = DEFAULT_INDENT_PX;
     private int rowGapPx = DEFAULT_ROW_GAP_PX;
     private int iconBoxPx = DEFAULT_ICON_BOX_PX;
@@ -36,6 +37,12 @@ public class LytFileTree extends LytBlock {
 
     public void appendRow(List<SlotKind> slots, @Nullable LytBlock iconBlock, LytParagraph payload) {
         Row row = new Row(new ArrayList<>(slots), iconBlock, payload);
+        if (iconBlock != null) {
+            iconBlock.parent = this;
+            childNodes.add(iconBlock);
+        }
+        payload.parent = this;
+        childNodes.add(payload);
         rows.add(row);
     }
 
@@ -59,6 +66,34 @@ public class LytFileTree extends LytBlock {
 
     public boolean isEmpty() {
         return rows.isEmpty();
+    }
+
+    @Override
+    public List<? extends LytNode> getChildren() {
+        return childNodes;
+    }
+
+    @Override
+    public void removeChild(LytNode node) {
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            Row row = rows.get(rowIndex);
+            if (row.payload == node) {
+                row.payload.parent = null;
+                childNodes.remove(row.payload);
+                if (row.iconBlock != null) {
+                    row.iconBlock.parent = null;
+                    childNodes.remove(row.iconBlock);
+                }
+                rows.remove(rowIndex);
+                return;
+            }
+            if (row.iconBlock == node) {
+                row.iconBlock.parent = null;
+                childNodes.remove(row.iconBlock);
+                rows.set(rowIndex, new Row(row.slots, null, row.payload));
+                return;
+            }
+        }
     }
 
     @Override
@@ -197,7 +232,7 @@ public class LytFileTree extends LytBlock {
         context.fillRect(new LytRect(left, y, width, CONNECTOR_THICKNESS), color);
     }
 
-    private static final class Row {
+    private static class Row {
 
         final List<SlotKind> slots;
         @Nullable

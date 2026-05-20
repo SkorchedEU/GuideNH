@@ -24,6 +24,7 @@ public class SceneEditorSceneModel {
     private float offsetY;
     private float zoom;
     private boolean interactive;
+    private boolean showBackground;
     private boolean allowLayerSlider;
     private float centerX;
     private float centerY;
@@ -43,6 +44,7 @@ public class SceneEditorSceneModel {
         this.offsetY = Float.NaN;
         this.zoom = Float.NaN;
         this.interactive = true;
+        this.showBackground = true;
         this.allowLayerSlider = false;
         this.centerX = Float.NaN;
         this.centerY = Float.NaN;
@@ -73,6 +75,7 @@ public class SceneEditorSceneModel {
         copy.setOffsetY(this.offsetY);
         copy.setZoom(this.zoom);
         copy.setInteractive(this.interactive);
+        copy.setShowBackground(this.showBackground);
         copy.setAllowLayerSlider(this.allowLayerSlider);
         copy.setCenterX(this.centerX);
         copy.setCenterY(this.centerY);
@@ -210,6 +213,14 @@ public class SceneEditorSceneModel {
 
     public void setInteractive(boolean interactive) {
         this.interactive = interactive;
+    }
+
+    public boolean isShowBackground() {
+        return showBackground;
+    }
+
+    public void setShowBackground(boolean showBackground) {
+        this.showBackground = showBackground;
     }
 
     public boolean isAllowLayerSlider() {

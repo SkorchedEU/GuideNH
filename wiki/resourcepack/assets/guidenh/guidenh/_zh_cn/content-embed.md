@@ -102,7 +102,7 @@ categories:
 
 ## 游戏场景左浮动
 
-<GameScene wrap="square" align="left" zoom={4} background="transparent" width="120" height="90">
+<GameScene wrap="square" align="left" zoom={4} showBackground={false} width="120" height="90">
   <Block id="minecraft:furnace" />
 </GameScene>
 
@@ -112,7 +112,7 @@ categories:
 
 ## 游戏场景居中
 
-<GameScene align="center" zoom={4} background="transparent" width="200" height="120">
+<GameScene align="center" zoom={4} showBackground={false} width="200" height="120">
   <Block id="minecraft:crafting_table" />
 </GameScene>
 
@@ -120,7 +120,7 @@ categories:
 
 ## 游戏场景右浮动
 
-<GameScene wrap="square" align="right" zoom={4} background="transparent" width="120" height="90">
+<GameScene wrap="square" align="right" zoom={4} showBackground={false} width="120" height="90">
   <Block id="minecraft:chest" />
 </GameScene>
 

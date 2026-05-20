@@ -10,7 +10,7 @@ GuideNH renders an interactive progress bar with play/pause controls below the 3
 2. Add `<ImportPonder src="..."/>` inside a `<GameScene>` block alongside `<ImportStructure>`.
 
 ```mdx
-<GameScene zoom="4" background="#0a0a10">
+<GameScene zoom="4">
   <ImportStructure src="scenes/my_machine.snbt" />
   <ImportPonder src="scenes/my_machine_ponder.json" />
 </GameScene>
@@ -752,7 +752,7 @@ Litematica). See [Getting Started](Getting-Started.md) for the full SNBT format 
 ```mdx
 # Grinder
 
-<GameScene zoom="4" background="#0a0a10">
+<GameScene zoom="4">
   <ImportStructure src="grinder.snbt" />
   <ImportPonder src="grinder.json" />
 </GameScene>

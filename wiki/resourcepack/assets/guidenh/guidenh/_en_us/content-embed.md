@@ -106,7 +106,7 @@ Text to the left of a recipe box using a right-side float.
 
 ## GameScene Float Left
 
-<GameScene wrap="square" align="left" zoom={4} background="transparent" width="120" height="90">
+<GameScene wrap="square" align="left" zoom={4} showBackground={false} width="120" height="90">
   <Block id="minecraft:furnace" />
 </GameScene>
 
@@ -118,7 +118,7 @@ to show multi-line wrapping around the scene.
 
 ## GameScene Centred
 
-<GameScene align="center" zoom={4} background="transparent" width="200" height="120">
+<GameScene align="center" zoom={4} showBackground={false} width="200" height="120">
   <Block id="minecraft:crafting_table" />
 </GameScene>
 
@@ -127,7 +127,7 @@ float — text appears only above and below, never beside.
 
 ## GameScene Float Right
 
-<GameScene wrap="square" align="right" zoom={4} background="transparent" width="120" height="90">
+<GameScene wrap="square" align="right" zoom={4} showBackground={false} width="120" height="90">
   <Block id="minecraft:chest" />
 </GameScene>
 

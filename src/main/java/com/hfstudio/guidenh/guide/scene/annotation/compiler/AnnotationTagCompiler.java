@@ -47,7 +47,12 @@ public abstract class AnnotationTagCompiler implements SceneElementTagCompiler {
 
         var contentBox = new LytVBox();
         if (lineAnnotation) {
-            compiler.compileBlockContextInSourceContext(children, contentBox);
+            String tooltipSource = LineAnnotationElementCompiler.tooltipSource(compiler, el);
+            if (tooltipSource != null && !tooltipSource.isEmpty()) {
+                compiler.withSourceContext(tooltipSource, () -> compiler.compileBlockContext(children, contentBox));
+            } else {
+                compiler.compileBlockContext(children, contentBox);
+            }
         } else {
             compiler.compileBlockTagChildren(el, contentBox);
         }

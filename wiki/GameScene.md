@@ -19,6 +19,7 @@
 | `centerY` | float | auto | explicit world rotation center Y |
 | `centerZ` | float | auto | explicit world rotation center Z |
 | `interactive` | boolean expression | `true` | enables mouse interaction |
+| `showBackground` | boolean expression | `true` | shows the scene background fill and border |
 | `allowLayerSlider` | boolean | `true` | shows the vertical layer slider |
 | `gridButtonEnabled` | boolean | `true` | shows the floor grid toggle button |
 | `showGrid` | boolean | `false` | initial visibility of the floor grid |

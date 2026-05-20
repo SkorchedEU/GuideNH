@@ -4635,14 +4635,27 @@ public class GuideScreen extends GuiContainer
         if (button != 0 && button != 1) {
             return false;
         }
+        LytGuidebookScene scene = interaction != null ? interaction.scene : findSceneAncestor(hit.node());
+        if (tryStartSceneDragInteraction(interaction, scene, mouseX, mouseY, button)) {
+            return true;
+        }
         for (LytNode current = hit.node(); current != null; current = current.getParent()) {
             if (current instanceof DocumentDragTarget dragTarget && dragTarget.beginDrag(docX, docY, button)) {
                 activeDocumentDragTarget = dragTarget;
                 return true;
             }
         }
-        LytGuidebookScene scene = interaction != null ? interaction.scene : findSceneAncestor(hit.node());
         if (scene == null) {
+            return false;
+        }
+        activeScene = scene;
+        scene.startDrag(mouseX, mouseY, button);
+        return true;
+    }
+
+    private boolean tryStartSceneDragInteraction(@Nullable DocumentInteractionState interaction,
+        @Nullable LytGuidebookScene scene, int mouseX, int mouseY, int button) {
+        if (scene == null || !scene.isInteractive() || !scene.containsSceneInteractiveTarget(mouseX, mouseY)) {
             return false;
         }
         if (button == 0) {

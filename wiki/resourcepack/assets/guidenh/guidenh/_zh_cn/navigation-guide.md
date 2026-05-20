@@ -12,6 +12,8 @@ categories:
 
 GuideNH 使用 YAML frontmatter 声明导航结构——无需 `index.md` 硬编码，无需 manifest 文件。每个页面通过自身的 frontmatter 决定在侧边栏中的位置。
 
+当游戏内侧边栏展开多层页面时，只要某个祖先节点的可见子孙仍在列表中，它就会固定在顶部。多层祖先可以同时逐层堆叠，便于在深层树结构中滚动定位。
+
 ## 快速示例
 
 ```yaml

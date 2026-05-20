@@ -56,6 +56,7 @@ public class SceneEditorMarkdownCodec {
                 "centerY",
                 "centerZ",
                 "interactive",
+                "showBackground",
                 "allowLayerSlider")));
     public static final Set<String> IMPORT_STRUCTURE_ATTRIBUTES = Collections
         .unmodifiableSet(new HashSet<>(Collections.singletonList("src")));
@@ -214,6 +215,7 @@ public class SceneEditorMarkdownCodec {
         model.setCenterY(parseOptionalFloatAttribute(sceneElement, "centerY"));
         model.setCenterZ(parseOptionalFloatAttribute(sceneElement, "centerZ"));
         model.setInteractive(parseBooleanAttribute(sceneElement, "interactive", model.isInteractive()));
+        model.setShowBackground(parseBooleanAttribute(sceneElement, "showBackground", model.isShowBackground()));
         model.setAllowLayerSlider(parseBooleanAttribute(sceneElement, "allowLayerSlider", model.isAllowLayerSlider()));
 
         for (Object child : sceneElement.children()) {
@@ -558,6 +560,9 @@ public class SceneEditorMarkdownCodec {
         appendOptionalFloatAttribute(builder, "centerZ", model.getCenterZ(), 0f);
         if (!model.isInteractive()) {
             builder.append(" interactive={false}");
+        }
+        if (!model.isShowBackground()) {
+            builder.append(" showBackground={false}");
         }
         if (model.isAllowLayerSlider()) {
             builder.append(" allowLayerSlider={true}");

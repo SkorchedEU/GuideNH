@@ -1295,6 +1295,37 @@ p {
     color: rgb(210, 210, 210);
 }
 
+.guide-details {
+    display: block;
+    margin: 0.8em 0;
+    padding: 0.45em 0.65em;
+    background: rgb(24, 29, 36);
+    border: 1px solid rgb(58, 64, 71);
+}
+
+.guide-details > summary {
+    cursor: pointer;
+    color: rgb(232, 238, 245);
+    font-weight: 700;
+}
+
+.guide-details > summary > p {
+    display: inline;
+    margin: 0;
+}
+
+.guide-details-body {
+    margin-top: 0.6em;
+}
+
+.guide-details-body > :first-child {
+    margin-top: 0;
+}
+
+.guide-details-body > :last-child {
+    margin-bottom: 0;
+}
+
 .guide-tooltip-scene-placeholder {
     display: inline-block;
     background: #0c1117;

@@ -44,8 +44,7 @@ public class BlockImageCompiler extends BlockTagCompiler {
         scene.setGridButtonEnabled(false);
         scene.setGridVisible(false);
         scene.setAnnotationsVisible(false);
-        scene.setSceneBackgroundColor(0x00000000);
-        scene.setSceneBorderColor(0x00000000);
+        scene.setShowBackground(false);
 
         CameraSettings camera = scene.getCamera();
         camera.setZoom(clampZoom(MdxAttrs.getFloat(compiler, parent, el, "scale", 1f)));

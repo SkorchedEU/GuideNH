@@ -189,7 +189,6 @@ public class LytGuidebookScene extends LytBlock {
     private int cachedPonderBtnAbsY;
 
     @Getter
-    @Setter
     private boolean interactive = true;
     @Setter
     @Getter
@@ -246,6 +245,9 @@ public class LytGuidebookScene extends LytBlock {
     @Setter
     @Getter
     private int sceneBorderColor = SCENE_BORDER_COLOR;
+    @Setter
+    @Getter
+    private boolean showBackground = true;
     @Nullable
     private LytSize cameraViewportOverride;
     @Getter
@@ -461,6 +463,17 @@ public class LytGuidebookScene extends LytBlock {
     public LytGuidebookScene() {
         camera.setPerspectivePreset(PerspectivePreset.ISOMETRIC_NORTH_EAST);
         snapshotInitialCamera();
+    }
+
+    public void setInteractive(boolean interactive) {
+        if (this.interactive == interactive) {
+            return;
+        }
+        this.interactive = interactive;
+        if (!interactive) {
+            endDrag();
+        }
+        invalidateDocumentLayout();
     }
 
     public void setLevel(GuidebookLevel level) {
@@ -1380,12 +1393,12 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public int getBottomControlAreaHeight() {
-        if (!bottomControlsVisible) {
+        if (!hasBottomControls()) {
             return 0;
         }
         return ponderControlAreaHeight() + visibleLayerSliderAreaHeight()
             + structureLibTierSliderAreaHeight()
-            + selectableStructureLibChannels.size() * SCENE_SLIDER_AREA_HEIGHT;
+            + structureLibChannelSliderAreaHeight();
     }
 
     public boolean hasStructureLibHatchData() {
@@ -1792,17 +1805,28 @@ public class LytGuidebookScene extends LytBlock {
             absY = mrc.getDocumentOriginY() + Math.round((sceneRect.y() - mrc.getScrollOffsetY()) * docZoom);
             outerAbsX = absX;
             outerAbsY = absY;
-            LytRect vp = mrc.viewport();
-            clipX = mrc.getDocumentOriginX();
-            clipY = mrc.getDocumentOriginY();
-            clipW = vp.width();
-            clipH = vp.height();
         }
         // Scale layout dimensions to screen pixels when document zoom != 1.
         int w = Math.round(sceneRect.width() * docZoom);
         int h = Math.round(sceneRect.height() * docZoom);
         int outerW = Math.round(outerRect.width() * docZoom);
         int outerH = Math.round(outerRect.height() * docZoom);
+        int sceneRight = absX + w;
+        int sceneBottom = absY + h;
+        LytRect activeScissor = context.currentScissor();
+        if (activeScissor != null) {
+            clipX = Math.max(absX, activeScissor.x());
+            clipY = Math.max(absY, activeScissor.y());
+            int clipRight = Math.min(sceneRight, activeScissor.right());
+            int clipBottom = Math.min(sceneBottom, activeScissor.bottom());
+            clipW = Math.max(0, clipRight - clipX);
+            clipH = Math.max(0, clipBottom - clipY);
+        } else {
+            clipX = absX;
+            clipY = absY;
+            clipW = w;
+            clipH = h;
+        }
         playEnterSoundsIfNeeded();
 
         if (level.isEmpty() && annotations.isEmpty() && !shouldRenderOriginAxes()) {
@@ -1816,17 +1840,17 @@ public class LytGuidebookScene extends LytBlock {
             this.lastOuterW = outerW;
             this.lastOuterH = outerH;
             this.cachedScreenRect = updateCachedRect(cachedScreenRect, absX, absY, w, h);
-            context.fillRect(sceneRect, sceneBackgroundColor);
+            renderSceneBackground(context, sceneRect);
             drawBottomControls(context, outerRect);
             drawBlockStatsOverlay(context, sceneRect, outerRect);
-            context.drawBorder(sceneRect, sceneBorderColor, 1);
+            renderSceneBorder(context, sceneRect);
             if (interactive && sceneButtonsVisible) {
                 drawSceneButtons(sceneRect.x(), sceneRect.y(), w, h, absX, absY, docZoom);
             }
             return;
         }
 
-        context.fillRect(sceneRect, sceneBackgroundColor);
+        renderSceneBackground(context, sceneRect);
         this.renderedContentClip = updateCachedRect(this.renderedContentClip, clipX, clipY, clipW, clipH);
 
         if (cameraViewportOverride != null) {
@@ -2007,11 +2031,25 @@ public class LytGuidebookScene extends LytBlock {
         drawBottomControls(context, outerRect);
 
         // Draw border AFTER the 3D content so border pixels always sit on top.
-        context.drawBorder(sceneRect, sceneBorderColor, 1);
+        renderSceneBorder(context, sceneRect);
 
         if (interactive && sceneButtonsVisible) {
             drawSceneButtons(sceneRect.x(), sceneRect.y(), w, h, absX, absY, docZoom);
         }
+    }
+
+    private void renderSceneBackground(RenderContext context, LytRect sceneRect) {
+        if (!showBackground) {
+            return;
+        }
+        context.fillRect(sceneRect, sceneBackgroundColor);
+    }
+
+    private void renderSceneBorder(RenderContext context, LytRect sceneRect) {
+        if (!showBackground) {
+            return;
+        }
+        context.drawBorder(sceneRect, sceneBorderColor, 1);
     }
 
     public static final int BTN_SIZE = 16;
@@ -3069,6 +3107,12 @@ public class LytGuidebookScene extends LytBlock {
         }
         if (!sceneButtonsVisible) return null;
         if (lastW <= 0 || lastH <= 0) return null;
+        int bx = sceneButtonsAbsX;
+        int by = sceneButtonsAbsY;
+        int btnScreenSize = Math.round(BTN_SIZE * lastDocZoom);
+        int btnScreenStep = Math.round((BTN_SIZE + BTN_GAP) * lastDocZoom);
+        int rolesHeight = btnScreenSize + Math.max(0, cachedSceneButtonRoles().length - 1) * btnScreenStep;
+        LytRect buttonColumnRect = new LytRect(bx, by, btnScreenSize, rolesHeight);
         if (renderedContentClip != null) {
             int cx0 = renderedContentClip.x();
             int cy0 = renderedContentClip.y();
@@ -3076,26 +3120,17 @@ public class LytGuidebookScene extends LytBlock {
             int cy1 = cy0 + renderedContentClip.height();
             if (lastAbsX + lastW <= cx0 || lastAbsX >= cx1) return null;
             if (lastAbsY + lastH <= cy0 || lastAbsY >= cy1) return null;
-            // Also reject when the mouse is outside the visible content viewport entirely.
-            if (mouseX < cx0 || mouseX >= cx1 || mouseY < cy0 || mouseY >= cy1) return null;
+            boolean insideVisibleViewport = mouseX >= cx0 && mouseX < cx1 && mouseY >= cy0 && mouseY < cy1;
+            if (!insideVisibleViewport && !buttonColumnRect.contains(mouseX, mouseY)) {
+                return null;
+            }
         }
-        // Vertically, the mouse must be within this scene's own rendered band; otherwise a scene
-        // below the viewport could return a false-positive hit purely on X coincidence because
-        // its stashed sceneButtonsAbsY still falls inside the button rect math.
-        if (mouseY < lastAbsY || mouseY >= lastAbsY + lastH) return null;
-        int bx = sceneButtonsAbsX;
-        int by = sceneButtonsAbsY;
-        int btnScreenSize = Math.round(BTN_SIZE * lastDocZoom);
-        int btnScreenStep = Math.round((BTN_SIZE + BTN_GAP) * lastDocZoom);
+        if (mouseY < buttonColumnRect.y() || mouseY >= buttonColumnRect.bottom()) return null;
         // Early-out on X: the whole button column lives at [sceneButtonsAbsX, sceneButtonsAbsX + btnScreenSize).
         if (mouseX < bx || mouseX >= bx + btnScreenSize) return null;
         var roles = cachedSceneButtonRoles();
         for (var role : roles) {
-            boolean visible = renderedContentClip == null || (bx + btnScreenSize > renderedContentClip.x()
-                && bx < renderedContentClip.x() + renderedContentClip.width()
-                && by + btnScreenSize > renderedContentClip.y()
-                && by < renderedContentClip.y() + renderedContentClip.height());
-            if (visible && mouseX >= bx && mouseX < bx + btnScreenSize && mouseY >= by && mouseY < by + btnScreenSize) {
+            if (mouseX >= bx && mouseX < bx + btnScreenSize && mouseY >= by && mouseY < by + btnScreenSize) {
                 return role;
             }
             by += btnScreenStep;
@@ -3260,7 +3295,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public boolean containsStructureLibChannelSlider(int mouseX, int mouseY) {
-        if (!bottomControlsVisible || !hasStructureLibChannelData()) {
+        if (!hasBottomControls() || !hasStructureLibChannelData()) {
             return false;
         }
         for (LytRect hitRect : resolveStructureLibChannelSliderHitRects().values()) {
@@ -3272,7 +3307,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public boolean containsStructureLibTierSlider(int mouseX, int mouseY) {
-        if (!bottomControlsVisible || !hasStructureLibTierData()) {
+        if (!hasStructureLibTierSlider()) {
             return false;
         }
         LytRect hitRect = resolveStructureLibTierSliderHitRect();
@@ -3280,7 +3315,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public boolean containsVisibleLayerSlider(int mouseX, int mouseY) {
-        if (!bottomControlsVisible || !hasVisibleLayerSlider()) {
+        if (!hasVisibleLayerSlider()) {
             return false;
         }
         LytRect hitRect = resolveVisibleLayerSliderHitRect();
@@ -3288,7 +3323,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public boolean containsPonderButtons(int mouseX, int mouseY) {
-        if (ponderSceneData == null) {
+        if (!hasBottomControls() || ponderSceneData == null) {
             return false;
         }
         int btnW = SCENE_SLIDER_AREA_HEIGHT;
@@ -3908,7 +3943,7 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     private boolean hasVisibleLayerSlider() {
-        return visibleLayerSliderEnabled && hasVisibleLayerData();
+        return hasBottomControls() && visibleLayerSliderEnabled && hasVisibleLayerData();
     }
 
     private int visibleLayerSliderAreaHeight() {
@@ -3957,15 +3992,27 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     private int structureLibTierSliderAreaHeight() {
-        return hasStructureLibTierData() ? SCENE_SLIDER_AREA_HEIGHT : 0;
+        return hasStructureLibTierSlider() ? SCENE_SLIDER_AREA_HEIGHT : 0;
     }
 
     private int structureLibChannelSliderAreaHeight() {
-        return selectableStructureLibChannels.size() * SCENE_SLIDER_AREA_HEIGHT;
+        return getBottomControlStructureLibChannels().size() * SCENE_SLIDER_AREA_HEIGHT;
     }
 
     private List<StructureLibSceneMetadata.ChannelData> getSelectableStructureLibChannels() {
         return selectableStructureLibChannels.isEmpty() ? Collections.emptyList() : selectableStructureLibChannels;
+    }
+
+    private boolean hasBottomControls() {
+        return interactive && bottomControlsVisible;
+    }
+
+    private boolean hasStructureLibTierSlider() {
+        return hasBottomControls() && hasStructureLibTierData();
+    }
+
+    private List<StructureLibSceneMetadata.ChannelData> getBottomControlStructureLibChannels() {
+        return hasBottomControls() ? getSelectableStructureLibChannels() : Collections.emptyList();
     }
 
     public void attachPonderData(PonderSceneData data, List<List<SceneAnnotation>> annotationsByKeyframe) {
@@ -4151,7 +4198,9 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     public boolean containsPonderBar(int mouseX, int mouseY) {
-        if (ponderSceneData == null || cachedPonderBarHitRect == null || cachedPonderBarHitRect.isEmpty()) {
+        if (!hasBottomControls() || ponderSceneData == null
+            || cachedPonderBarHitRect == null
+            || cachedPonderBarHitRect.isEmpty()) {
             return false;
         }
         return cachedPonderBarHitRect.contains(mouseX, mouseY);
@@ -5225,22 +5274,25 @@ public class LytGuidebookScene extends LytBlock {
             drawPonderControls(context, outerRect, bottomControlAreaHeight);
         }
         if (!isPonderPlaying()) {
-            if (hasStructureLibTierData()) {
+            if (hasStructureLibTierSlider()) {
                 drawStructureLibTierSlider(context, outerRect);
             }
             if (hasVisibleLayerSlider()) {
                 drawVisibleLayerSlider(context, outerRect);
             }
-            for (StructureLibSceneMetadata.ChannelData channelData : getSelectableStructureLibChannels()) {
+            for (StructureLibSceneMetadata.ChannelData channelData : getBottomControlStructureLibChannels()) {
                 drawStructureLibChannelSlider(context, outerRect, channelData);
             }
         }
     }
 
     private int getBottomControlRowCount() {
-        return (ponderSceneData != null ? 1 : 0) + (hasStructureLibTierData() ? 1 : 0)
+        if (!hasBottomControls()) {
+            return 0;
+        }
+        return (ponderSceneData != null ? 1 : 0) + (hasStructureLibTierSlider() ? 1 : 0)
             + (hasVisibleLayerSlider() ? 1 : 0)
-            + selectableStructureLibChannels.size();
+            + getBottomControlStructureLibChannels().size();
     }
 
     private boolean updateCurrentMousePosition() {
@@ -5268,21 +5320,21 @@ public class LytGuidebookScene extends LytBlock {
         if (!hasVisibleLayerSlider()) {
             return -1;
         }
-        return (ponderSceneData != null ? 1 : 0) + (hasStructureLibTierData() ? 1 : 0);
+        return (ponderSceneData != null ? 1 : 0) + (hasStructureLibTierSlider() ? 1 : 0);
     }
 
     private int resolveStructureLibTierRowIndex() {
-        return hasStructureLibTierData() ? (ponderSceneData != null ? 1 : 0) : -1;
+        return hasStructureLibTierSlider() ? (ponderSceneData != null ? 1 : 0) : -1;
     }
 
     private int resolveStructureLibChannelRowIndex(String channelId) {
-        List<StructureLibSceneMetadata.ChannelData> channels = getSelectableStructureLibChannels();
+        List<StructureLibSceneMetadata.ChannelData> channels = getBottomControlStructureLibChannels();
         int ponderOffset = ponderSceneData != null ? 1 : 0;
         int index = 0;
         for (StructureLibSceneMetadata.ChannelData channelData : channels) {
             if (channelData.getChannelId()
                 .equals(StructureLibPreviewSelection.normalizeChannelId(channelId))) {
-                return ponderOffset + (hasStructureLibTierData() ? 1 : 0) + (hasVisibleLayerSlider() ? 1 : 0) + index;
+                return ponderOffset + (hasStructureLibTierSlider() ? 1 : 0) + (hasVisibleLayerSlider() ? 1 : 0) + index;
             }
             index++;
         }
