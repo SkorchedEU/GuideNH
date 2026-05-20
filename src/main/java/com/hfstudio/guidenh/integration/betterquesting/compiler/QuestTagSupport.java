@@ -48,17 +48,18 @@ public class QuestTagSupport {
         return state == QuestState.VISIBLE || state == QuestState.COMPLETED;
     }
 
+    public static LytFlowLink createQuestGuiLink(UUID questId, QuestDisplay display, String text, boolean showTooltip) {
+        var link = new LytFlowLink();
+        link.setClickCallback(screen -> openBetterQuestingQuest(screen, questId));
+        applyQuestLinkStyle(link, display, text, showTooltip);
+        return link;
+    }
+
     public static LytFlowLink createQuestLink(PageCompiler compiler, UUID questId, QuestDisplay display, String text,
         boolean showTooltip) {
         var link = new LytFlowLink();
         attachQuestNavigation(compiler, questId, link);
-        if (display.getState() == QuestState.COMPLETED) {
-            link.modifyStyle(style -> style.color(SymbolicColor.GREEN));
-        }
-        link.appendText(text);
-        if (showTooltip) {
-            applyTooltip(link, display.getDescription());
-        }
+        applyQuestLinkStyle(link, display, text, showTooltip);
         return link;
     }
 
@@ -70,11 +71,26 @@ public class QuestTagSupport {
     private static void attachQuestNavigation(PageCompiler compiler, UUID questId, LytFlowLink link) {
         PageAnchor pageAnchor = compiler.getIndex(QuestIndex.class)
             .findByUuid(questId);
-        if (pageAnchor != null) {
+        if (pageAnchor != null && shouldNavigateToGuidePage(compiler, pageAnchor)) {
             link.setPageLink(pageAnchor);
             return;
         }
         link.setClickCallback(screen -> openBetterQuestingQuest(screen, questId));
+    }
+
+    private static boolean shouldNavigateToGuidePage(PageCompiler compiler, PageAnchor pageAnchor) {
+        return !pageAnchor.pageId()
+            .equals(compiler.getPageId());
+    }
+
+    private static void applyQuestLinkStyle(LytFlowLink link, QuestDisplay display, String text, boolean showTooltip) {
+        if (display.getState() == QuestState.COMPLETED) {
+            link.modifyStyle(style -> style.color(SymbolicColor.GREEN));
+        }
+        link.appendText(text);
+        if (showTooltip) {
+            applyTooltip(link, display.getDescription());
+        }
     }
 
     private static void openBetterQuestingQuest(GuideUiHost screen, UUID questId) {

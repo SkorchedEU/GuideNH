@@ -71,7 +71,7 @@ public class QuestLinkCompiler extends FlowTagCompiler {
 
     private static void appendNavigableLink(PageCompiler compiler, LytFlowParent parent, UUID questId, String text,
         QuestDisplay display, boolean showTooltip) {
-        parent.append(QuestTagSupport.createQuestLink(compiler, questId, display, text, showTooltip));
+        parent.append(QuestTagSupport.createQuestGuiLink(questId, display, text, showTooltip));
     }
 
     private static void appendPlaceholder(LytFlowParent parent, String text, SymbolicColor color,
