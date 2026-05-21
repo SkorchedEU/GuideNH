@@ -26,6 +26,7 @@ import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.entity.Entity;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.client.ForgeHooksClient;
 
@@ -522,6 +523,9 @@ public class GuidebookLevelRenderer {
     }
 
     private void renderParticlesInContext(List<GuidebookSceneParticle> particles, float partialTicks) {
+        if (particles == null || particles.isEmpty()) {
+            return;
+        }
         matrixBuffer.clear();
         GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, matrixBuffer);
         // For a billboard facing the camera we need the camera right/up vectors in scene space.
@@ -556,24 +560,38 @@ public class GuidebookLevelRenderer {
             GL11.glDisable(GL_ALPHA_TEST);
 
             OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
-            Minecraft.getMinecraft()
-                .getTextureManager()
-                .bindTexture(TextureMap.locationBlocksTexture);
-
             var tess = Tessellator.instance;
-            tess.startDrawingQuads();
+            ResourceLocation activeTexture = null;
+            boolean drawing = false;
             for (GuidebookSceneParticle p : particles) {
-                if (p.isDead()) continue;
+                if (p.isDead() || !p.isReadyToRender()) continue;
+                ResourceLocation nextTexture = p.texture != null ? p.texture : TextureMap.locationBlocksTexture;
+                if (!drawing || !nextTexture.equals(activeTexture)) {
+                    if (drawing) {
+                        tess.draw();
+                    }
+                    Minecraft.getMinecraft()
+                        .getTextureManager()
+                        .bindTexture(nextTexture);
+                    tess.startDrawingQuads();
+                    activeTexture = nextTexture;
+                    drawing = true;
+                }
                 float alpha = p.getAlpha(partialTicks);
+                int brightness = p.getBrightness(partialTicks);
+                tess.setBrightness(
+                    brightness != GuidebookSceneParticle.NO_BRIGHTNESS_OVERRIDE ? brightness : FULL_BRIGHTNESS);
                 tess.setColorRGBA_F(p.red, p.green, p.blue, alpha);
-                float s = p.size;
+                float s = p.getSize(partialTicks);
                 float cx = p.getRenderX(partialTicks), cy = p.getRenderY(partialTicks), cz = p.getRenderZ(partialTicks);
                 tess.addVertexWithUV(cx - rx * s - ux * s, cy - ry * s - uy * s, cz - rz * s - uz * s, p.u0, p.v1);
                 tess.addVertexWithUV(cx + rx * s - ux * s, cy + ry * s - uy * s, cz + rz * s - uz * s, p.u1, p.v1);
                 tess.addVertexWithUV(cx + rx * s + ux * s, cy + ry * s + uy * s, cz + rz * s + uz * s, p.u1, p.v0);
                 tess.addVertexWithUV(cx - rx * s + ux * s, cy - ry * s + uy * s, cz - rz * s + uz * s, p.u0, p.v0);
             }
-            tess.draw();
+            if (drawing) {
+                tess.draw();
+            }
         } finally {
             GL11.glPopAttrib();
         }

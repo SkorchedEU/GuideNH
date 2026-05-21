@@ -1,13 +1,9 @@
 package com.hfstudio.guidenh.guide.scene.element;
 
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Set;
 
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityAgeable;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.world.World;
 
 import org.joml.Vector3f;
@@ -16,7 +12,6 @@ import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.document.LytErrorSink;
 import com.hfstudio.guidenh.guide.internal.scene.GuidebookPreviewPlayerPose;
-import com.hfstudio.guidenh.guide.internal.scene.GuidebookScenePreviewPlayerEntity;
 import com.hfstudio.guidenh.guide.scene.CameraSettings;
 import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCompileScope;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
@@ -83,84 +78,25 @@ public class EntityElementCompiler implements SceneElementTagCompiler {
 
         entity.setLocationAndAngles(x, y, z, rotationY, rotationX);
         GuidebookSceneEntityImportSupport.applyRotation(entity, rotationY, rotationX, rotationY, rotationY);
-
-        if (entity instanceof GuidebookNameplateControllable nameplateControllable) {
-            boolean defaultVisible = GuidebookSceneEntityLoader.isPreviewPlayerId(id);
-            nameplateControllable.setGuidebookNameplateVisible(showName != null ? showName : defaultVisible);
-        } else if (showName != null && entity instanceof EntityLiving living) {
-            living.setAlwaysRenderNameTag(showName);
-        }
-
-        if (entity instanceof GuidebookCapeControllable capeControllable) {
-            boolean defaultVisible = GuidebookSceneEntityLoader.isPreviewPlayerId(id);
-            capeControllable.setGuidebookCapeVisible(showCape != null ? showCape : defaultVisible);
-        }
-
-        if (entity instanceof GuidebookPlayerPoseControllable poseControllable) {
-            poseControllable.setGuidebookPreviewPlayerPose(
-                new GuidebookPreviewPlayerPose(
-                    headRotation,
-                    leftArmRotation,
-                    rightArmRotation,
-                    leftLegRotation,
-                    rightLegRotation,
-                    capeRotation));
-        }
-
-        applyBabyState(entity, baby);
+        GuidebookPreviewPlayerPose pose = GuidebookSceneEntityStateSupport.createPreviewPlayerPose(
+            headRotation,
+            leftArmRotation,
+            rightArmRotation,
+            leftLegRotation,
+            rightLegRotation,
+            capeRotation);
+        GuidebookSceneEntityStateSupport.applyVisualState(entity, id, showName, showCape, baby, pose, true);
         level.addEntity(entity);
-    }
-
-    public static void applyBabyState(Entity entity, Boolean baby) {
-        if (entity == null || baby == null) {
-            return;
-        }
-
-        boolean child = baby;
-        if (entity instanceof GuidebookScenePreviewPlayerEntity previewPlayer) {
-            previewPlayer.setGuidebookBaby(child);
-            return;
-        }
-
-        if (entity instanceof EntityAgeable ageable) {
-            ageable.setGrowingAge(child ? -24000 : 0);
-            realignEntityBounds(entity);
-            return;
-        }
-
-        if (entity instanceof EntityZombie zombie) {
-            zombie.setChild(child);
-            realignEntityBounds(entity);
-            return;
-        }
-
-        if (tryInvokeBooleanInstanceMethod(entity, "setChild", child)) {
-            realignEntityBounds(entity);
-            return;
-        }
-
-        if (tryInvokeBooleanInstanceMethod(entity, "setBaby", child)) {
-            realignEntityBounds(entity);
-        }
     }
 
     public static Boolean getOptionalBoolean(PageCompiler compiler, LytErrorSink errorSink, MdxJsxElementFields el,
         String name) {
-        var attribute = el.getAttribute(name);
-        if (attribute == null) {
+        try {
+            return MdxAttrs.getOptionalBoolean(el, name);
+        } catch (MdxAttrs.AttributeException exception) {
+            errorSink.appendError(compiler, exception.getMessage(), el);
             return null;
         }
-        if (attribute.hasExpressionValue()) {
-            String expressionValue = attribute.getExpressionValue();
-            if ("true".equals(expressionValue)) {
-                return Boolean.TRUE;
-            }
-            if ("false".equals(expressionValue)) {
-                return Boolean.FALSE;
-            }
-        }
-        errorSink.appendError(compiler, name + " should be {true} or {false}", el);
-        return null;
     }
 
     public static Vector3f getOptionalVector3(PageCompiler compiler, LytErrorSink errorSink, MdxJsxElementFields el,
@@ -176,26 +112,11 @@ public class EntityElementCompiler implements SceneElementTagCompiler {
             return null;
         }
 
-        float[] parts = MdxAttrs.parseVector3Parts(raw);
-        if (parts == null) {
+        Vector3f parsed = GuidebookSceneEntityStateSupport.parseOptionalVector3(raw);
+        if (parsed == null) {
             errorSink.appendError(compiler, name + " expects 3 space-separated floats, got: '" + raw + "'", el);
             return null;
         }
-        return new Vector3f(parts[0], parts[1], parts[2]);
-    }
-
-    public static boolean tryInvokeBooleanInstanceMethod(Object target, String methodName, boolean argument) {
-        try {
-            Method method = target.getClass()
-                .getMethod(methodName, Boolean.TYPE);
-            method.invoke(target, argument);
-            return true;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private static void realignEntityBounds(Entity entity) {
-        entity.setPosition(entity.posX, entity.posY, entity.posZ);
+        return parsed;
     }
 }

@@ -32,6 +32,7 @@ import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.compiler.tags.CommandLinkCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.ItemImageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.KeyBindTagCompiler;
+import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.compiler.tags.StructureViewCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.SubPagesCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.chart.ChartAttrParser;
@@ -484,12 +485,15 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             return renderFallbackItemLabel(itemId, currentPageId, templates, inline, readFloat(element, "scale"));
         }
 
-        boolean noTooltip = ItemImageCompiler.parseBool(readOptional(element, "noTooltip"));
-        String showTooltipRaw = readOptional(element, "showTooltip");
-        boolean includeTooltip = showTooltipRaw != null ? ItemImageCompiler.parseBool(showTooltipRaw) : !noTooltip;
+        MdxJsxAttribute noTooltipAttribute = element.getAttribute("noTooltip");
+        MdxJsxAttribute showTooltipAttribute = element.getAttribute("showTooltip");
+        boolean noTooltip = readBoolean(noTooltipAttribute, "noTooltip", false);
+        boolean includeTooltip = showTooltipAttribute != null ? readBoolean(showTooltipAttribute, "showTooltip", true)
+            : !noTooltip;
 
-        String showIconRaw = readOptional(element, "showIcon");
-        boolean showIcon = showIconRaw == null || ItemImageCompiler.parseBool(showIconRaw);
+        MdxJsxAttribute showIconAttribute = element.getAttribute("showIcon");
+        String showIconRaw = readOptional(showIconAttribute);
+        boolean showIcon = showIconRaw == null || readBoolean(showIconAttribute, "showIcon", true);
 
         String labelRaw = readOptional(element, "label");
         String labelPosition = ItemImageCompiler.resolveLabelPosition(labelRaw);
@@ -811,12 +815,14 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
             : GuideSiteItemSupport.unresolved(itemId);
 
         // showTooltip — default true for ItemLink
-        boolean noTooltip = ItemImageCompiler.parseBool(readOptional(element, "noTooltip"));
-        String showTooltipRaw = readOptional(element, "showTooltip");
-        boolean showTooltip = showTooltipRaw != null ? ItemImageCompiler.parseBool(showTooltipRaw) : !noTooltip;
+        MdxJsxAttribute noTooltipAttribute = element.getAttribute("noTooltip");
+        MdxJsxAttribute showTooltipAttribute = element.getAttribute("showTooltip");
+        boolean noTooltip = readBoolean(noTooltipAttribute, "noTooltip", false);
+        boolean showTooltip = showTooltipAttribute != null ? readBoolean(showTooltipAttribute, "showTooltip", true)
+            : !noTooltip;
 
         // showIcon — null/falsy = no icon; "left", "right", or any truthy = icon at that side
-        String iconPosition = ItemImageCompiler.resolveLabelPosition(readOptional(element, "showIcon"));
+        String iconPosition = ItemImageCompiler.resolveLabelPosition(readOptional(element.getAttribute("showIcon")));
 
         String templateId = null;
         if (showTooltip) {
@@ -2316,7 +2322,11 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
 
     @Nullable
     private String readOptional(MdxJsxElementFields element, String name) {
-        MdxJsxAttribute attribute = element.getAttribute(name);
+        return readOptional(element.getAttribute(name));
+    }
+
+    @Nullable
+    private String readOptional(@Nullable MdxJsxAttribute attribute) {
         if (attribute == null) {
             return null;
         }
@@ -2330,19 +2340,15 @@ public class GuideSiteMdxTagRenderer implements GuideSiteHtmlCompiler.MdxTagRend
     }
 
     private boolean readBoolean(MdxJsxElementFields element, String name, boolean fallback) {
-        MdxJsxAttribute attribute = element.getAttribute(name);
-        if (attribute == null) {
+        return readBoolean(element.getAttribute(name), name, fallback);
+    }
+
+    private boolean readBoolean(@Nullable MdxJsxAttribute attribute, String name, boolean fallback) {
+        try {
+            return MdxAttrs.getBoolean(MdxAttrs.parseOptionalBoolean(attribute, name), fallback);
+        } catch (MdxAttrs.AttributeException ignored) {
             return fallback;
         }
-        String value = attribute.hasExpressionValue() ? attribute.getExpressionValue()
-            : attribute.hasStringValue() ? attribute.getStringValue() : "";
-        if ("true".equalsIgnoreCase(value)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(value)) {
-            return false;
-        }
-        return fallback;
     }
 
     private int readInt(MdxJsxElementFields element, String name, int fallback) {

@@ -71,8 +71,62 @@ sound event id, so `guidenh:sounds/guide/sample_hover.ogg` becomes `guidenh:guid
 | `annotations` | array? | 该关键帧激活期间显示的标注列表 |
 | `blockChanges` | array? | 该关键帧激活时应用的方块替换列表 |
 | `mergeTileNBT` / `modifyTileNBT` / `removeTileNBT` | array? | 支持定位重放的方块实体 NBT 操作 |
-| `createEntities` | array? | 创建由思索时间轴管理、可用 `ref` 引用的实体 |
-| `setEntityNBT` / `mergeEntityNBT` / `modifyEntityNBT` / `removeEntityNBT` | array? | 对引用实体执行支持定位重放的 NBT 操作 |
+| `createEntities` | array? | 创建由思索时间轴管理、可用 `ref` 引用的实体，并可直接写初始朝向与预览玩家姿态 |
+| `setEntityNBT` / `mergeEntityNBT` / `modifyEntityNBT` / `removeEntityNBT` | array? | 对引用实体执行支持定位重放的更新；除了 NBT，也可顺便修改朝向、位置与预览玩家外观状态 |
+| `animateEntities` | array? | 对引用的思索实体应用支持重放和拖动时间轴的运行时预设动画 |
+
+---
+
+## 关键帧粒子
+
+Ponder 关键帧可以在时间轴向前播放时生成轻量场景粒子。向后拖动时间轴时不会重复补播，
+因此拖动预览和跳转仍然保持确定性。
+
+普通粒子：
+
+```json
+"particles": [
+  {
+    "name": "smoke",
+    "x": 1.5,
+    "y": 1.85,
+    "z": 1.5,
+    "vx": 0.0,
+    "vy": 0.01,
+    "vz": 0.0,
+    "size": 0.18,
+    "time": 16,
+    "count": 3
+  }
+]
+```
+
+爆炸预设：
+
+```json
+"particles": [
+  {
+    "preset": "explosion",
+    "x": 1.5,
+    "y": 1.45,
+    "z": 1.5,
+    "time": 8,
+    "power": 2.4
+  }
+]
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `preset` | string? | 当前支持 `explosion`，会生成接近原版爆炸的闪光、烟雾和外扩爆裂粒子 |
+| `name` | string? | 普通粒子外观。支持 `billboard`、`smoke`、`largesmoke`、`explode`、`flash`、`largeexplode`、`hugeexplosion` |
+| `particle` / `kind` | string? | `name` 的兼容别名 |
+| `x`、`y`、`z` | float | 粒子的世界坐标起点 |
+| `vx`、`vy`、`vz` | float? | 初速度向量，`motionX/Y/Z` 也可作为别名 |
+| `time` / `lifetime` | int? | 粒子生命周期，单位为 tick |
+| `size` | float? | 粒子半尺寸，单位为方块 |
+| `count` | int? | 普通粒子的生成数量；爆炸预设省略时会根据 `power` 自动缩放 |
+| `power` | float? | `explosion` 预设的爆炸强度 |
 
 ---
 
@@ -305,7 +359,7 @@ sound event id, so `guidenh:sounds/guide/sample_hover.ogg` becomes `guidenh:guid
 ## 思索实体
 
 游戏场景（`<GameScene>`）支持普通 `<Entity>` 元素。思索时间轴也可以创建由时间轴管理的实体，并在后续关键帧中通过
-`ref` 修改它们的 NBT。
+`ref` 继续修改它们。
 
 ```json
 "createEntities": [
@@ -313,22 +367,78 @@ sound event id, so `guidenh:sounds/guide/sample_hover.ogg` becomes `guidenh:guid
     "ref": "marker",
     "id": "minecraft:pig",
     "x": 1.5, "y": 1.0, "z": 2.5,
+    "yaw": 180.0,
+    "bodyYaw": 180.0,
+    "headYaw": 210.0,
     "nbt": "{CustomName:\"Before\",CustomNameVisible:1b}"
+  },
+  {
+    "ref": "operator",
+    "id": "player",
+    "name": "GuideNH",
+    "x": 2.5, "y": 1.0, "z": 1.5,
+    "yaw": 225.0,
+    "bodyYaw": 225.0,
+    "headYaw": 255.0,
+    "showName": true,
+    "showCape": true,
+    "headRotation": "-10 18 0",
+    "leftArmRotation": "-70 18 -12",
+    "rightArmRotation": "32 -8 18",
+    "leftLegRotation": "8 0 0",
+    "rightLegRotation": "-6 0 0"
   }
 ],
 "mergeEntityNBT": [
   { "ref": "marker", "nbt": "{Saddle:1b}" }
 ],
 "modifyEntityNBT": [
-  { "ref": "marker", "path": "CustomName", "value": "\"After\"" }
+  { "ref": "marker", "path": "CustomName", "value": "\"After\"" },
+  { "ref": "operator", "headYaw": 290.0, "headRotation": "-22 38 0", "leftArmRotation": "-38 0 -8" }
 ],
 "removeEntityNBT": [
   { "ref": "marker", "path": "CustomNameVisible" }
 ]
 ```
 
-`setEntityNBT` 会用新的 SNBT 复合标签替换引用实体的 NBT。所有实体操作在定位时都会从关键帧
-0 重新播放，因此向后拖动时间轴时，思索时间轴创建的实体不会残留在旧状态。
+支持的实体状态字段：
+
+- `x`、`y`、`z` 可重定位引用实体。
+- `yaw`、`pitch`、`bodyYaw`、`headYaw` 可控制朝向；如果只写了 `yaw`，未写 `bodyYaw` / `headYaw` 时会默认跟随 `yaw`。
+- `showName`、`showCape`、`baby` 与普通 `<Entity>` 标签中的同名属性语义一致。
+- 预览玩家实体（`id: "player"` 及其他预览玩家别名）还支持 `headRotation`、`leftArmRotation`、`rightArmRotation`、`leftLegRotation`、`rightLegRotation`、`capeRotation`，写法都是 `"x y z"` 角度。
+
+`setEntityNBT` 会用新的 SNBT 复合标签替换引用实体的 NBT。其余实体动作数组中的 NBT 部分都可以省略，只保留位置、朝向或预览玩家姿态控制。所有实体操作在定位时都会从关键帧 0 重新播放，因此向后拖动时间轴时，思索时间轴创建的实体不会残留在旧状态。
+
+运行时实体预设动画使用 `animateEntities`：
+
+```json
+"animateEntities": [
+  { "ref": "operator", "preset": "rightClick", "ticks": 8 },
+  { "ref": "operator", "preset": "leftClick", "ticks": 6 },
+  { "ref": "operator", "preset": "jump", "ticks": 10, "height": 0.6 },
+  { "ref": "marker", "preset": "hurt", "ticks": 10 },
+  { "ref": "operator", "preset": "sneak" },
+  { "ref": "operator", "preset": "unsneak" },
+  { "ref": "marker", "preset": "walkTo", "x": 2.2, "z": 1.6, "ticks": 20 },
+  { "ref": "dropped", "preset": "moveTo", "x": 2.0, "y": 1.3, "z": 1.0, "ticks": 12 }
+]
+```
+
+- `leftClick` 和 `rightClick` 会按给定 `ticks` 或预设默认时长播放预览玩家的挥臂动作。
+- `jump` 会播放支持重放的竖直抛物线跳跃；`height` 可选，默认 `1`。
+- `hurt` 会驱动原版生物的受伤计时器，也就是渲染里那层红色受伤闪烁。
+- `sneak` 和 `unsneak` 会切换潜行状态，并持续生效，直到后续实体动作再次修改。
+- `walkTo` 会插值移动到目标位置，沿路径转向，并为生物实体驱动四肢摆动，呈现行走效果。
+- `moveTo` 只做直接平移，不额外修正朝向，更适合掉落物或通用展示实体。
+- 所有预设都会根据当前时间轴刻重新计算，因此拖动、重播和导出看到的姿态始终一致。
+
+默认预设时长已尽量对齐最接近的原版行为：
+
+- `leftClick`：`6` tick，对应 `EntityLivingBase#getArmSwingAnimationEnd()` 的默认挥手时长。
+- `rightClick`：`6` tick，对应原版成功右键交互（例如放置方块）时触发的通用挥手时长。
+- `jump`：`12` tick，对应标准实体在无跳跃药水时完整一次原版跳跃的滞空时长。
+- `hurt`：`10` tick，对应原版 `hurtTime` / `maxHurtTime`。
 
 ---
 

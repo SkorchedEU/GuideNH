@@ -19,6 +19,8 @@ Welcome to the GuideNH demo guide. This showcases the rendering, layout, and sce
 
 ## Scenes
 
+Featured scene docs: [Scene Particles](./scene-particles.md)
+
 <CategoryIndex category="scenes"></CategoryIndex>
 
 ## Widgets

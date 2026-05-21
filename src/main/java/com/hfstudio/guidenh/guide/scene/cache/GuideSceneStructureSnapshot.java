@@ -276,6 +276,9 @@ public class GuideSceneStructureSnapshot implements Serializable {
 
     @Nullable
     private static String resolveEntityId(Entity entity) {
+        if (entity instanceof EntityPlayer) {
+            return "player";
+        }
         String name = EntityList.getEntityString(entity);
         return name != null && !name.isEmpty() ? name : null;
     }

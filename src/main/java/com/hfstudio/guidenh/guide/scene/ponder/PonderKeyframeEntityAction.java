@@ -22,6 +22,10 @@ public class PonderKeyframeEntityAction {
     @Nullable
     private Float pitch;
     @Nullable
+    private Float bodyYaw;
+    @Nullable
+    private Float headYaw;
+    @Nullable
     private String nbt;
     @Nullable
     private String path;
@@ -31,6 +35,24 @@ public class PonderKeyframeEntityAction {
     private String name;
     @Nullable
     private String uuid;
+    @Nullable
+    private Boolean showName;
+    @Nullable
+    private Boolean showCape;
+    @Nullable
+    private Boolean baby;
+    @Nullable
+    private String headRotation;
+    @Nullable
+    private String leftArmRotation;
+    @Nullable
+    private String rightArmRotation;
+    @Nullable
+    private String leftLegRotation;
+    @Nullable
+    private String rightLegRotation;
+    @Nullable
+    private String capeRotation;
 
     @Nullable
     public String getRef() {
@@ -68,6 +90,16 @@ public class PonderKeyframeEntityAction {
     }
 
     @Nullable
+    public Float getBodyYaw() {
+        return bodyYaw;
+    }
+
+    @Nullable
+    public Float getHeadYaw() {
+        return headYaw;
+    }
+
+    @Nullable
     public String getNbt() {
         return nbt;
     }
@@ -90,5 +122,50 @@ public class PonderKeyframeEntityAction {
     @Nullable
     public String getUuid() {
         return uuid;
+    }
+
+    @Nullable
+    public Boolean getShowName() {
+        return showName;
+    }
+
+    @Nullable
+    public Boolean getShowCape() {
+        return showCape;
+    }
+
+    @Nullable
+    public Boolean getBaby() {
+        return baby;
+    }
+
+    @Nullable
+    public String getHeadRotation() {
+        return headRotation;
+    }
+
+    @Nullable
+    public String getLeftArmRotation() {
+        return leftArmRotation;
+    }
+
+    @Nullable
+    public String getRightArmRotation() {
+        return rightArmRotation;
+    }
+
+    @Nullable
+    public String getLeftLegRotation() {
+        return leftLegRotation;
+    }
+
+    @Nullable
+    public String getRightLegRotation() {
+        return rightLegRotation;
+    }
+
+    @Nullable
+    public String getCapeRotation() {
+        return capeRotation;
     }
 }

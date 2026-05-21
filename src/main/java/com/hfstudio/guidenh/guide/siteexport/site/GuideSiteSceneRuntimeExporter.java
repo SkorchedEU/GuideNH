@@ -172,7 +172,8 @@ public class GuideSiteSceneRuntimeExporter {
                     0.0f,
                     Collections.emptyList(),
                     LightDarkMode.LIGHT_MODE,
-                    visibleLayerY);
+                    visibleLayerY,
+                    scene.getRenderableParticlesForExport());
         } finally {
             framebuffer.unbindFramebuffer();
             framebuffer.deleteFramebuffer();

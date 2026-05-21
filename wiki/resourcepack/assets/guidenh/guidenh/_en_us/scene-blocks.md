@@ -39,6 +39,26 @@ statistics.
 </GameScene>
 ```
 
+## Static Particles
+
+`<Particle>` adds a stationary particle inside the scene. When `name` is omitted it uses the
+default billboard particle, which is useful for glow markers or highlighting a precise point
+without adding a full annotation shape.
+
+| Attribute | Default | Description |
+| --- | --- | --- |
+| `name` | `billboard` | Particle appearance. Supported values: `billboard`, `smoke`, `largesmoke`, `explode`, `flash`, `largeexplode`, `hugeexplosion`. `particle`, `quad`, and `sheet` are accepted aliases for `billboard`. |
+| `x`, `y`, `z` | `0.5`, `0.5`, `0.5` | World-space particle origin. |
+| `size` | `0.18` | Particle half-size in block units. |
+
+```mdx
+<GameScene width="192" height="128" zoom={5} interactive={false}>
+  <Block id="minecraft:furnace" x="1" />
+  <Particle x="1.5" y="1.85" z="0.5" size="0.22" />
+  <Particle name="smoke" x="1.5" y="1.35" z="0.5" size="0.18" />
+</GameScene>
+```
+
 ## Block Parameters
 
 `<Block>` places one block into the preview world.

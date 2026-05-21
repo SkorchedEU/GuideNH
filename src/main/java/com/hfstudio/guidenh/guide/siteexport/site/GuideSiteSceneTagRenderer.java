@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.scene.StructureLibSceneCondition;
 import com.hfstudio.guidenh.guide.sound.GuideSoundSpec;
 import com.hfstudio.guidenh.guide.sound.GuideSoundTrigger;
@@ -655,31 +656,11 @@ public class GuideSiteSceneTagRenderer implements GuideSiteHtmlCompiler.SceneTag
     }
 
     private boolean readBooleanValue(MdxJsxElementFields element, String name, boolean fallback) {
-        MdxJsxAttribute attribute = element.getAttribute(name);
-        if (attribute == null) {
+        try {
+            return MdxAttrs.getBoolean(element, name, fallback);
+        } catch (MdxAttrs.AttributeException ignored) {
             return fallback;
         }
-        if (attribute.hasStringValue()) {
-            return normalizeBoolean(attribute.getStringValue(), fallback);
-        }
-        if (attribute.hasExpressionValue()) {
-            return normalizeBoolean(attribute.getExpressionValue(), fallback);
-        }
-        return true;
-    }
-
-    private boolean normalizeBoolean(String value, boolean fallback) {
-        if (value == null) {
-            return fallback;
-        }
-        String trimmed = value.trim();
-        if ("true".equalsIgnoreCase(trimmed)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(trimmed)) {
-            return false;
-        }
-        return fallback;
     }
 
     private String readOptional(MdxJsxElementFields element, String name) {

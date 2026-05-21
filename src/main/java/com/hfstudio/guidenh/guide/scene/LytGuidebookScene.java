@@ -1,5 +1,6 @@
 package com.hfstudio.guidenh.guide.scene;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,6 +51,7 @@ import com.hfstudio.guidenh.guide.document.block.ResponsiveVisualSizing;
 import com.hfstudio.guidenh.guide.document.interaction.ContentTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
+import com.hfstudio.guidenh.guide.internal.scene.GuidebookPreviewPlayerPose;
 import com.hfstudio.guidenh.guide.internal.screen.GuideIconButton;
 import com.hfstudio.guidenh.guide.internal.structure.GuideTextNbtCodec;
 import com.hfstudio.guidenh.guide.internal.tooltip.AppendedItemTooltip;
@@ -71,13 +73,17 @@ import com.hfstudio.guidenh.guide.scene.annotation.SceneFloorGridAnnotation;
 import com.hfstudio.guidenh.guide.scene.annotation.TextAnnotation;
 import com.hfstudio.guidenh.guide.scene.cache.GuideSceneStructureCacheEntry;
 import com.hfstudio.guidenh.guide.scene.element.GuidebookSceneEntityLoader;
+import com.hfstudio.guidenh.guide.scene.element.GuidebookSceneEntityStateSupport;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookLevel;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookPreviewBlockPlacer;
 import com.hfstudio.guidenh.guide.scene.level.GuidebookTileEntityLoader;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderEntityAnimationRuntimeSupport;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframe;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeBlockChange;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeCameraState;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeEntityAction;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeEntityAnimation;
+import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeParticle;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderKeyframeTileNbtOperation;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderNbtPath;
 import com.hfstudio.guidenh.guide.scene.ponder.PonderSceneData;
@@ -145,6 +151,7 @@ public class LytGuidebookScene extends LytBlock {
     public static final int BLOCK_STATS_DOCK_GAP = 4;
     public static final int BLOCK_STATS_SELECTED_ROW_COLOR = 0x6656C8FF;
     public static final int BLOCK_STATS_HIGHLIGHT_COLOR = 0x6600F5FF;
+    private static final int MAX_PONDER_PARTICLE_POOL_SIZE = 1024;
 
     private int dragButton = -1;
     private int dragLastX;
@@ -173,13 +180,18 @@ public class LytGuidebookScene extends LytBlock {
     private final List<SceneAnnotation> ponderActiveAnnotations = new ArrayList<>();
     private final List<SceneAnnotation> ponderOutgoingAnnotations = new ArrayList<>();
     private int ponderOutgoingFadeTick = 0;
-    private final List<GuidebookSceneParticle> ponderSceneParticles = new ArrayList<>();
+    private final ArrayList<GuidebookSceneParticle> staticSceneParticles = new ArrayList<>();
+    private final ArrayList<GuidebookSceneParticle> ponderSceneParticles = new ArrayList<>();
+    private final ArrayList<GuidebookSceneParticle> renderSceneParticlesScratch = new ArrayList<>();
+    private final ArrayDeque<GuidebookSceneParticle> ponderParticlePool = new ArrayDeque<>();
     private final Random ponderParticleRng = new Random();
     private int ponderLastKeyframeIdx = -2;
     private int ponderAnnotationFadeTick = 5;
     private final Set<Integer> triggeredPonderSoundKeyframes = new HashSet<>();
     private final Map<Long, PonderBlockInfo> ponderBlockSnapshot = new LinkedHashMap<>();
     private final Map<String, PonderEntityRuntime> ponderEntityRefs = new LinkedHashMap<>();
+    private final List<PonderEntityAnimationRuntimeSupport.TimedAnimation> ponderTimedEntityAnimations = new ArrayList<>();
+    private final Map<String, PonderEntityAnimationRuntimeSupport.Baseline> ponderEntityAnimationBaselines = new LinkedHashMap<>();
     private boolean ponderTimelineBaselineReady;
     @Nullable
     private LytRect cachedPonderBarTrackRect;
@@ -272,6 +284,8 @@ public class LytGuidebookScene extends LytBlock {
     private final Vector3f projectedLineFromScratch = new Vector3f();
     private final Vector3f projectedLineToScratch = new Vector3f();
     private final float[] pickRayScratch = new float[6];
+    private final float[] diggingParticleColorScratch = new float[3];
+    private final float[] diggingParticleVelocityScratch = new float[3];
     private final ConstantColor hoverBoxColor = new ConstantColor(0xFFFFFFFF);
     private final ConstantColor blockStatsHighlightColor = new ConstantColor(BLOCK_STATS_HIGHLIGHT_COLOR);
 
@@ -1445,6 +1459,30 @@ public class LytGuidebookScene extends LytBlock {
         }
     }
 
+    public void addStaticParticle(GuidebookSceneParticle particle) {
+        if (particle != null) {
+            staticSceneParticles.add(particle);
+        }
+    }
+
+    private List<GuidebookSceneParticle> resolveRenderableSceneParticles() {
+        if (staticSceneParticles.isEmpty()) {
+            return ponderSceneParticles;
+        }
+        if (ponderSceneParticles.isEmpty()) {
+            return staticSceneParticles;
+        }
+        renderSceneParticlesScratch.clear();
+        renderSceneParticlesScratch.ensureCapacity(staticSceneParticles.size() + ponderSceneParticles.size());
+        renderSceneParticlesScratch.addAll(staticSceneParticles);
+        renderSceneParticlesScratch.addAll(ponderSceneParticles);
+        return renderSceneParticlesScratch;
+    }
+
+    public List<GuidebookSceneParticle> getRenderableParticlesForExport() {
+        return resolveRenderableSceneParticles();
+    }
+
     public List<InWorldAnnotation> collectInWorldAnnotationsForExport(boolean includeSceneAnnotations,
         boolean includeGrid, GuidebookSceneLayerSelection layerSelection) {
         ArrayList<InWorldAnnotation> inWorld = new ArrayList<>();
@@ -1997,7 +2035,7 @@ public class LytGuidebookScene extends LytBlock {
                 inWorld,
                 context.lightDarkMode(),
                 visibleLayerY,
-                ponderSceneParticles);
+                resolveRenderableSceneParticles());
 
         context.restoreExternalRenderState();
         drawBlockStatsOverlay(context, sceneRect, outerRect);
@@ -4023,6 +4061,8 @@ public class LytGuidebookScene extends LytBlock {
         List<List<GuideSoundSpec>> soundsByKeyframe) {
         clearPonderBlockChanges();
         this.ponderSceneData = data;
+        rebuildPonderTimedEntityAnimations();
+        clearPonderEntityAnimationBaselines();
         this.ponderKeyframeAnnotationSets = annotationsByKeyframe != null ? new ArrayList<>(annotationsByKeyframe)
             : new ArrayList<>();
         this.ponderKeyframeSoundSets = soundsByKeyframe != null ? new ArrayList<>(soundsByKeyframe) : new ArrayList<>();
@@ -4034,7 +4074,7 @@ public class LytGuidebookScene extends LytBlock {
         this.ponderAnnotationFadeTick = 5;
         this.ponderOutgoingAnnotations.clear();
         this.ponderOutgoingFadeTick = 0;
-        this.ponderSceneParticles.clear();
+        clearPonderRuntimeParticles();
         this.triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
@@ -4042,6 +4082,8 @@ public class LytGuidebookScene extends LytBlock {
     public void clearPonderDataForPreviewRebuild() {
         clearPonderBlockChanges();
         this.ponderSceneData = null;
+        this.ponderTimedEntityAnimations.clear();
+        clearPonderEntityAnimationBaselines();
         this.ponderKeyframeAnnotationSets = new ArrayList<>();
         this.ponderKeyframeSoundSets = new ArrayList<>();
         this.ponderCurrentTick = 0;
@@ -4054,7 +4096,7 @@ public class LytGuidebookScene extends LytBlock {
         this.ponderActiveAnnotations.clear();
         this.ponderOutgoingAnnotations.clear();
         this.ponderOutgoingFadeTick = 0;
-        this.ponderSceneParticles.clear();
+        clearPonderRuntimeParticles();
         this.triggeredPonderSoundKeyframes.clear();
     }
 
@@ -4070,10 +4112,52 @@ public class LytGuidebookScene extends LytBlock {
         ponderAnnotationFadeTick = ponderPaused ? 5 : 0;
         ponderOutgoingAnnotations.clear();
         ponderOutgoingFadeTick = 0;
-        ponderSceneParticles.clear();
+        clearPonderRuntimeParticles();
         ponderLastKeyframeIdx = -2;
         triggeredPonderSoundKeyframes.clear();
+        rebuildPonderRuntimeParticlesAtCurrentTick();
         updatePonderState();
+    }
+
+    private void rebuildPonderTimedEntityAnimations() {
+        ponderTimedEntityAnimations.clear();
+        if (ponderSceneData == null) {
+            return;
+        }
+
+        for (PonderKeyframe keyframe : ponderSceneData.getKeyframes()) {
+            if (keyframe == null || keyframe.getAnimateEntities()
+                .isEmpty()) {
+                continue;
+            }
+
+            int startTick = Math.max(0, keyframe.getTime());
+            for (PonderKeyframeEntityAnimation animation : keyframe.getAnimateEntities()) {
+                if (animation == null) {
+                    continue;
+                }
+                String ref = trimToNull(animation.getRef());
+                String preset = PonderEntityAnimationRuntimeSupport.normalizePreset(animation.getPreset());
+                if (ref == null || preset == null) {
+                    continue;
+                }
+                ponderTimedEntityAnimations.add(
+                    new PonderEntityAnimationRuntimeSupport.TimedAnimation(
+                        startTick,
+                        ref,
+                        preset,
+                        Math.max(1, PonderEntityAnimationRuntimeSupport.resolveDurationTicks(animation)),
+                        PonderEntityAnimationRuntimeSupport.isPersistentPreset(preset),
+                        animation));
+            }
+        }
+
+        ponderTimedEntityAnimations
+            .sort(Comparator.comparingInt(PonderEntityAnimationRuntimeSupport.TimedAnimation::startTick));
+    }
+
+    private void clearPonderEntityAnimationBaselines() {
+        ponderEntityAnimationBaselines.clear();
     }
 
     public void initializePonderTimelineBaseline() {
@@ -4084,6 +4168,7 @@ public class LytGuidebookScene extends LytBlock {
         clearPonderEntities();
         ponderBlockSnapshot.clear();
         ponderEntityRefs.clear();
+        clearPonderEntityAnimationBaselines();
         snapshotPonderBlocks();
         ponderTimelineBaselineReady = true;
         ponderLastKeyframeIdx = -2;
@@ -4110,7 +4195,7 @@ public class LytGuidebookScene extends LytBlock {
             GuidebookSceneParticle particle = ponderSceneParticles.get(i);
             particle.tick();
             if (particle.isDead()) {
-                ponderSceneParticles.remove(i);
+                recyclePonderParticle(ponderSceneParticles.remove(i));
             }
         }
         updatePonderState();
@@ -4144,7 +4229,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderActiveAnnotations.clear();
         ponderOutgoingAnnotations.clear();
         ponderOutgoingFadeTick = 0;
-        ponderSceneParticles.clear();
+        clearPonderRuntimeParticles();
         triggeredPonderSoundKeyframes.clear();
         updatePonderState();
     }
@@ -4169,6 +4254,7 @@ public class LytGuidebookScene extends LytBlock {
         draggingPonderBar = false;
         ponderAnnotationFadeTick = 5;
         triggeredPonderSoundKeyframes.clear();
+        rebuildPonderRuntimeParticlesAtCurrentTick();
         updatePonderState();
     }
 
@@ -4194,6 +4280,7 @@ public class LytGuidebookScene extends LytBlock {
         ponderPaused = true;
         ponderFinished = ponderCurrentTick >= ponderSceneData.getTotalTime();
         triggeredPonderSoundKeyframes.clear();
+        rebuildPonderRuntimeParticlesAtCurrentTick();
         updatePonderState();
     }
 
@@ -4211,7 +4298,8 @@ public class LytGuidebookScene extends LytBlock {
         int activeIdx = ponderSceneData.resolveActiveKeyframeIndex(ponderCurrentTick);
 
         if (activeIdx != ponderLastKeyframeIdx) {
-            boolean wasAtValidKeyframe = ponderLastKeyframeIdx >= 0;
+            int previousKeyframeIdx = ponderLastKeyframeIdx;
+            boolean wasAtValidKeyframe = previousKeyframeIdx >= 0;
             ponderLastKeyframeIdx = activeIdx;
 
             // Move current overlay annotations to outgoing so they fade out smoothly.
@@ -4235,9 +4323,8 @@ public class LytGuidebookScene extends LytBlock {
 
             ponderAnnotationFadeTick = ponderPaused ? 5 : 0;
             if (hasPonderReplayActions()) {
-                // Trigger particle effects only during forward playback, not on seek or initial load.
-                boolean triggerParticles = !ponderPaused && wasAtValidKeyframe;
-                applyPonderTimelineActions(activeIdx, triggerParticles);
+                applyPonderActionsForKeyframeChange(previousKeyframeIdx, activeIdx, wasAtValidKeyframe);
+                clearPonderEntityAnimationBaselines();
             }
             if (!ponderPaused && wasAtValidKeyframe) {
                 playPonderKeyframeSounds(activeIdx);
@@ -4282,6 +4369,96 @@ public class LytGuidebookScene extends LytBlock {
         ponderCamRotZ = activeCam[3];
         ponderCamOffX = activeCam[4];
         ponderCamOffY = activeCam[5];
+        applyPonderEntityAnimationsAtTick(ponderCurrentTick);
+    }
+
+    private void applyPonderActionsForKeyframeChange(int previousKeyframeIdx, int activeKeyframeIdx,
+        boolean wasAtValidKeyframe) {
+        boolean forwardPlayback = !ponderPaused && wasAtValidKeyframe && activeKeyframeIdx > previousKeyframeIdx;
+        if (forwardPlayback) {
+            applyPonderKeyframeRange(previousKeyframeIdx + 1, activeKeyframeIdx, true);
+            return;
+        }
+
+        // Trigger particle effects only during forward playback, not on seek or initial load.
+        boolean triggerParticles = !ponderPaused && wasAtValidKeyframe;
+        applyPonderTimelineActions(activeKeyframeIdx, triggerParticles);
+    }
+
+    private void applyPonderKeyframeRange(int startKeyframeIdx, int endKeyframeIdx, boolean triggerParticles) {
+        if (ponderSceneData == null || endKeyframeIdx < startKeyframeIdx) {
+            return;
+        }
+
+        boolean blocksChanged = false;
+        int lastKeyframeIndex = Math.min(endKeyframeIdx, ponderSceneData.getKeyframeCount() - 1);
+        for (int keyframeIndex = Math.max(0, startKeyframeIdx); keyframeIndex <= lastKeyframeIndex; keyframeIndex++) {
+            PonderKeyframe keyframe = ponderSceneData.getKeyframe(keyframeIndex);
+            if (keyframe == null) {
+                continue;
+            }
+            blocksChanged |= applyPonderKeyframe(keyframe, triggerParticles && keyframeIndex == lastKeyframeIndex);
+        }
+        if (blocksChanged) {
+            markBlockStatsDirty();
+        }
+    }
+
+    private boolean applyPonderKeyframe(PonderKeyframe keyframe, boolean triggerParticles) {
+        boolean blocksChanged = false;
+        for (PonderKeyframeBlockChange blockChange : keyframe.getBlockChanges()) {
+            Block oldBlock = level.getBlock(blockChange.getX(), blockChange.getY(), blockChange.getZ());
+            int oldMeta = level.getBlockMetadata(blockChange.getX(), blockChange.getY(), blockChange.getZ());
+            NBTTagCompound targetTag = parsePonderBlockNbt(blockChange);
+            boolean hasTargetTileState = targetTag != null;
+            if (targetTag != null && Mods.AE2.isModLoaded()) {
+                targetTag = Ae2PonderSupport.normalizePonderTileTag(targetTag);
+            }
+            if (targetTag == null && Mods.AE2.isModLoaded()) {
+                targetTag = Ae2PonderSupport.createCableBusTileTag(blockChange.getBlock(), blockChange.getMeta());
+                hasTargetTileState = targetTag != null;
+            }
+            Block newBlock = resolveBlock(blockChange.getBlock(), targetTag, blockChange.getMeta());
+            int newMeta = resolvePonderBlockMeta(newBlock, blockChange.getMeta());
+            long posKey = GuidebookLevel.packPos(blockChange.getX(), blockChange.getY(), blockChange.getZ());
+            Map<String, byte[]> targetPreviewSupplements = readPreviewSupplements(targetTag);
+            Map<String, byte[]> previousPreviewSupplements = level.previewAuthorityStore()
+                .snapshotAt(posKey);
+            placePonderBlockChange(blockChange, newBlock, targetTag);
+            targetPreviewSupplements = resolvePonderPreviewSupplements(
+                targetPreviewSupplements,
+                previousPreviewSupplements,
+                hasTargetTileState,
+                oldBlock,
+                oldMeta,
+                blockChange.getX(),
+                blockChange.getY(),
+                blockChange.getZ(),
+                newBlock,
+                newMeta);
+            blocksChanged = true;
+            level.previewAuthorityStore()
+                .restoreAt(posKey, targetPreviewSupplements);
+            if (triggerParticles && blockChange.shouldSpawnParticles()) {
+                boolean removing = newBlock == null || newBlock == Blocks.air;
+                Block particleBlock = removing ? oldBlock : newBlock;
+                int particleMeta = removing ? oldMeta : newMeta;
+                if (particleBlock != null && particleBlock != Blocks.air) {
+                    spawnBlockParticles(
+                        blockChange.getX(),
+                        blockChange.getY(),
+                        blockChange.getZ(),
+                        particleBlock,
+                        particleMeta);
+                }
+            }
+        }
+        applyPonderTileNbtChanges(keyframe);
+        applyPonderEntityActions(keyframe);
+        if (triggerParticles) {
+            spawnPonderKeyframeParticles(keyframe);
+        }
+        return blocksChanged;
     }
 
     private void playPonderKeyframeSounds(int keyframeIndex) {
@@ -4457,6 +4634,9 @@ public class LytGuidebookScene extends LytBlock {
         if (!ponderBlockSnapshot.isEmpty() || !ponderEntityRefs.isEmpty()) {
             return true;
         }
+        if (!ponderTimedEntityAnimations.isEmpty()) {
+            return true;
+        }
         if (ponderSceneData == null) {
             return false;
         }
@@ -4470,6 +4650,10 @@ public class LytGuidebookScene extends LytBlock {
                 || !kf.getModifyEntityNBT()
                     .isEmpty()
                 || !kf.getRemoveEntityNBT()
+                    .isEmpty()
+                || !kf.getParticles()
+                    .isEmpty()
+                || !kf.getAnimateEntities()
                     .isEmpty()) {
                 return true;
             }
@@ -4488,55 +4672,89 @@ public class LytGuidebookScene extends LytBlock {
         }
         for (int i = 0; i <= upToKeyframeIdx && i < ponderSceneData.getKeyframeCount(); i++) {
             PonderKeyframe kf = ponderSceneData.getKeyframe(i);
-            if (kf == null) continue;
-            boolean isTarget = i == upToKeyframeIdx;
-            for (PonderKeyframeBlockChange bc : kf.getBlockChanges()) {
-                Block oldBlock = level.getBlock(bc.getX(), bc.getY(), bc.getZ());
-                int oldMeta = level.getBlockMetadata(bc.getX(), bc.getY(), bc.getZ());
-                NBTTagCompound targetTag = parsePonderBlockNbt(bc);
-                boolean hasTargetTileState = targetTag != null;
-                if (targetTag != null && Mods.AE2.isModLoaded()) {
-                    targetTag = Ae2PonderSupport.normalizePonderTileTag(targetTag);
-                }
-                if (targetTag == null && Mods.AE2.isModLoaded()) {
-                    targetTag = Ae2PonderSupport.createCableBusTileTag(bc.getBlock(), bc.getMeta());
-                    hasTargetTileState = targetTag != null;
-                }
-                Block newBlock = resolveBlock(bc.getBlock(), targetTag, bc.getMeta());
-                int newMeta = resolvePonderBlockMeta(newBlock, bc.getMeta());
-                long posKey = GuidebookLevel.packPos(bc.getX(), bc.getY(), bc.getZ());
-                Map<String, byte[]> targetPreviewSupplements = readPreviewSupplements(targetTag);
-                Map<String, byte[]> previousPreviewSupplements = level.previewAuthorityStore()
-                    .snapshotAt(posKey);
-                placePonderBlockChange(bc, newBlock, targetTag);
-                targetPreviewSupplements = resolvePonderPreviewSupplements(
-                    targetPreviewSupplements,
-                    previousPreviewSupplements,
-                    hasTargetTileState,
-                    oldBlock,
-                    oldMeta,
-                    bc.getX(),
-                    bc.getY(),
-                    bc.getZ(),
-                    newBlock,
-                    newMeta);
-                blocksChanged = true;
-                level.previewAuthorityStore()
-                    .restoreAt(posKey, targetPreviewSupplements);
-                if (triggerParticles && isTarget && bc.shouldSpawnParticles()) {
-                    boolean removing = newBlock == null || newBlock == Blocks.air;
-                    Block particleBlock = removing ? oldBlock : newBlock;
-                    int particleMeta = removing ? oldMeta : newMeta;
-                    if (particleBlock != null && particleBlock != Blocks.air) {
-                        spawnBlockParticles(bc.getX(), bc.getY(), bc.getZ(), particleBlock, particleMeta);
-                    }
-                }
+            if (kf == null) {
+                continue;
             }
-            applyPonderTileNbtChanges(kf);
-            applyPonderEntityActions(kf);
+            blocksChanged |= applyPonderKeyframe(kf, triggerParticles && i == upToKeyframeIdx);
         }
         if (blocksChanged) {
             markBlockStatsDirty();
+        }
+    }
+
+    private void spawnPonderKeyframeParticles(PonderKeyframe keyframe) {
+        spawnPonderKeyframeParticles(keyframe, 0);
+    }
+
+    private void spawnPonderKeyframeParticles(PonderKeyframe keyframe, int elapsedTicks) {
+        ponderSceneParticles.ensureCapacity(ponderSceneParticles.size() + estimatePonderParticleBurstSize(keyframe));
+        for (PonderKeyframeParticle particle : keyframe.getParticles()) {
+            if (particle == null) {
+                continue;
+            }
+            if (elapsedTicks >= estimatePonderReplayLifetime(particle)) {
+                continue;
+            }
+            int startIndex = ponderSceneParticles.size();
+            if (particle.isExplosionPreset()) {
+                int count = particle
+                    .getCount(GuidebookSceneParticleFactory.defaultExplosionParticleCount(particle.getPower(2f)));
+                GuidebookSceneParticleFactory.appendExplosionPreset(
+                    ponderSceneParticles,
+                    ponderParticleRng,
+                    particle.getX(),
+                    particle.getY(),
+                    particle.getZ(),
+                    particle.getLifetimeTicks(8),
+                    particle.getPower(2f),
+                    count,
+                    this::acquirePonderParticle);
+                advancePonderParticles(startIndex, elapsedTicks);
+                continue;
+            }
+            int count = particle.getCount(1);
+            int lifetime = particle.getLifetimeTicks(12);
+            float size = particle.getSize(0.14f);
+            String particleName = particle.getParticleName();
+            float x = particle.getX();
+            float y = particle.getY();
+            float z = particle.getZ();
+            float vx = particle.getVelocityX();
+            float vy = particle.getVelocityY();
+            float vz = particle.getVelocityZ();
+            for (int i = 0; i < count; i++) {
+                ponderSceneParticles.add(
+                    GuidebookSceneParticleFactory.createRuntimeParticle(
+                        acquirePonderParticle(),
+                        particleName,
+                        x,
+                        y,
+                        z,
+                        vx,
+                        vy,
+                        vz,
+                        lifetime,
+                        size,
+                        ponderParticleRng));
+            }
+            advancePonderParticles(startIndex, elapsedTicks);
+        }
+    }
+
+    private void advancePonderParticles(int startIndex, int elapsedTicks) {
+        if (elapsedTicks <= 0 || startIndex >= ponderSceneParticles.size()) {
+            return;
+        }
+        for (int i = startIndex; i < ponderSceneParticles.size(); i++) {
+            ponderSceneParticles.get(i)
+                .advanceBy(elapsedTicks);
+        }
+        for (int i = ponderSceneParticles.size() - 1; i >= startIndex; i--) {
+            GuidebookSceneParticle particle = ponderSceneParticles.get(i);
+            if (!particle.isDead()) {
+                continue;
+            }
+            recyclePonderParticle(ponderSceneParticles.remove(i));
         }
     }
 
@@ -4680,6 +4898,7 @@ public class LytGuidebookScene extends LytBlock {
             level.removeEntity(existing.entityId);
         }
         level.addEntity(entity);
+        applyPonderEntityState(entity, entityId, action, true);
         ponderEntityRefs
             .put(ref, new PonderEntityRuntime(entity.getEntityId(), entityId, action.getName(), action.getUuid()));
     }
@@ -4687,57 +4906,67 @@ public class LytGuidebookScene extends LytBlock {
     private void setPonderEntityNbt(PonderKeyframeEntityAction action) {
         Entity entity = resolvePonderEntity(action);
         String nbt = action.getNbt();
-        if (entity == null || nbt == null
-            || nbt.trim()
-                .isEmpty()) {
+        if (entity == null) {
             return;
         }
-        try {
-            NBTTagCompound tag = PonderNbtPath.parseCompound(nbt);
-            applyPonderEntityNbt(entity, tag);
-        } catch (Exception ignored) {}
+        if (nbt != null && !nbt.trim()
+            .isEmpty()) {
+            try {
+                NBTTagCompound tag = PonderNbtPath.parseCompound(nbt);
+                entity = applyPonderEntityNbt(entity, tag);
+            } catch (Exception ignored) {}
+        }
+        applyPonderEntityState(entity, resolvePonderEntityTypeId(action, entity), action, false);
     }
 
     private void mergePonderEntityNbt(PonderKeyframeEntityAction action) {
         Entity entity = resolvePonderEntity(action);
         String nbt = action.getNbt();
-        if (entity == null || nbt == null
-            || nbt.trim()
-                .isEmpty()) {
+        if (entity == null) {
             return;
         }
-        try {
-            NBTTagCompound current = readPonderEntityNbt(entity);
-            PonderNbtPath.mergeCompound(current, PonderNbtPath.parseCompound(nbt));
-            applyPonderEntityNbt(entity, current);
-        } catch (Exception ignored) {}
+        if (nbt != null && !nbt.trim()
+            .isEmpty()) {
+            try {
+                NBTTagCompound current = readPonderEntityNbt(entity);
+                PonderNbtPath.mergeCompound(current, PonderNbtPath.parseCompound(nbt));
+                entity = applyPonderEntityNbt(entity, current);
+            } catch (Exception ignored) {}
+        }
+        applyPonderEntityState(entity, resolvePonderEntityTypeId(action, entity), action, false);
     }
 
     private void modifyPonderEntityNbt(PonderKeyframeEntityAction action) {
         Entity entity = resolvePonderEntity(action);
         String path = action.getPath();
         String value = action.getValue();
-        if (entity == null || path == null || value == null) {
+        if (entity == null) {
             return;
         }
-        try {
-            NBTTagCompound current = readPonderEntityNbt(entity);
-            if (PonderNbtPath.set(current, path, PonderNbtPath.parseValue(value))) {
-                applyPonderEntityNbt(entity, current);
-            }
-        } catch (Exception ignored) {}
+        if (path != null && value != null) {
+            try {
+                NBTTagCompound current = readPonderEntityNbt(entity);
+                if (PonderNbtPath.set(current, path, PonderNbtPath.parseValue(value))) {
+                    entity = applyPonderEntityNbt(entity, current);
+                }
+            } catch (Exception ignored) {}
+        }
+        applyPonderEntityState(entity, resolvePonderEntityTypeId(action, entity), action, false);
     }
 
     private void removePonderEntityNbt(PonderKeyframeEntityAction action) {
         Entity entity = resolvePonderEntity(action);
         String path = action.getPath();
-        if (entity == null || path == null) {
+        if (entity == null) {
             return;
         }
-        NBTTagCompound current = readPonderEntityNbt(entity);
-        if (PonderNbtPath.remove(current, path)) {
-            applyPonderEntityNbt(entity, current);
+        if (path != null) {
+            NBTTagCompound current = readPonderEntityNbt(entity);
+            if (PonderNbtPath.remove(current, path)) {
+                entity = applyPonderEntityNbt(entity, current);
+            }
         }
+        applyPonderEntityState(entity, resolvePonderEntityTypeId(action, entity), action, false);
     }
 
     @Nullable
@@ -4746,8 +4975,7 @@ public class LytGuidebookScene extends LytBlock {
         if (ref == null) {
             return null;
         }
-        PonderEntityRuntime runtime = ponderEntityRefs.get(ref);
-        return runtime == null ? null : level.getEntity(runtime.entityId);
+        return resolvePonderAnimatedEntity(ref);
     }
 
     private NBTTagCompound readPonderEntityNbt(Entity entity) {
@@ -4756,22 +4984,29 @@ public class LytGuidebookScene extends LytBlock {
         return tag;
     }
 
-    private void applyPonderEntityNbt(Entity entity, NBTTagCompound tag) {
+    private Entity applyPonderEntityNbt(Entity entity, NBTTagCompound tag) {
         PonderEntityRuntime runtime = findPonderEntityRuntime(entity);
+        try {
+            entity.readFromNBT(tag);
+            level.addEntity(entity);
+            return entity;
+        } catch (Throwable ignored) {}
+
         String entityId = runtime != null ? runtime.entityTypeId : null;
-        if (entityId != null) {
-            World fakeWorld = level.getOrCreateFakeWorld();
-            Entity replacement = GuidebookSceneEntityLoader
-                .loadFromNbt(fakeWorld, entityId, tag, runtime.playerName, runtime.playerUuid);
-            if (replacement != null) {
-                level.removeEntity(entity.getEntityId());
-                level.addEntity(replacement);
-                runtime.entityId = replacement.getEntityId();
-                return;
-            }
+        if (entityId == null) {
+            return entity;
         }
-        entity.readFromNBT(tag);
-        level.addEntity(entity);
+
+        World fakeWorld = level.getOrCreateFakeWorld();
+        Entity replacement = GuidebookSceneEntityLoader
+            .loadFromNbt(fakeWorld, entityId, tag, runtime.playerName, runtime.playerUuid);
+        if (replacement != null) {
+            level.removeEntity(entity.getEntityId());
+            level.addEntity(replacement);
+            runtime.entityId = replacement.getEntityId();
+            return replacement;
+        }
+        return entity;
     }
 
     @Nullable
@@ -4803,6 +5038,50 @@ public class LytGuidebookScene extends LytBlock {
         }
     }
 
+    @Nullable
+    private String resolvePonderEntityTypeId(PonderKeyframeEntityAction action, Entity entity) {
+        String explicitEntityId = trimToNull(action.getId());
+        if (explicitEntityId != null) {
+            return explicitEntityId;
+        }
+        PonderEntityRuntime runtime = findPonderEntityRuntime(entity);
+        return runtime != null ? runtime.entityTypeId : null;
+    }
+
+    private void applyPonderEntityState(Entity entity, @Nullable String entityId, PonderKeyframeEntityAction action,
+        boolean usePreviewDefaults) {
+        if (entity == null) {
+            return;
+        }
+
+        GuidebookSceneEntityStateSupport.applyOptionalPosition(entity, action.getX(), action.getY(), action.getZ());
+        GuidebookSceneEntityStateSupport.applyOptionalRotation(
+            entity,
+            action.getYaw(),
+            action.getPitch(),
+            action.getBodyYaw(),
+            action.getHeadYaw());
+        GuidebookSceneEntityStateSupport.applyVisualState(
+            entity,
+            entityId,
+            action.getShowName(),
+            action.getShowCape(),
+            action.getBaby(),
+            resolvePonderPreviewPlayerPose(action),
+            usePreviewDefaults);
+    }
+
+    @Nullable
+    private GuidebookPreviewPlayerPose resolvePonderPreviewPlayerPose(PonderKeyframeEntityAction action) {
+        return GuidebookSceneEntityStateSupport.createPreviewPlayerPose(
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getHeadRotation()),
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getLeftArmRotation()),
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getRightArmRotation()),
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getLeftLegRotation()),
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getRightLegRotation()),
+            GuidebookSceneEntityStateSupport.parseOptionalVector3(action.getCapeRotation()));
+    }
+
     private NBTTagList createDoubleList(double... values) {
         NBTTagList list = new NBTTagList();
         for (double value : values) {
@@ -4824,6 +5103,97 @@ public class LytGuidebookScene extends LytBlock {
             level.removeEntity(runtime.entityId);
         }
         ponderEntityRefs.clear();
+        clearPonderEntityAnimationBaselines();
+    }
+
+    private GuidebookSceneParticle acquirePonderParticle() {
+        GuidebookSceneParticle particle = ponderParticlePool.pollFirst();
+        return particle != null ? particle : new GuidebookSceneParticle();
+    }
+
+    private void recyclePonderParticle(@Nullable GuidebookSceneParticle particle) {
+        if (particle == null || ponderParticlePool.size() >= MAX_PONDER_PARTICLE_POOL_SIZE) {
+            return;
+        }
+        ponderParticlePool.addFirst(particle);
+    }
+
+    private void clearPonderRuntimeParticles() {
+        for (GuidebookSceneParticle particle : ponderSceneParticles) {
+            recyclePonderParticle(particle);
+        }
+        ponderSceneParticles.clear();
+    }
+
+    private void rebuildPonderRuntimeParticlesAtCurrentTick() {
+        clearPonderRuntimeParticles();
+        if (ponderSceneData == null) {
+            return;
+        }
+        for (PonderKeyframe keyframe : ponderSceneData.getKeyframes()) {
+            if (keyframe == null) {
+                continue;
+            }
+            int elapsedTicks = ponderCurrentTick - keyframe.getTime();
+            if (elapsedTicks < 0) {
+                continue;
+            }
+            spawnPonderKeyframeParticles(keyframe, elapsedTicks);
+        }
+    }
+
+    private void applyPonderEntityAnimationsAtTick(int tick) {
+        if (ponderTimedEntityAnimations.isEmpty() || ponderEntityRefs.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, PonderEntityAnimationRuntimeSupport.Baseline> entry : ponderEntityAnimationBaselines
+            .entrySet()) {
+            Entity entity = resolvePonderAnimatedEntity(entry.getKey());
+            if (entity != null) {
+                PonderEntityAnimationRuntimeSupport.restoreBaseline(entity, entry.getValue());
+            }
+        }
+
+        for (PonderEntityAnimationRuntimeSupport.TimedAnimation timedAnimation : ponderTimedEntityAnimations) {
+            if (timedAnimation.startTick() > tick) {
+                break;
+            }
+
+            Entity entity = resolvePonderAnimatedEntity(timedAnimation.ref());
+            if (entity == null) {
+                continue;
+            }
+
+            ponderEntityAnimationBaselines.computeIfAbsent(
+                timedAnimation.ref(),
+                ignored -> PonderEntityAnimationRuntimeSupport.captureBaseline(entity));
+
+            int elapsedTicks = tick - timedAnimation.startTick();
+            if (elapsedTicks < 0) {
+                continue;
+            }
+
+            if (elapsedTicks >= timedAnimation.durationTicks() && !timedAnimation.persistent()) {
+                continue;
+            }
+
+            PonderEntityAnimationRuntimeSupport.Baseline frameBaseline = PonderEntityAnimationRuntimeSupport
+                .captureBaseline(entity);
+            PonderEntityAnimationRuntimeSupport.apply(
+                entity,
+                frameBaseline,
+                timedAnimation.animation(),
+                timedAnimation.preset(),
+                timedAnimation.durationTicks(),
+                elapsedTicks);
+        }
+    }
+
+    @Nullable
+    private Entity resolvePonderAnimatedEntity(String ref) {
+        PonderEntityRuntime runtime = ponderEntityRefs.get(ref);
+        return runtime == null ? null : level.getEntity(runtime.entityId);
     }
 
     @Nullable
@@ -4849,6 +5219,7 @@ public class LytGuidebookScene extends LytBlock {
         Random rng = ponderParticleRng;
         float[] color = resolveDiggingParticleColor(block, meta, bx, by, bz);
         int grid = 4;
+        ponderSceneParticles.ensureCapacity(ponderSceneParticles.size() + grid * grid * grid);
         for (int ix = 0; ix < grid; ix++) {
             for (int iy = 0; iy < grid; iy++) {
                 for (int iz = 0; iz < grid; iz++) {
@@ -4872,7 +5243,7 @@ public class LytGuidebookScene extends LytBlock {
                     int maxAge = vanillaDiggingParticleMaxAge(rng);
                     float size = vanillaDiggingParticleHalfSize(rng);
                     ponderSceneParticles.add(
-                        new GuidebookSceneParticle(
+                        acquirePonderParticle().reset(
                             px,
                             py,
                             pz,
@@ -4911,19 +5282,52 @@ public class LytGuidebookScene extends LytBlock {
                 blue *= (color & 255) / 255.0f;
             } catch (Throwable ignoredAgain) {}
         }
-        return new float[] { red, green, blue };
+        diggingParticleColorScratch[0] = red;
+        diggingParticleColorScratch[1] = green;
+        diggingParticleColorScratch[2] = blue;
+        return diggingParticleColorScratch;
     }
 
-    private static float[] vanillaDiggingParticleVelocity(Random rng, float baseX, float baseY, float baseZ) {
+    private float[] vanillaDiggingParticleVelocity(Random rng, float baseX, float baseY, float baseZ) {
         float vx = baseX + (rng.nextFloat() * 2.0f - 1.0f) * 0.4f;
         float vy = baseY + (rng.nextFloat() * 2.0f - 1.0f) * 0.4f;
         float vz = baseZ + (rng.nextFloat() * 2.0f - 1.0f) * 0.4f;
         float speed = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
         if (speed <= 1.0e-6f) {
-            return new float[] { 0.0f, 0.1f, 0.0f };
+            diggingParticleVelocityScratch[0] = 0.0f;
+            diggingParticleVelocityScratch[1] = 0.1f;
+            diggingParticleVelocityScratch[2] = 0.0f;
+            return diggingParticleVelocityScratch;
         }
         float scale = (rng.nextFloat() + rng.nextFloat() + 1.0f) * 0.15f * 0.4f;
-        return new float[] { vx / speed * scale, vy / speed * scale + 0.1f, vz / speed * scale };
+        diggingParticleVelocityScratch[0] = vx / speed * scale;
+        diggingParticleVelocityScratch[1] = vy / speed * scale + 0.1f;
+        diggingParticleVelocityScratch[2] = vz / speed * scale;
+        return diggingParticleVelocityScratch;
+    }
+
+    private int estimatePonderParticleBurstSize(PonderKeyframe keyframe) {
+        int total = 0;
+        for (PonderKeyframeParticle particle : keyframe.getParticles()) {
+            if (particle == null) {
+                continue;
+            }
+            if (particle.isExplosionPreset()) {
+                int count = particle
+                    .getCount(GuidebookSceneParticleFactory.defaultExplosionParticleCount(particle.getPower(2f)));
+                total += 1 + count * 2;
+                continue;
+            }
+            total += particle.getCount(1);
+        }
+        return total;
+    }
+
+    private int estimatePonderReplayLifetime(PonderKeyframeParticle particle) {
+        if (particle.isExplosionPreset()) {
+            return particle.getLifetimeTicks(8) + 20;
+        }
+        return particle.getLifetimeTicks(12);
     }
 
     private static int vanillaDiggingParticleMaxAge(Random rng) {

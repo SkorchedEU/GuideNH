@@ -44,3 +44,5 @@ date: 2024-01-01
 <BlockImage id="minecraft:crafting_table" />
 
 <ItemLink id="minecraft:stick" />
+
+场景补充页：[场景粒子](./scene-particles.md)

@@ -29,6 +29,8 @@ public class PonderKeyframe {
     @Nullable
     private List<PonderKeyframeSound> sounds;
     @Nullable
+    private List<PonderKeyframeParticle> particles;
+    @Nullable
     private List<PonderKeyframeBlockChange> blockChanges;
     @Nullable
     private List<PonderKeyframeTileNbtOperation> mergeTileNBT;
@@ -46,6 +48,8 @@ public class PonderKeyframe {
     private List<PonderKeyframeEntityAction> modifyEntityNBT;
     @Nullable
     private List<PonderKeyframeEntityAction> removeEntityNBT;
+    @Nullable
+    private List<PonderKeyframeEntityAnimation> animateEntities;
     /**
      * Maximum number of ticks over which the camera eases from the previous keyframe's position
      * to this keyframe's position.
@@ -90,6 +94,10 @@ public class PonderKeyframe {
         return sounds != null ? sounds : Collections.emptyList();
     }
 
+    public List<PonderKeyframeParticle> getParticles() {
+        return particles != null ? particles : Collections.emptyList();
+    }
+
     /**
      * Block replacements to apply when this keyframe becomes active.
      * The runtime restores all changed positions to their initial state before re-applying
@@ -129,6 +137,10 @@ public class PonderKeyframe {
 
     public List<PonderKeyframeEntityAction> getRemoveEntityNBT() {
         return removeEntityNBT != null ? removeEntityNBT : Collections.emptyList();
+    }
+
+    public List<PonderKeyframeEntityAnimation> getAnimateEntities() {
+        return animateEntities != null ? animateEntities : Collections.emptyList();
     }
 
     /**

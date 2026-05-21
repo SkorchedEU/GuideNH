@@ -16,6 +16,7 @@ import com.hfstudio.guidenh.guide.color.ColorValue;
 import com.hfstudio.guidenh.guide.color.LightDarkMode;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
+import com.hfstudio.guidenh.guide.compiler.tags.MdxAttrs;
 import com.hfstudio.guidenh.guide.compiler.tags.functiongraph.FunctionGraphFenceParser;
 import com.hfstudio.guidenh.guide.document.block.functiongraph.LytFunctionGraph;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
@@ -1528,21 +1529,11 @@ public class GuideSiteHtmlCompiler {
     }
 
     private boolean readBoolean(MdxJsxElementFields element, String name, boolean fallback) {
-        MdxJsxAttribute attribute = element.getAttribute(name);
-        if (attribute == null) {
+        try {
+            return MdxAttrs.getBoolean(element, name, fallback);
+        } catch (MdxAttrs.AttributeException ignored) {
             return fallback;
         }
-        if (!attribute.hasExpressionValue() && !attribute.hasStringValue()) {
-            return true;
-        }
-        String value = attribute.hasExpressionValue() ? attribute.getExpressionValue() : attribute.getStringValue();
-        if ("true".equalsIgnoreCase(value)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(value)) {
-            return false;
-        }
-        return fallback;
     }
 
     private String sanitizeCssToken(String value) {

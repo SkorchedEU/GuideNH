@@ -262,3 +262,22 @@ categories:
   <Block id="minecraft:trapdoor" x="8" />
 </GameScene>
 
+## 静态粒子
+
+`<Particle>` 会在场景里放置一个静止粒子。不填写 `name` 时会使用默认的面片粒子，
+适合在不增加额外注解几何体的前提下强调某个精确位置，也能用于烟雾和发光提示。
+
+| 属性 | 默认值 | 说明 |
+| --- | --- | --- |
+| `name` | `billboard` | 粒子外观。支持 `billboard`、`smoke`、`largesmoke`、`explode`、`flash`、`largeexplode`、`hugeexplosion`。`particle`、`quad`、`sheet` 会作为 `billboard` 的别名处理。 |
+| `x`、`y`、`z` | `0.5`、`0.5`、`0.5` | 粒子的世界坐标原点。 |
+| `size` | `0.18` | 粒子的半尺寸，单位为方块。 |
+
+```mdx
+<GameScene width="192" height="128" zoom={5} interactive={false}>
+  <Block id="minecraft:furnace" x="1" />
+  <Particle x="1.5" y="1.85" z="0.5" size="0.22" />
+  <Particle name="smoke" x="1.5" y="1.35" z="0.5" size="0.18" />
+</GameScene>
+```
+

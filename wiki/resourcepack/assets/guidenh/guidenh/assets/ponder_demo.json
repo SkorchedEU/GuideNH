@@ -1,5 +1,5 @@
 {
-  "totalTime": 360,
+  "totalTime": 470,
   "keyframes": [
     {
       "time": 0,
@@ -80,6 +80,20 @@
           "x": 1.5,
           "y": 1.5,
           "z": 1.5
+        }
+      ],
+        "particles": [
+          {
+          "name": "smoke",
+            "x": 1.5,
+            "y": 1.85,
+            "z": 1.5,
+          "vx": 0.0,
+          "vy": 0.01,
+          "vz": 0.0,
+          "size": 0.18,
+          "time": 16,
+          "count": 3
         }
       ],
       "blockChanges": [
@@ -214,7 +228,27 @@
           "y": 1.0,
           "z": 2.2,
           "yaw": 180.0,
+          "bodyYaw": 180.0,
+          "headYaw": 210.0,
           "nbt": "{CustomName:\"Done\",CustomNameVisible:1b}"
+        },
+        {
+          "ref": "guide_operator",
+          "id": "player",
+          "name": "GuideNH",
+          "x": 2.45,
+          "y": 1.0,
+          "z": 1.45,
+          "yaw": 225.0,
+          "bodyYaw": 225.0,
+          "headYaw": 250.0,
+          "showName": true,
+          "showCape": true,
+          "headRotation": "-10 18 0",
+          "leftArmRotation": "-70 18 -12",
+          "rightArmRotation": "32 -8 18",
+          "leftLegRotation": "8 0 0",
+          "rightLegRotation": "-6 0 0"
         }
       ],
       "mergeEntityNBT": [
@@ -228,6 +262,12 @@
           "ref": "finished_pig",
           "path": "CustomName",
           "value": "\"Finished cycle\""
+        },
+        {
+          "ref": "guide_operator",
+          "headYaw": 290.0,
+          "headRotation": "-22 38 0",
+          "leftArmRotation": "-38 0 -8"
         }
       ],
       "removeEntityNBT": [
@@ -239,7 +279,7 @@
       "annotations": [
         {
           "type": "text",
-          "text": "That's the full smelting cycle. Press the restart button to watch again.",
+          "text": "The runtime can also animate timeline-owned entities with replay-safe presets.",
           "independent": true,
           "yOffset": 50,
           "maxWidth": 200,
@@ -256,7 +296,114 @@
       ]
     },
     {
-      "time": 360,
+      "time": 352,
+      "label": "Entity presets",
+      "camera": {
+        "rotY": 214.0,
+        "zoom": 1.9
+      },
+      "animateEntities": [
+        {
+          "ref": "guide_operator",
+          "preset": "rightClick",
+          "ticks": 6
+        },
+        {
+          "ref": "finished_pig",
+          "preset": "walkTo",
+          "x": 1.9,
+          "y": 1.0,
+          "z": 1.75,
+          "ticks": 24
+        },
+        {
+          "ref": "finished_pig",
+          "preset": "hurt",
+          "ticks": 10
+        }
+      ],
+      "annotations": [
+        {
+          "type": "text",
+          "text": "Preset animations are recomputed from the current tick, so scrubbing stays deterministic.",
+          "independent": true,
+          "yOffset": 54,
+          "maxWidth": 210,
+          "color": "0xFFFFE599"
+        }
+      ]
+    },
+    {
+      "time": 372,
+      "label": "Jump and crouch",
+      "camera": {
+        "rotY": 220.0,
+        "zoom": 1.95
+      },
+      "animateEntities": [
+        {
+          "ref": "guide_operator",
+          "preset": "leftClick",
+          "ticks": 6
+        },
+        {
+          "ref": "guide_operator",
+          "preset": "jump",
+          "ticks": 12,
+          "height": 0.65
+        },
+        {
+          "ref": "guide_operator",
+          "preset": "sneak"
+        }
+      ],
+      "annotations": [
+        {
+          "type": "text",
+          "text": "Preview players support click gestures, jump arcs, and crouch presets.",
+          "independent": true,
+          "yOffset": 54,
+          "maxWidth": 205,
+          "color": "0xFF9EE7FF"
+        }
+      ]
+    },
+    {
+      "time": 392,
+      "label": "Unsneak",
+      "animateEntities": [
+        {
+          "ref": "guide_operator",
+          "preset": "unsneak"
+        }
+      ]
+    },
+    {
+      "time": 410,
+      "label": "Explosion preset",
+      "particles": [
+        {
+          "preset": "explosion",
+          "x": 1.5,
+          "y": 1.45,
+          "z": 1.5,
+          "time": 8,
+          "power": 2.4
+        }
+      ],
+      "annotations": [
+        {
+          "type": "text",
+          "text": "Explosion preset reuses vanilla-style smoke, flash, and burst motion.",
+          "independent": true,
+          "yOffset": 56,
+          "maxWidth": 220,
+          "color": "0xFFFFB38A"
+        }
+      ]
+    },
+    {
+      "time": 470,
       "camera": {
         "rotY": 210.0
       }
