@@ -263,12 +263,12 @@ public class InWorldAnnotationRenderer {
         return Math.max(thickness / 32f, 1f / 256f) * 0.5f;
     }
 
-    private static float computeArrowThickness(float thickness) {
-        return Math.max(thickness / 32f, 1f / 256f);
+    private static float computeArrowBaseRadius(float thickness) {
+        return Math.max(computeLineHalfThickness(thickness) * 1.35f, 0.028f);
     }
 
     private static float computeArrowBaseOffset(float thickness) {
-        return Math.max(computeArrowThickness(thickness) * 8f, 0.18f);
+        return Math.max(computeArrowBaseRadius(thickness) * 3.5f, 0.14f);
     }
 
     public static void drawArrowHead(Vector3f tip, Vector3f lineInterior, int argb, float thickness) {
@@ -278,9 +278,8 @@ public class InWorldAnnotationRenderer {
         float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (len < 1e-6f) return;
         float ix = dx / len, iy = dy / len, iz = dz / len;
-        float t = computeArrowThickness(thickness);
         float arrowLength = computeArrowBaseOffset(thickness);
-        float arrowRadius = Math.max(t * 3.5f, 0.08f);
+        float arrowRadius = computeArrowBaseRadius(thickness);
 
         float ux, uy, uz;
         if (Math.abs(iy) < 0.9f) {

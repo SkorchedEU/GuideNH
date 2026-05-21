@@ -575,28 +575,201 @@ document.addEventListener("DOMContentLoaded", () => {
   installIngredientCycling(document);
   installImageAnnotations(document);
   installGuideSounds(document);
+  installMermaidLayout(document);
   installMermaidPanZoom(document);
   installChartHoverTooltips(document);
   hydrateVisibleScenes(document);
 });
 
+function installMermaidLayout(root) {
+  const stages = root.querySelectorAll(".guide-mermaid-stage[data-guide-mermaid-stage]");
+  if (!stages.length) {
+    return;
+  }
+  const PADDING = 12;
+  const GAP_X = 32;
+  const GAP_Y = 18;
+  let rafId = 0;
+  const scheduleLayout = () => {
+    if (rafId) {
+      return;
+    }
+    rafId = window.requestAnimationFrame(() => {
+      rafId = 0;
+      stages.forEach((stage) => layoutMermaidStage(stage, PADDING, GAP_X, GAP_Y));
+    });
+  };
+  if (!window.__guideMermaidLayoutResizeInstalled) {
+    window.__guideMermaidLayoutResizeInstalled = true;
+    window.addEventListener("resize", scheduleLayout, { passive: true });
+  }
+  stages.forEach((stage) => {
+    if (stage.__guideMermaidLayoutInstalled) {
+      return;
+    }
+    stage.__guideMermaidLayoutInstalled = true;
+    if (window.ResizeObserver) {
+      const observer = new window.ResizeObserver(() => scheduleLayout());
+      observer.observe(stage);
+      stage.querySelectorAll(".guide-mermaid-node").forEach((node) => observer.observe(node));
+      stage.__guideMermaidResizeObserver = observer;
+    }
+    stage.querySelectorAll("img").forEach((image) => {
+      if (image.complete) {
+        return;
+      }
+      image.addEventListener("load", scheduleLayout, { once: true });
+    });
+  });
+  scheduleLayout();
+}
+
+function layoutMermaidStage(stage, padding, gapX, gapY) {
+  const svg = stage.querySelector("svg.guide-mermaid-canvas");
+  const layer = stage.querySelector(".guide-mermaid-node-layer");
+  if (!svg || !layer) {
+    return;
+  }
+  const nodeElements = Array.from(layer.querySelectorAll(".guide-mermaid-node[data-node-id]"));
+  if (!nodeElements.length) {
+    svg.setAttribute("width", "100");
+    svg.setAttribute("height", "40");
+    svg.setAttribute("viewBox", "0 0 100 40");
+    svg.innerHTML = "";
+    return;
+  }
+
+  const nodes = new Map();
+  nodeElements.forEach((el) => {
+    nodes.set(el.dataset.nodeId || "", {
+      id: el.dataset.nodeId || "",
+      parentId: el.dataset.parentId || "",
+      el,
+      children: [],
+      width: Math.max(64, Math.ceil(el.offsetWidth)),
+      height: Math.max(32, Math.ceil(el.offsetHeight)),
+      subtreeWidth: 0,
+      subtreeHeight: 0,
+      x: 0,
+      y: 0,
+    });
+  });
+
+  let rootNode = null;
+  nodes.forEach((node) => {
+    const parent = node.parentId ? nodes.get(node.parentId) : null;
+    if (parent) {
+      parent.children.push(node);
+    } else if (!rootNode) {
+      rootNode = node;
+    }
+  });
+  if (!rootNode) {
+    rootNode = nodes.values().next().value;
+  }
+  if (!rootNode) {
+    return;
+  }
+
+  const measure = (node) => {
+    if (!node.children.length) {
+      node.subtreeWidth = node.width;
+      node.subtreeHeight = node.height;
+      return;
+    }
+    let childrenWidth = 0;
+    let childrenHeight = 0;
+    node.children.forEach((child) => {
+      measure(child);
+      childrenWidth += child.subtreeWidth;
+      childrenHeight = Math.max(childrenHeight, child.subtreeHeight);
+    });
+    childrenWidth += gapX * (node.children.length - 1);
+    node.subtreeWidth = Math.max(node.width, childrenWidth);
+    node.subtreeHeight = node.height + gapY + childrenHeight;
+  };
+
+  const place = (node, x, y) => {
+    node.x = x + (node.subtreeWidth - node.width) / 2;
+    node.y = y;
+    if (!node.children.length) {
+      return;
+    }
+    let childrenWidth = 0;
+    node.children.forEach((child) => {
+      childrenWidth += child.subtreeWidth;
+    });
+    childrenWidth += gapX * (node.children.length - 1);
+    let cursorX = x + (node.subtreeWidth - childrenWidth) / 2;
+    const childY = y + node.height + gapY;
+    node.children.forEach((child) => {
+      place(child, cursorX, childY);
+      cursorX += child.subtreeWidth + gapX;
+    });
+  };
+
+  measure(rootNode);
+  place(rootNode, 0, 0);
+
+  const totalWidth = Math.ceil(rootNode.subtreeWidth + padding * 2);
+  const totalHeight = Math.ceil(rootNode.subtreeHeight + padding * 2);
+  stage.style.width = `${totalWidth}px`;
+  stage.style.height = `${totalHeight}px`;
+  svg.setAttribute("width", String(totalWidth));
+  svg.setAttribute("height", String(totalHeight));
+  svg.setAttribute("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+
+  const paths = [];
+  const drawConnectors = (node) => {
+    const parentCx = padding + node.x + node.width / 2;
+    const parentBottom = padding + node.y + node.height;
+    node.children.forEach((child) => {
+      const childCx = padding + child.x + child.width / 2;
+      const childTop = padding + child.y;
+      const midY = (parentBottom + childTop) / 2;
+      paths.push(`M${parentCx} ${parentBottom} V${midY} H${childCx} V${childTop}`);
+      drawConnectors(child);
+    });
+  };
+  drawConnectors(rootNode);
+  svg.innerHTML = `
+    <rect x="0.5" y="0.5" width="${Math.max(1, totalWidth - 1)}" height="${Math.max(1, totalHeight - 1)}"
+      fill="rgba(12,17,23,0.94)" stroke="rgba(67,76,87,0.4)" stroke-width="1"></rect>
+    ${paths
+      .map(
+        (path) =>
+          `<path d="${path}" stroke="rgba(93,108,124,1)" stroke-width="1" fill="none" shape-rendering="crispEdges"></path>`,
+      )
+      .join("")}
+  `;
+
+  nodes.forEach((node) => {
+    node.el.style.transform = `translate(${padding + node.x}px, ${padding + node.y}px)`;
+    node.el.style.setProperty("--guide-mermaid-accent", node.el.dataset.accent || "#7AA2F7");
+  });
+}
+
 /**
  * Pan + zoom for mindmap canvases. Each `.guide-mermaid-pan` gains drag-to-pan
  * (pointerdown/move/up) plus wheel-to-zoom around the cursor. The transform is
- * applied to the inner SVG via CSS `transform: translate(tx,ty) scale(s)`.
+ * applied to the inner stage via CSS `transform: translate(tx,ty) scale(s)`.
  */
 function installMermaidPanZoom(root) {
   const containers = root.querySelectorAll(".guide-mermaid-pan[data-guide-pannable]");
   for (const container of containers) {
-    const svg = container.querySelector("svg");
-    if (!svg) continue;
+    const stage = container.querySelector(".guide-mermaid-stage") || container.querySelector("svg");
+    if (!stage) continue;
     const state = { tx: 0, ty: 0, scale: 1, dragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0 };
     const apply = () => {
-      svg.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
+      stage.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
     };
     apply();
     container.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
+      if (event.target instanceof Element
+        && event.target.closest("a, button, input, textarea, select, summary, [role='button'], [data-guide-sound]")) {
+        return;
+      }
       state.dragging = true;
       state.startX = event.clientX;
       state.startY = event.clientY;

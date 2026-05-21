@@ -1453,10 +1453,96 @@ p {
     cursor: grabbing;
 }
 
+.guide-mermaid-pan > .guide-mermaid-stage,
 .guide-mermaid-pan > .guide-mermaid-canvas {
     transform-origin: 0 0;
     will-change: transform;
     margin: 0;
     max-width: none;
+}
+
+.guide-mermaid-stage {
+    position: relative;
+    min-width: 100px;
+    min-height: 40px;
+}
+
+.guide-mermaid-canvas {
+    display: block;
+    max-width: none;
+}
+
+.guide-mermaid-node-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.guide-mermaid-node {
+    --guide-mermaid-accent: #7AA2F7;
+    position: absolute;
+    left: 0;
+    top: 0;
+    min-width: 64px;
+    max-width: min(320px, 60vw);
+    padding: 6px 10px 6px 14px;
+    border: 1px solid var(--guide-mermaid-accent);
+    background: rgba(17, 25, 34, 0.96);
+    color: #d7dee7;
+    box-sizing: border-box;
+    pointer-events: auto;
+}
+
+.guide-mermaid-node-root {
+    background: rgba(31, 42, 56, 0.98);
+    color: #f1f6fb;
+    font-weight: 700;
+}
+
+.guide-mermaid-node-accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--guide-mermaid-accent);
+}
+
+.guide-mermaid-node-badge {
+    display: inline-block;
+    margin-bottom: 4px;
+    padding: 2px 4px;
+    border: 1px solid rgba(67, 76, 87, 0.7);
+    background: rgba(38, 42, 51, 0.9);
+    color: #b8c2cf;
+    font-size: 0.78em;
+}
+
+.guide-mermaid-node-body > :first-child {
+    margin-top: 0;
+}
+
+.guide-mermaid-node-body > :last-child {
+    margin-bottom: 0;
+}
+
+.guide-mermaid-node-line + .guide-mermaid-node-line {
+    margin-top: 2px;
+}
+
+.guide-mermaid-shape-rounded {
+    border-radius: 12px;
+}
+
+.guide-mermaid-shape-circle {
+    border-radius: 999px;
+}
+
+.guide-mermaid-shape-cloud {
+    border-radius: 18px;
+}
+
+.guide-mermaid-shape-bang {
+    border-width: 2px;
 }
 

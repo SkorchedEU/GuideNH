@@ -458,6 +458,25 @@ mindmap
 
 <Mermaid src="./markdown-mindmap.mmd" width="320" height="220" />
 
+带有富文本标签和显式节点内容的思维导图：
+
+<Mermaid width="340" height="240">
+mindmap
+  root["**GuideNH** [首页](./index.md)"]
+    runtime["运行时块"]
+    preview["场景预览"]
+
+<NodeContent id="runtime">
+运行时节点里可以混排普通文本与指南块内容。
+
+<ItemImage id="minecraft:diamond" />
+</NodeContent>
+
+<NodeContent id="preview">
+<BlockImage id="minecraft:diamond_block" scale={2} />
+</NodeContent>
+</Mermaid>
+
 ## 脚注
 
 脚注引用[^one]

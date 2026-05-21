@@ -110,6 +110,8 @@ GuideNH runtime Mermaid support is currently focused on `mindmap` diagrams:
 - auto-detected mermaid code fences whose content starts with `mindmap`
 - explicit `<Mermaid>...</Mermaid>` tags
 - explicit `<Mermaid src="./diagram.mmd" />` imports
+- rich inline markdown labels inside Mermaid node text
+- optional `<NodeContent id="...">...</NodeContent>` children for arbitrary runtime blocks inside matching nodes
 - whole-diagram drag-to-pan interaction in the in-game viewer
 - `layout: tidy-tree` frontmatter inside Mermaid source
 - common mindmap node shapes such as square, rounded, circle, bang, cloud, and hexagon
@@ -129,6 +131,23 @@ mindmap
 ```
 
 <Mermaid src="./markdown-mindmap.mmd" />
+
+<Mermaid width="340" height="240">
+mindmap
+  root["**GuideNH** [Index](./index.md)"]
+    runtime["Runtime blocks"]
+    export["Site export"]
+
+<NodeContent id="runtime">
+Runtime nodes can mix text, links, and blocks.
+
+<ItemImage id="minecraft:diamond" />
+</NodeContent>
+
+<NodeContent id="export">
+![Machine Diagram](./resourcepack/assets/guidenh/guidenh/_en_us/test1.png)
+</NodeContent>
+</Mermaid>
 ````
 
 Mermaid diagrams that are not supported at runtime yet still fall back to regular Mermaid-labeled code blocks.

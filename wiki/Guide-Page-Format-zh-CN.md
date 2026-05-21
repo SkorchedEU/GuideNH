@@ -109,6 +109,8 @@ GuideNH 当前的 Mermaid 运行时支持聚焦在 `mindmap`：
 - 内容以 `mindmap` 开头时的自动识别
 - 显式 `<Mermaid>...</Mermaid>` 标签
 - 显式 `<Mermaid src="./diagram.mmd" />` 资源导入
+- Mermaid 节点文本中的富文本行内 Markdown
+- 作为 `<Mermaid>` 子元素的 `<NodeContent id="...">...</NodeContent>`，可为指定节点放入任意运行时块内容
 - 游戏内整张图拖拽平移
 - Mermaid 源文本里的 `layout: tidy-tree`
 - 常见 mindmap 节点形状，例如方形、圆角、圆形、bang、cloud、hexagon
@@ -128,6 +130,23 @@ mindmap
 ```
 
 <Mermaid src="./markdown-mindmap.mmd" />
+
+<Mermaid width="340" height="240">
+mindmap
+  root["**GuideNH** [首页](./index.md)"]
+    runtime["运行时块"]
+    export["站点导出"]
+
+<NodeContent id="runtime">
+运行时节点里可以混排普通文本、链接和块内容。
+
+<ItemImage id="minecraft:diamond" />
+</NodeContent>
+
+<NodeContent id="export">
+![Machine Diagram](./resourcepack/assets/guidenh/guidenh/_zh_cn/test1.png)
+</NodeContent>
+</Mermaid>
 ````
 
 当前运行时尚未支持的 Mermaid 图类型，会继续按带有 Mermaid 标签的普通代码块显示。

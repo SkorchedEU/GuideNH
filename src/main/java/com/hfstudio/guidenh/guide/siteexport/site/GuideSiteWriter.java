@@ -477,7 +477,11 @@ public class GuideSiteWriter {
             }
             if (link.fallbackUsed()) {
                 html.append(" title=\"")
-                    .append(escapeHtml(uiText.fallbackTitle(displayLanguage(link.sourceLanguage(), currentLanguage))))
+                    .append(
+                        escapeHtml(
+                            uiText.fallbackTitle(
+                                link.sourceLanguage() != null ? displayLanguage(link.sourceLanguage(), currentLanguage)
+                                    : uiText.sharedPageLabel())))
                     .append("\"");
             }
             html.append("><span class=\"guide-language-link-label\">")
@@ -761,6 +765,10 @@ public class GuideSiteWriter {
 
         private String fallbackTitle(String sourceLanguage) {
             return fallbackPrefix + " " + sourceLanguage;
+        }
+
+        private String sharedPageLabel() {
+            return "Fallback from".equals(fallbackPrefix) ? "Shared page" : "共享页面";
         }
     }
 

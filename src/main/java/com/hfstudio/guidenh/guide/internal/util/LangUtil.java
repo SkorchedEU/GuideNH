@@ -32,6 +32,31 @@ public class LangUtil {
         return ENGLISH_LANGUAGE;
     }
 
+    public static String toLanguageRegistryCode(String language) {
+        String normalized = normalizeLanguage(language);
+        int separator = normalized.indexOf('_');
+        if (separator < 0 || separator + 1 >= normalized.length()) {
+            return normalized;
+        }
+
+        StringBuilder builder = new StringBuilder(normalized.length());
+        builder.append(normalized, 0, separator);
+        int segmentStart = separator + 1;
+        while (segmentStart < normalized.length()) {
+            int nextSeparator = normalized.indexOf('_', segmentStart);
+            int segmentEnd = nextSeparator >= 0 ? nextSeparator : normalized.length();
+            builder.append('_')
+                .append(
+                    normalized.substring(segmentStart, segmentEnd)
+                        .toUpperCase(Locale.ROOT));
+            if (nextSeparator < 0) {
+                break;
+            }
+            segmentStart = nextSeparator + 1;
+        }
+        return builder.toString();
+    }
+
     public static ResourceLocation getTranslatedAsset(ResourceLocation assetId, String language) {
         return new ResourceLocation(
             assetId.getResourceDomain(),

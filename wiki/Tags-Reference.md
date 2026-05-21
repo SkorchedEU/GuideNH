@@ -383,17 +383,6 @@ Example:
 </Row>
 ````
 
-### `<Mermaid>`
-
-Runtime Mermaid currently supports mindmaps both inline and from `src`.
-
-````md
-<Mermaid src="./markdown-mindmap.mmd" width="320" height="220" />
-````
-
-- `width` and `height` constrain the runtime viewport box
-- inside the viewport, drag pans and the mouse wheel zooms
-
 To constrain the width of normal markdown lists, wrap them in a container:
 
 ````md
@@ -479,7 +468,24 @@ Used for runtime Mermaid content. Current runtime support is focused on `mindmap
 
 ````md
 <Mermaid src="./markdown-mindmap.mmd" />
+
+<Mermaid width="340" height="240">
+mindmap
+  root["**GuideNH** [Index](./index.md)"]
+    runtime["Runtime blocks"]
+
+<NodeContent id="runtime">
+Runtime nodes can embed normal blocks.
+
+<ItemImage id="minecraft:diamond" />
+</NodeContent>
+</Mermaid>
 ```
+
+- `width` and `height` constrain the runtime viewport box
+- inside the viewport, drag pans and the mouse wheel zooms
+- quoted Mermaid labels may use rich inline markdown such as `**bold**` and page links
+- `<NodeContent id="...">...</NodeContent>` can be added as children of `<Mermaid>` to replace a node body with arbitrary runtime blocks
 
 ### `<CsvTable>`
 

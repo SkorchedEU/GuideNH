@@ -22,6 +22,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.hfstudio.guidenh.guide.GuidePageIcon;
 import com.hfstudio.guidenh.guide.PageCollection;
+import com.hfstudio.guidenh.guide.document.LytRect;
 import com.hfstudio.guidenh.guide.internal.GuideBookmarkState;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.internal.util.DisplayScale;
@@ -241,8 +242,7 @@ public class GuideNavBar {
             int w = currentWidth();
             int rowRight = x + w - 1;
             int textRightBase = x + w - 2;
-            int bookmarkActionLeft = x + w - ACTION_SLOT_W;
-            int bookmarkIconX = bookmarkActionLeft + ACTION_PADDING_RIGHT;
+            int bookmarkIconX = getBookmarkIconX();
             int bgTop = 0xE0151515;
             int bgBot = 0xE0101010;
             drawVGradient(x, y, w, height, bgTop, bgBot);
@@ -377,7 +377,8 @@ public class GuideNavBar {
             titleScrollActive = renderRowTitle(mc, fr, row, textX, rowY, maxTw, color, hovered, scaleFactor);
         }
 
-        renderBookmarkIcon(mc, displayRow, rowY, hovered, bookmarkState, bookmarkIconX);
+        boolean bookmarkHovered = isInsideBookmarkAction(mouseX, mouseY, rowY, row);
+        renderBookmarkIcon(mc, displayRow, rowY, hovered, bookmarkHovered, bookmarkState, bookmarkIconX);
         return titleScrollActive;
     }
 
@@ -544,7 +545,8 @@ public class GuideNavBar {
 
         Row row = rowHit.row();
         GuideNavProjection.DisplayRow displayRow = row.displayRow();
-        if (canToggleBookmark(displayRow) && isInsideBookmarkAction(mouseX, row) && displayRow.pageId() != null) {
+        if (canToggleBookmark(displayRow) && isInsideBookmarkAction(mouseX, mouseY, rowHit.rowY(), row)
+            && displayRow.pageId() != null) {
             return ClickResult.toggleBookmark(displayRow.pageId());
         }
 
@@ -588,27 +590,42 @@ public class GuideNavBar {
         return null;
     }
 
-    private void renderBookmarkIcon(Minecraft mc, GuideNavProjection.DisplayRow row, int rowY, boolean hovered,
-        GuideBookmarkState bookmarkState, int bookmarkIconX) {
+    private void renderBookmarkIcon(Minecraft mc, GuideNavProjection.DisplayRow row, int rowY, boolean rowHovered,
+        boolean buttonHovered, GuideBookmarkState bookmarkState, int bookmarkIconX) {
         if (!canToggleBookmark(row)) {
             return;
         }
         boolean bookmarked = row.pageId() != null && bookmarkState.isBookmarked(row.pageId());
-        if (!bookmarked && !hovered) {
+        if (!bookmarked && !rowHovered) {
             return;
         }
-        int iconY = rowY + (ROW_H - ACTION_ICON_SIZE) / 2;
+        int iconY = getBookmarkIconY(rowY);
         GuideIconButton.Role role = bookmarked ? GuideIconButton.Role.BOOKMARKED : GuideIconButton.Role.BOOKMARK;
-        int color = GuideIconButton.resolveIconColor(true, hovered, bookmarked);
+        int color = GuideIconButton.resolveIconColor(true, buttonHovered, bookmarked);
         GuideIconButton.drawIcon(mc, role, bookmarkIconX, iconY, ACTION_ICON_SIZE, ACTION_ICON_SIZE, color);
     }
 
-    private boolean isInsideBookmarkAction(int mouseX, Row row) {
+    private boolean isInsideBookmarkAction(int mouseX, int mouseY, int rowY, Row row) {
         if (!canToggleBookmark(row.displayRow())) {
             return false;
         }
-        int iconX = x + currentWidth() - ACTION_SLOT_W;
-        return mouseX >= iconX && mouseX < x + currentWidth() - 1;
+        return getBookmarkActionBounds(rowY).contains(mouseX, mouseY);
+    }
+
+    private LytRect getBookmarkActionBounds(int rowY) {
+        return new LytRect(getBookmarkActionLeft(), rowY, Math.max(1, ACTION_SLOT_W - 1), ROW_H);
+    }
+
+    private int getBookmarkActionLeft() {
+        return x + currentWidth() - ACTION_SLOT_W;
+    }
+
+    private int getBookmarkIconX() {
+        return getBookmarkActionLeft() + ACTION_PADDING_RIGHT;
+    }
+
+    private int getBookmarkIconY(int rowY) {
+        return rowY + (ROW_H - ACTION_ICON_SIZE) / 2;
     }
 
     private boolean canToggleBookmark(GuideNavProjection.DisplayRow row) {
@@ -682,7 +699,7 @@ public class GuideNavBar {
         for (int index = 0; index < stickyStack.size(); index++) {
             int rowY = stickyStack.rowYAt(index);
             if (mouseY >= rowY && mouseY < rowY + ROW_H) {
-                return new RowHit(stickyStack.rowAt(index));
+                return new RowHit(stickyStack.rowAt(index), rowY);
             }
         }
 
@@ -697,7 +714,7 @@ public class GuideNavBar {
         if (stickyStack.containsRowIndex(rowIndex)) {
             return null;
         }
-        return new RowHit(rows.get(rowIndex));
+        return new RowHit(rows.get(rowIndex), getRowY(rowIndex));
     }
 
     private int getRowY(int rowIndex) {
@@ -966,13 +983,19 @@ public class GuideNavBar {
     private static class RowHit {
 
         private final Row row;
+        private final int rowY;
 
-        private RowHit(Row row) {
+        private RowHit(Row row, int rowY) {
             this.row = row;
+            this.rowY = rowY;
         }
 
         public Row row() {
             return row;
+        }
+
+        public int rowY() {
+            return rowY;
         }
     }
 }

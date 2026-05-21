@@ -18,6 +18,8 @@ import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.internal.datadriven.DataDrivenGuideLoader;
+import com.hfstudio.guidenh.guide.internal.localization.GuideLocalizedPageSourceResolver;
+import com.hfstudio.guidenh.guide.internal.localization.GuidePageLanguageIndex;
 import com.hfstudio.guidenh.guide.internal.recipe.NeiAnimationTicker;
 import com.hfstudio.guidenh.guide.internal.recipe.RecipeCache;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
@@ -44,6 +46,7 @@ public class GuideLightweightReloadService {
         RecipeCache.clear();
         NeiAnimationTicker.clear();
         GuidePageTexture.clear();
+        GuidePageLanguageIndex.clear();
         GuideRegistry.setDataDriven(DataDrivenGuideLoader.load());
         var guidePages = new HashMap<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>>();
         var pagePathCache = new LinkedHashMap<String, LinkedHashMap<String, LinkedHashSet<String>>>();
@@ -103,29 +106,16 @@ public class GuideLightweightReloadService {
         for (var pagePath : pagePaths) {
             ResourceLocation pageId = new ResourceLocation(sourceNamespace, pagePath);
 
-            ParsedGuidePage parsed = tryLoadPage(
-                resourceManager,
-                sourcePack,
-                lang,
-                sourceNamespace,
-                folder,
-                pagePath,
-                pageId);
+            ParsedGuidePage parsed = tryLoadPage(sourcePack, lang, lang, sourceNamespace, folder, pagePath, pageId);
             if (parsed == null && !lang.equals(defaultLanguage)) {
-                parsed = tryLoadPage(
-                    resourceManager,
-                    sourcePack,
-                    defaultLanguage,
-                    sourceNamespace,
-                    folder,
-                    pagePath,
-                    pageId);
+                parsed = tryLoadPage(sourcePack, lang, defaultLanguage, sourceNamespace, folder, pagePath, pageId);
             }
             if (parsed == null) {
                 parsed = tryParsePage(
                     resourceManager,
                     sourcePack,
                     lang,
+                    folder,
                     pageId,
                     new ResourceLocation(sourceNamespace, folder + "/" + pagePath));
             }
@@ -151,18 +141,19 @@ public class GuideLightweightReloadService {
     }
 
     @Nullable
-    private static ParsedGuidePage tryLoadPage(IResourceManager resourceManager, String sourcePack, String language,
+    private static ParsedGuidePage tryLoadPage(String sourcePack, String requestedLanguage, String sourceLanguage,
         String namespace, String folder, String pagePath, ResourceLocation pageId) {
         return tryParsePageCandidate(
             sourcePack,
-            language,
+            requestedLanguage,
+            folder,
             pageId,
-            new ResourceLocation(namespace, folder + "/_" + language + "/" + pagePath));
+            new ResourceLocation(namespace, folder + "/_" + sourceLanguage + "/" + pagePath));
     }
 
     @Nullable
     private static ParsedGuidePage tryParsePage(IResourceManager resourceManager, String sourcePack, String language,
-        ResourceLocation pageId, ResourceLocation sourceId) {
+        String contentRootFolder, ResourceLocation pageId, ResourceLocation sourceId) {
         byte[] bytes = selectPageCandidate(sourceId);
         if (bytes == null) {
             bytes = GuideResourceAccess.readBytes(resourceManager, sourceId);
@@ -170,24 +161,24 @@ public class GuideLightweightReloadService {
         if (bytes == null) {
             return null;
         }
-        return parsePageBytes(sourcePack, language, pageId, sourceId, bytes);
+        return parsePageBytes(sourcePack, language, contentRootFolder, pageId, sourceId, bytes);
     }
 
     @Nullable
-    private static ParsedGuidePage tryParsePageCandidate(String sourcePack, String language, ResourceLocation pageId,
-        ResourceLocation sourceId) {
+    private static ParsedGuidePage tryParsePageCandidate(String sourcePack, String language, String contentRootFolder,
+        ResourceLocation pageId, ResourceLocation sourceId) {
         byte[] bytes = selectPageCandidate(sourceId);
         if (bytes == null) {
             return null;
         }
-        return parsePageBytes(sourcePack, language, pageId, sourceId, bytes);
+        return parsePageBytes(sourcePack, language, contentRootFolder, pageId, sourceId, bytes);
     }
 
     @Nullable
-    private static ParsedGuidePage parsePageBytes(String sourcePack, String language, ResourceLocation pageId,
-        ResourceLocation sourceId, byte[] bytes) {
+    private static ParsedGuidePage parsePageBytes(String sourcePack, String language, String contentRootFolder,
+        ResourceLocation pageId, ResourceLocation sourceId, byte[] bytes) {
         try {
-            return PageCompiler.parse(sourcePack, language, pageId, new String(bytes, StandardCharsets.UTF_8));
+            return GuideLocalizedPageSourceResolver.parse(sourcePack, language, contentRootFolder, pageId, bytes);
         } catch (Exception ex) {
             FMLLog.getLogger()
                 .error("[GuideNH] [GuideLightweightReloadService] Error parsing page {} from {}", pageId, sourceId, ex);

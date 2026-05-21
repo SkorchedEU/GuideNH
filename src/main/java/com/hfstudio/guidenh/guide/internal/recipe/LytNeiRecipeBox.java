@@ -82,6 +82,7 @@ public class LytNeiRecipeBox extends LytBlock implements InteractiveElement {
      * never logs "Error in getOtherStacks" spam for broken third-party handlers.
      */
     private final boolean otherStacksBroken;
+    private boolean actionButtonHovered;
 
     public LytNeiRecipeBox(Object handler, int recipeIndex) {
         this(handler, recipeIndex, true);
@@ -223,22 +224,21 @@ public class LytNeiRecipeBox extends LytBlock implements InteractiveElement {
             int textY = titleRowTop + (Math.max(ICON_SIZE, fontHeight) - fontHeight) / 2;
             Minecraft.getMinecraft().fontRenderer.drawString(handlerName, textX, textY, 0xFF000000);
         }
-        if (recipeJumpEnabled) {
-            drawActionButton(
-                innerRight - ACTION_BUTTON_SIZE,
-                titleRowTop + (titleContentHeight - ACTION_BUTTON_SIZE) / 2);
+        LytRect actionButtonBounds = getActionButtonBounds();
+        if (recipeJumpEnabled && actionButtonBounds != null) {
+            drawActionButton(actionButtonBounds);
         }
     }
 
-    private void drawActionButton(int x, int y) {
+    private void drawActionButton(LytRect buttonBounds) {
         GuideIconButton.drawIcon(
             Minecraft.getMinecraft(),
             GuideIconButton.Role.OPEN_NEI_RECIPE,
-            x,
-            y,
-            ACTION_BUTTON_SIZE,
-            ACTION_BUTTON_SIZE,
-            0xFF00CAF2);
+            buttonBounds.x(),
+            buttonBounds.y(),
+            buttonBounds.width(),
+            buttonBounds.height(),
+            GuideIconButton.resolveIconColor(true, actionButtonHovered, false));
     }
 
     private void drawWindowChromeOverlay(RenderContext context, int windowX, int windowY, int windowW, int windowH,
@@ -334,10 +334,11 @@ public class LytNeiRecipeBox extends LytBlock implements InteractiveElement {
     @Override
     public Optional<GuideTooltip> getTooltip(float mx, float my) {
         GuideNhIntegrationRegistry registry = GuideNhIntegrationRegistry.global();
+        actionButtonHovered = isActionButtonHit(mx, my);
         if (!registry.isRecipeIntegrationAvailable()) return Optional.empty();
         int px = (int) mx;
         int py = (int) my;
-        if (isActionButtonHit(px, py)) {
+        if (actionButtonHovered) {
             return Optional.ofNullable(actionButtonTooltip);
         }
 
@@ -366,6 +367,11 @@ public class LytNeiRecipeBox extends LytBlock implements InteractiveElement {
         }
         if (hit == null) return Optional.empty();
         return Optional.of(new NeiItemTooltip(hit, handler, recipeIndex));
+    }
+
+    @Override
+    public void onMouseLeave() {
+        actionButtonHovered = false;
     }
 
     @Override
@@ -404,14 +410,21 @@ public class LytNeiRecipeBox extends LytBlock implements InteractiveElement {
     }
 
     private boolean isActionButtonHit(float x, float y) {
-        if (!recipeJumpEnabled || bounds == null) {
+        LytRect actionButtonBounds = getActionButtonBounds();
+        if (actionButtonBounds == null) {
             return false;
         }
-        int innerTop = bounds.y() + FRAME_BORDER;
-        int titleContentHeight = Math.max(ICON_SIZE, Minecraft.getMinecraft().fontRenderer.FONT_HEIGHT);
+        return actionButtonBounds.contains((int) x, (int) y);
+    }
+
+    private @Nullable LytRect getActionButtonBounds() {
+        if (!recipeJumpEnabled || bounds == null) {
+            return null;
+        }
+        int titleContentHeight = titleHeight - TITLE_PAD_TOP - TITLE_PAD_BOTTOM;
         int buttonX = bounds.x() + bounds.width() - FRAME_BORDER - ACTION_BUTTON_SIZE;
-        int buttonY = innerTop + TITLE_PAD_TOP + (titleContentHeight - ACTION_BUTTON_SIZE) / 2;
-        return isOver(buttonX, buttonY, ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE, (int) x, (int) y);
+        int buttonY = bounds.y() + FRAME_BORDER + TITLE_PAD_TOP + (titleContentHeight - ACTION_BUTTON_SIZE) / 2;
+        return new LytRect(buttonX, buttonY, ACTION_BUTTON_SIZE, ACTION_BUTTON_SIZE);
     }
 
     private @Nullable ItemStack resolveDisplayedResultStack() {

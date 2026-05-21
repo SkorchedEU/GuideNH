@@ -471,6 +471,25 @@ Fixed runtime Mermaid viewport size:
 
 <Mermaid src="./markdown-mindmap.mmd" width="320" height="220" />
 
+Mindmap with rich labels and explicit node content:
+
+<Mermaid width="340" height="240">
+mindmap
+  root["**GuideNH** [Index](./index.md)"]
+    runtime["Runtime blocks"]
+    preview["Scene preview"]
+
+<NodeContent id="runtime">
+Runtime nodes can mix normal text with embedded guide blocks.
+
+<ItemImage id="minecraft:diamond" />
+</NodeContent>
+
+<NodeContent id="preview">
+<BlockImage id="minecraft:diamond_block" scale={2} />
+</NodeContent>
+</Mermaid>
+
 ## Footnotes
 
 Footnote ref[^one]

@@ -252,6 +252,18 @@ function normalizeVector(value, fallback = [1, 0, 0]) {
   return len > 1e-6 ? [value[0] / len, value[1] / len, value[2] / len] : fallback;
 }
 
+function computeAnnotationLineHalfThickness(thickness) {
+  return Math.max((Number(thickness) || 0) / 32, 1 / 256) * 0.5;
+}
+
+function computeAnnotationArrowBaseRadius(thickness) {
+  return Math.max(computeAnnotationLineHalfThickness(thickness) * 1.35, 0.028);
+}
+
+function computeAnnotationArrowLength(thickness) {
+  return Math.max(computeAnnotationArrowBaseRadius(thickness) * 3.5, 0.14);
+}
+
 function pointBoxAnnotation(point, color, size, alwaysOnTop) {
   const half = Math.max(Number(size) || 0, 1 / 256) * 0.5;
   return {
@@ -270,9 +282,8 @@ function arrowLineAnnotations(tip, interior, annotation) {
   const n1 = normalizeVector(crossVector(dir, up), [0, 0, 1]);
   const n2 = normalizeVector(crossVector(dir, n1), [0, 1, 0]);
   const thickness = Number(annotation.thickness) || 1;
-  const scaled = Math.max(thickness / 32, 1 / 256);
-  const length = Math.max(scaled * 8, 0.18);
-  const radius = Math.max(scaled * 3.5, 0.08);
+  const length = computeAnnotationArrowLength(thickness);
+  const radius = computeAnnotationArrowBaseRadius(thickness);
   const base = addScaledVector(tip, dir, -length);
   const basePoints = [
     addScaledVector(base, n1, radius),
@@ -289,7 +300,7 @@ function arrowLineAnnotations(tip, interior, annotation) {
     arrow: undefined,
     showPoints: undefined,
     pointStyles: undefined,
-    thickness: Math.max(thickness * 0.6, 0.02),
+    thickness: Math.max(thickness * 0.55, 0.02),
   }));
 }
 
