@@ -801,7 +801,9 @@ public class PageCompiler {
             var itemImage = new LytItemImage(stack);
             itemImage.setInline(true);
             itemImage.setTooltipSuppressed(true);
-            return LytFlowInlineBlock.of(itemImage);
+            itemImage.setInlineYOffsetOverride(-1);
+            var inlineBlock = LytFlowInlineBlock.of(itemImage);
+            return inlineBlock;
         }
 
         if (icon.kind() == QuoteIconKind.PNG) {

@@ -238,7 +238,11 @@ blockquote {
 }
 
 .guide-quote-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.95em;
+    line-height: 1;
 }
 
 .guide-quote-icon-image img {
@@ -249,11 +253,15 @@ blockquote {
 }
 
 .guide-quote-icon-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
 }
 
 .guide-quote-icon-item .guide-inline-item {
-    vertical-align: middle;
+    align-items: center;
+    transform: translateY(calc(-0.5px * var(--gui-scale)));
 }
 
 .guide-quote-body > :first-child {
@@ -295,6 +303,7 @@ p {
     width: calc(16px * var(--gui-scale));
     height: calc(16px * var(--gui-scale));
     image-rendering: pixelated;
+    vertical-align: middle;
 }
 
 .guide-site {
@@ -413,6 +422,15 @@ p {
 .guide-search-result-title {
     font-family: var(--minecraft-font);
     display: block;
+    color: var(--color-link);
+}
+
+.guide-search-result-title.guide-search-result-title-special {
+    color: rgb(255, 210, 84);
+}
+
+.guide-search-result:hover .guide-search-result-title.guide-search-result-title-special {
+    color: rgb(255, 210, 84);
 }
 
 .guide-search-result-path {
@@ -776,6 +794,93 @@ p {
     color: var(--color-link);
     background: var(--color-navbar-row-hover);
     text-decoration: none;
+}
+
+.guide-mediawiki-index {
+    margin-bottom: 0.8em;
+    padding: calc(3px * var(--gui-scale)) 0;
+    border-top: calc(1px * var(--gui-scale)) solid rgba(210, 210, 210, 0.6);
+    border-bottom: calc(1px * var(--gui-scale)) solid rgba(210, 210, 210, 0.6);
+}
+
+.guide-mediawiki-columns {
+    display: grid;
+    grid-template-columns: repeat(var(--guide-mediawiki-columns, 3), minmax(0, 1fr));
+    gap: calc(4px * var(--gui-scale));
+}
+
+.guide-mediawiki-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+}
+
+.guide-mediawiki-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    margin-top: calc(2.5px * var(--gui-scale));
+}
+
+.guide-mediawiki-section-key {
+    font-family: var(--minecraft-font);
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    line-height: 1.1;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.9);
+    padding: 0 calc(2px * var(--gui-scale));
+    margin: 0 0 calc(1.5px * var(--gui-scale));
+    min-height: calc(9px * var(--gui-scale));
+}
+
+.guide-mediawiki-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    padding: calc(1px * var(--gui-scale)) calc(2px * var(--gui-scale));
+    color: var(--color-body-text);
+    text-decoration: none;
+    border: 1px solid rgba(124, 124, 124, 0.25);
+}
+
+.guide-mediawiki-row:hover {
+    color: var(--color-link);
+    background: var(--color-navbar-row-hover);
+    text-decoration: none;
+}
+
+.guide-mediawiki-row + .guide-mediawiki-row {
+    margin-top: calc(1px * var(--gui-scale));
+}
+
+.guide-mediawiki-row::before {
+    content: "";
+    flex: 0 0 auto;
+    width: calc(1px * var(--gui-scale));
+    height: calc(1px * var(--gui-scale));
+    margin-right: calc(2px * var(--gui-scale));
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.guide-mediawiki-row .guide-generated-link-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.guide-mediawiki-row:hover .guide-generated-link-text {
+    text-decoration: underline;
+}
+
+.guide-mediawiki-empty {
+    color: var(--color-body-text);
 }
 
 .guide-layout {

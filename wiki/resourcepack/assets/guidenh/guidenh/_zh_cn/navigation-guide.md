@@ -143,15 +143,17 @@ navigation:
 
 ### `categories`
 
-分类标签列表。具有相同 category 的页面会被 `<CategoryIndex>` 自动聚合。
+MediaWiki 风格分类列表。每一项既可以写成 `分类名`，也可以写成 `分类名|排序名`。
 
 ```yaml
 categories:
   - markdown
-  - charts
+  - charts|Charts Overview
 ```
 
-在父页面中使用 `<CategoryIndex category="markdown"></CategoryIndex>` 即可自动生成该分类下所有页面的列表。
+在父页面中使用 `<Category name="markdown" rows="3" />` 即可自动生成该分类下所有页面的列表。
+每个分类还会自动生成一个隐藏可搜索页面，例如 `Category:markdown`。
+GuideNH 还提供隐藏可搜索的特殊页面 `Special:AllPages` 与 `Special:Categories`，可分别通过 `<Special name="AllPages" rows="3" />` 和 `<Special name="Categories" rows="3" />` 嵌入。
 
 ### `item_ids`
 

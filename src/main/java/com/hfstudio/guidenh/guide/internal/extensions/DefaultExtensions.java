@@ -14,7 +14,6 @@ import com.hfstudio.guidenh.guide.compiler.tags.BlockImageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.BoxFlowDirection;
 import com.hfstudio.guidenh.guide.compiler.tags.BoxTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.BreakCompiler;
-import com.hfstudio.guidenh.guide.compiler.tags.CategoryIndexCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.ColorTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.CommandLinkCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.CommentTagCompiler;
@@ -47,6 +46,8 @@ import com.hfstudio.guidenh.guide.compiler.tags.chart.PieChartCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.chart.ScatterChartCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.functiongraph.FunctionGraphTagCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.functiongraph.FunctionTagCompiler;
+import com.hfstudio.guidenh.guide.compiler.tags.mediawiki.CategoryCompiler;
+import com.hfstudio.guidenh.guide.compiler.tags.mediawiki.SpecialCompiler;
 import com.hfstudio.guidenh.guide.extensions.Extension;
 import com.hfstudio.guidenh.guide.extensions.ExtensionCollection;
 import com.hfstudio.guidenh.guide.extensions.ExtensionPoint;
@@ -114,7 +115,8 @@ public class DefaultExtensions {
                 new FileTreeTagCompiler(),
                 new RecipeCompiler(),
                 new ItemGridCompiler(),
-                new CategoryIndexCompiler(),
+                new CategoryCompiler(),
+                new SpecialCompiler(),
                 new BlockImageCompiler(),
                 new ItemImageCompiler(),
                 new BoxTagCompiler(BoxFlowDirection.ROW),

@@ -91,7 +91,7 @@ public enum GuidebookText implements LocalizationEnum {
     GuideEditorMermaid,
     GuideEditorFileTree,
     GuideEditorSubPages,
-    GuideEditorCategoryIndex,
+    GuideEditorCategory,
     GuideEditorFootnoteList,
     GuideEditorRow,
     GuideEditorColumn,

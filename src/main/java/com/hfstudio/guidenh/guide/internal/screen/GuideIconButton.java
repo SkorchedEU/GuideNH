@@ -180,7 +180,7 @@ public class GuideIconButton extends GuiButton {
         GUIDE_EDITOR_MERMAID(GuidebookText.GuideEditorMermaid, 0, 0),
         GUIDE_EDITOR_FILE_TREE(GuidebookText.GuideEditorFileTree, 0, 0),
         GUIDE_EDITOR_SUB_PAGES(GuidebookText.GuideEditorSubPages, 0, 0),
-        GUIDE_EDITOR_CATEGORY_INDEX(GuidebookText.GuideEditorCategoryIndex, 0, 0),
+        GUIDE_EDITOR_CATEGORY(GuidebookText.GuideEditorCategory, 0, 0),
         GUIDE_EDITOR_FOOTNOTE_LIST(GuidebookText.GuideEditorFootnoteList, 0, 0),
         GUIDE_EDITOR_ROW(GuidebookText.GuideEditorRow, 0, 0),
         GUIDE_EDITOR_COLUMN(GuidebookText.GuideEditorColumn, 0, 0),

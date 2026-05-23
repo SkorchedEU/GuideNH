@@ -15,21 +15,21 @@ Welcome to the GuideNH demo guide. This showcases the rendering, layout, and sce
 
 ## Markdown
 
-<CategoryIndex category="markdown"></CategoryIndex>
+<Category name="markdown" rows="3" />
 
 ## Scenes
 
 Featured scene docs: [Scene Particles](./scene-particles.md)
 
-<CategoryIndex category="scenes"></CategoryIndex>
+<Category name="scenes" rows="3" />
 
 ## Widgets
 
-<CategoryIndex category="widgets"></CategoryIndex>
+<Category name="widgets" rows="3" />
 
 ## Other
 
-<CategoryIndex category="other"></CategoryIndex>
+<Category name="other" rows="3" />
 
 ## Inline Elements
 

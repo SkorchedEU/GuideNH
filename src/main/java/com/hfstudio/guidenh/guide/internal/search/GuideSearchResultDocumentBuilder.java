@@ -23,12 +23,14 @@ import com.hfstudio.guidenh.guide.document.flow.LytFlowContent;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowLink;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowSpan;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowText;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
 import com.hfstudio.guidenh.guide.style.BorderStyle;
 import com.hfstudio.guidenh.guide.style.TextAlignment;
 
 public class GuideSearchResultDocumentBuilder {
 
     public static final ConstantColor SEARCH_TITLE_COLOR = new ConstantColor(0xFF00D2FC);
+    public static final ConstantColor SPECIAL_SEARCH_TITLE_COLOR = new ConstantColor(0xFFFFD254);
     public static final ConstantColor RESULT_DIVIDER_COLOR = new ConstantColor(0xFF3A3A3A);
     public static final int RESULT_ICON_SIZE = 16;
     public static final int RESULT_ICON_MARGIN_TOP = 2;
@@ -103,7 +105,7 @@ public class GuideSearchResultDocumentBuilder {
             link.setPageLink(result.anchor());
         }
         link.modifyStyle(
-            style -> style.color(SEARCH_TITLE_COLOR)
+            style -> style.color(resolveTitleColor(result))
                 .underlined(false));
         link.appendText(result.title());
         titleParagraph.append(link);
@@ -183,6 +185,23 @@ public class GuideSearchResultDocumentBuilder {
         copy.setStyle(source.getStyle());
         copy.setHoverStyle(source.getHoverStyle());
         return copy;
+    }
+
+    public static ConstantColor resolveTitleColor(SearchPageResult result) {
+        if (result == null) {
+            return SEARCH_TITLE_COLOR;
+        }
+        PageAnchor anchor = result.anchor();
+        if (anchor != null
+            && (MediaWikiPageIds.isCategoryPage(anchor.pageId()) || MediaWikiPageIds.isSpecialPage(anchor.pageId()))) {
+            return SPECIAL_SEARCH_TITLE_COLOR;
+        }
+        String title = result.title();
+        if (title != null && (title.startsWith(MediaWikiPageIds.CATEGORY_TITLE_PREFIX)
+            || title.startsWith(MediaWikiPageIds.SPECIAL_TITLE_PREFIX))) {
+            return SPECIAL_SEARCH_TITLE_COLOR;
+        }
+        return SEARCH_TITLE_COLOR;
     }
 
     @Desugar

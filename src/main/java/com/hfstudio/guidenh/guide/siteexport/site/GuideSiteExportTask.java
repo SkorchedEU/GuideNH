@@ -27,16 +27,21 @@ import org.jetbrains.annotations.Nullable;
 import com.github.bsideup.jabel.Desugar;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.GuidePage;
 import com.hfstudio.guidenh.guide.GuidePageIcon;
 import com.hfstudio.guidenh.guide.PageCollection;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
+import com.hfstudio.guidenh.guide.indices.CategoryIndex;
+import com.hfstudio.guidenh.guide.indices.PageIndex;
 import com.hfstudio.guidenh.guide.internal.GuideRegistry;
 import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListContext;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
 import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.scene.LytGuidebookScene;
@@ -184,12 +189,15 @@ public class GuideSiteExportTask {
                         assetExporter,
                         new GuideSiteRecipeTagRenderer(itemIconExporter, neiPhase1Exporter),
                         new GuideSiteMdxTagRenderer(
-                            guide,
+                            context.scopedGuidesByGuideId()
+                                .getOrDefault(guide.getId(), guide),
                             context.parsedPagesById(),
                             context.navigationTree(),
                             assetExporter,
                             itemIconExporter,
-                            context.assetExportersByGuideId()));
+                            context.assetExportersByGuideId(),
+                            context.mediaWikiContextsByGuideId()
+                                .get(guide.getId())));
 
                     for (GuideSitePageVariant variant : languageVariants) {
                         try {
@@ -200,9 +208,11 @@ public class GuideSiteExportTask {
                                     .getResourcePath(),
                                 language,
                                 context.guideIdsByPageId())) {
+                                Guide scopedGuide = context.scopedGuidesByGuideId()
+                                    .getOrDefault(guide.getId(), guide);
                                 GuideSiteTemplateRegistry templates = new GuideSiteTemplateRegistry();
                                 GuidePage compiledPage = PageCompiler
-                                    .compile(guide, guide.getExtensions(), variant.parsedPage());
+                                    .compile(scopedGuide, scopedGuide.getExtensions(), variant.parsedPage());
                                 List<GuideSiteExportedScene> exportedScenes = exportScenes(
                                     guide,
                                     variant.parsedPage(),
@@ -233,7 +243,7 @@ public class GuideSiteExportTask {
                                         .getResourcePath(),
                                     language,
                                     pageFile);
-                                String pageTitle = searchExtractor.title(guide, variant.parsedPage());
+                                String pageTitle = searchExtractor.title(scopedGuide, variant.parsedPage());
 
                                 writer.writePage(
                                     outDir,
@@ -260,7 +270,12 @@ public class GuideSiteExportTask {
                                     variant.pageId()
                                         .toString());
                                 searchEntry.put("url", pageUrl);
-                                searchEntry.put("text", searchExtractor.searchableText(guide, variant.parsedPage()));
+                                searchEntry
+                                    .put("text", searchExtractor.searchableText(scopedGuide, variant.parsedPage()));
+                                searchEntry.put(
+                                    "mediaWikiSpecialPage",
+                                    MediaWikiPageIds.isCategoryPage(variant.pageId())
+                                        || MediaWikiPageIds.isSpecialPage(variant.pageId()));
                                 appendSearchIconData(
                                     searchEntry,
                                     context.navigationTree()
@@ -414,10 +429,17 @@ public class GuideSiteExportTask {
     private LanguageExportContext buildLanguageExportContext(Map<ResourceLocation, MutableGuide> guidesById,
         List<GuideSitePageVariant> languageVariants, IResourceManager resourceManager, String language,
         GuideSiteAssetRegistry assets) {
+        Map<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> scopedPagesByGuideId = buildScopedPagesByGuideId(
+            languageVariants);
+        Map<ResourceLocation, MediaWikiListContext> mediaWikiContextsByGuideId = buildMediaWikiContextsByGuideId(
+            guidesById,
+            languageVariants);
         return new LanguageExportContext(
             buildParsedPagesById(languageVariants),
             buildMergedNavigationTree(guidesById, languageVariants),
             indexGuideIdsByPageId(languageVariants),
+            mediaWikiContextsByGuideId,
+            buildScopedGuidesByGuideId(guidesById, scopedPagesByGuideId, mediaWikiContextsByGuideId),
             buildAssetExportersByGuideId(guidesById, languageVariants, resourceManager, language, assets));
     }
 
@@ -476,6 +498,97 @@ public class GuideSiteExportTask {
                 ignored -> createPageAssetExporter(guide, resourceManager, language, assets));
         }
         return exportersByGuideId;
+    }
+
+    private Map<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> buildScopedPagesByGuideId(
+        List<GuideSitePageVariant> variants) {
+        Map<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> pagesByGuideId = new LinkedHashMap<>();
+        for (GuideSitePageVariant variant : variants) {
+            if (variant == null || variant.guideId() == null
+                || variant.pageId() == null
+                || variant.parsedPage() == null) {
+                continue;
+            }
+            pagesByGuideId.computeIfAbsent(variant.guideId(), ignored -> new LinkedHashMap<>())
+                .putIfAbsent(variant.pageId(), variant.parsedPage());
+        }
+        return pagesByGuideId;
+    }
+
+    private Map<ResourceLocation, MediaWikiListContext> buildMediaWikiContextsByGuideId(
+        Map<ResourceLocation, MutableGuide> availableGuides, List<GuideSitePageVariant> variants) {
+        Map<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> pagesByGuideId = new LinkedHashMap<>();
+        for (GuideSitePageVariant variant : variants) {
+            if (variant == null || variant.guideId() == null
+                || variant.parsedPage() == null
+                || MediaWikiPageIds.isSyntheticPage(variant.pageId())) {
+                continue;
+            }
+            pagesByGuideId.computeIfAbsent(variant.guideId(), ignored -> new LinkedHashMap<>())
+                .putIfAbsent(variant.pageId(), variant.parsedPage());
+        }
+
+        Map<ResourceLocation, MediaWikiListContext> contextsByGuideId = new LinkedHashMap<>();
+        for (Map.Entry<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> entry : pagesByGuideId.entrySet()) {
+            MutableGuide guide = availableGuides.get(entry.getKey());
+            if (guide == null) {
+                continue;
+            }
+
+            List<ParsedGuidePage> pages = new ArrayList<>(
+                entry.getValue()
+                    .values());
+            Map<ResourceLocation, PageCollection> pageCollectionsByPageId = new LinkedHashMap<>(pages.size());
+            for (ParsedGuidePage page : pages) {
+                pageCollectionsByPageId.put(page.getId(), guide);
+            }
+
+            List<ParsedGuidePage> categoryIndexedPages = new ArrayList<>(pages);
+            categoryIndexedPages.removeIf(
+                page -> !NavigationTree.areModRequirementsMet(
+                    page.getFrontmatter()
+                        .navigationEntry()));
+
+            var categoryIndex = new CategoryIndex();
+            categoryIndex.rebuild(categoryIndexedPages);
+            contextsByGuideId.put(
+                entry.getKey(),
+                MediaWikiListContext.create(
+                    guide,
+                    pages,
+                    NavigationTree.buildMergedPages(pageCollectionsByPageId, pages),
+                    categoryIndex));
+        }
+        return contextsByGuideId;
+    }
+
+    private Map<ResourceLocation, Guide> buildScopedGuidesByGuideId(Map<ResourceLocation, MutableGuide> availableGuides,
+        Map<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> scopedPagesByGuideId,
+        Map<ResourceLocation, MediaWikiListContext> mediaWikiContextsByGuideId) {
+        Map<ResourceLocation, Guide> scopedGuidesByGuideId = new LinkedHashMap<>(scopedPagesByGuideId.size());
+        for (Map.Entry<ResourceLocation, Map<ResourceLocation, ParsedGuidePage>> entry : scopedPagesByGuideId
+            .entrySet()) {
+            ResourceLocation guideId = entry.getKey();
+            MutableGuide guide = availableGuides.get(guideId);
+            if (guide == null) {
+                continue;
+            }
+
+            Map<Class<?>, PageIndex> indexOverrides = new LinkedHashMap<>();
+            MediaWikiListContext mediaWikiContext = mediaWikiContextsByGuideId.get(guideId);
+            if (mediaWikiContext != null) {
+                indexOverrides.put(CategoryIndex.class, mediaWikiContext.categoryIndex());
+            }
+            scopedGuidesByGuideId.put(
+                guideId,
+                new GuideSiteScopedGuide(
+                    guide,
+                    entry.getValue(),
+                    mediaWikiContext != null ? mediaWikiContext.navigationTree() : new NavigationTree(),
+                    indexOverrides,
+                    mediaWikiContext));
+        }
+        return scopedGuidesByGuideId;
     }
 
     private Map<ResourceLocation, List<GuideSiteLanguageLink>> buildLanguageLinks(GuideSiteWriter writer,
@@ -1542,11 +1655,15 @@ public class GuideSiteExportTask {
     @Desugar
     private record LanguageExportContext(Map<ResourceLocation, ParsedGuidePage> parsedPagesById,
         NavigationTree navigationTree, Map<ResourceLocation, ResourceLocation> guideIdsByPageId,
+        Map<ResourceLocation, MediaWikiListContext> mediaWikiContextsByGuideId,
+        Map<ResourceLocation, Guide> scopedGuidesByGuideId,
         Map<ResourceLocation, GuideSitePageAssetExporter> assetExportersByGuideId) {
 
         private static final LanguageExportContext EMPTY = new LanguageExportContext(
             Collections.emptyMap(),
             new NavigationTree(),
+            Collections.emptyMap(),
+            Collections.emptyMap(),
             Collections.emptyMap(),
             Collections.emptyMap());
     }

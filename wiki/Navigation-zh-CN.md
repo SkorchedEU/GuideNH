@@ -137,10 +137,13 @@ GuideNH 会按以下顺序选择导航/搜索图标：
 ```yaml
 categories:
   - basics
-  - machines
+  - machines|Arc Furnace
 ```
 
-这些分类可通过内置 `<CategoryIndex>` 标签查询。
+每一项既可以只是分类名，也可以写成 `分类名|排序名`。
+
+这些分类可通过内置 `<Category name="machines" rows="3" />` 标签查询，同时还会自动创建诸如 `Category:machines` 这样的隐藏可搜索页面。
+GuideNH 还会自动创建隐藏可搜索的特殊页面 `Special:AllPages` 与 `Special:Categories`。
 
 ## 物品索引页面
 
@@ -227,15 +230,42 @@ GuideNH 在 Markdown 链接和 `<a>` 标签中支持标题锚点跳转。
 
 特殊情况：`id=""` 会列出所有根导航节点。
 
-## `<CategoryIndex>`
+## `<Category>`
 
-`<CategoryIndex>` 会渲染某个命名分类下的全部页面链接。
+`<Category>` 会渲染某个命名分类下的全部页面链接。
+
+### 属性
+
+| 属性 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `name` | string | 无 | 要渲染的分类名 |
+| `rows` | 正整数 | `3` | MediaWiki 风格布局中的显示列数 |
 
 ````md
-<CategoryIndex category="machines" />
+<Category name="machines" rows="3" />
 ````
 
 如果分类不存在，GuideNH 会显示内联错误。
+
+同一个分类还会自动拥有一个隐藏可搜索页面 `Category:machines`。
+
+## `<Special>`
+
+`<Special>` 用于渲染内置的 MediaWiki 风格特殊页面列表。
+
+### 属性
+
+| 属性 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `name` | string | 无 | 支持的值：`AllPages`、`Categories` |
+| `rows` | 正整数 | `3` | MediaWiki 风格布局中的显示列数 |
+
+````md
+<Special name="AllPages" rows="4" />
+<Special name="Categories" rows="3" />
+````
+
+相同内容也可以通过隐藏可搜索页面 `Special:AllPages` 与 `Special:Categories` 访问。
 
 ## 搜索结果标题
 

@@ -45,6 +45,7 @@ import org.lwjgl.opengl.GL11;
 import com.hfstudio.guidenh.client.command.GuideNhClientBridgeController;
 import com.hfstudio.guidenh.client.hotkey.OpenGuideHotkey;
 import com.hfstudio.guidenh.config.ModConfig;
+import com.hfstudio.guidenh.guide.Guide;
 import com.hfstudio.guidenh.guide.GuideAnchor;
 import com.hfstudio.guidenh.guide.GuidePage;
 import com.hfstudio.guidenh.guide.GuidePageIcon;
@@ -75,7 +76,9 @@ import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.InteractiveElement;
 import com.hfstudio.guidenh.guide.document.interaction.ItemTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.TextTooltip;
+import com.hfstudio.guidenh.guide.indices.CategoryIndex;
 import com.hfstudio.guidenh.guide.indices.ItemMultiIndex;
+import com.hfstudio.guidenh.guide.indices.PageIndex;
 import com.hfstudio.guidenh.guide.internal.debug.GuideDebugOverlayRenderer;
 import com.hfstudio.guidenh.guide.internal.editor.gui.SceneEditorMultilineTextArea;
 import com.hfstudio.guidenh.guide.internal.editor.guide.GuideScreenEditorAction;
@@ -107,6 +110,7 @@ import com.hfstudio.guidenh.guide.internal.tooltip.GuideItemTooltipRenderSupport
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.layout.MinecraftFontMetrics;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
 import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.render.VanillaRenderContext;
@@ -1316,7 +1320,8 @@ public class GuideScreen extends GuiContainer
                 currentAnchor.pageId(),
                 guideEditorDraftSource);
             updateGuideEditorSyntaxWarning(parsedDraft);
-            guideEditorPreviewPage = PageCompiler.compile(guide, guide.getExtensions(), parsedDraft);
+            guideEditorPreviewPage = PageCompiler
+                .compile(buildGuideEditorPreviewGuide(parsedDraft), guide.getExtensions(), parsedDraft);
             int previewWidth = getGuideEditorPreviewLayoutWidth();
             if (guideEditorPreviewPage != null && guideEditorPreviewPage.document() != null) {
                 guideEditorPreviewPage.document()
@@ -1335,6 +1340,29 @@ public class GuideScreen extends GuiContainer
         } catch (Throwable t) {
             FMLLog.warning("Failed to compile guide editor preview for {}", currentAnchor.pageId(), t);
         }
+    }
+
+    private Guide buildGuideEditorPreviewGuide(ParsedGuidePage parsedDraft) {
+        Map<ResourceLocation, ParsedGuidePage> scopedPages = new LinkedHashMap<>();
+        for (ParsedGuidePage page : guide.getPages()) {
+            if (page != null && !MediaWikiPageIds.isSyntheticPage(page.getId())) {
+                scopedPages.put(page.getId(), page);
+            }
+        }
+        scopedPages.put(parsedDraft.getId(), parsedDraft);
+
+        List<ParsedGuidePage> indexedPages = new ArrayList<>(scopedPages.values());
+        indexedPages.removeIf(
+            page -> !NavigationTree.areModRequirementsMet(
+                page.getFrontmatter()
+                    .navigationEntry()));
+
+        CategoryIndex categoryIndex = new CategoryIndex();
+        categoryIndex.rebuild(indexedPages);
+
+        Map<Class<?>, PageIndex> indexOverrides = Collections
+            .<Class<?>, PageIndex>singletonMap(CategoryIndex.class, categoryIndex);
+        return GuideScopedView.create(guide, scopedPages, indexOverrides);
     }
 
     private void updateGuideEditorSyntaxWarning(ParsedGuidePage parsedDraft) {
@@ -1814,7 +1842,7 @@ public class GuideScreen extends GuiContainer
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.MERMAID));
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.FILE_TREE));
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.SUB_PAGES));
-        blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.CATEGORY_INDEX));
+        blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.CATEGORY));
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.FOOTNOTE_LIST));
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.ROW));
         blockEntries.add(GuideScreenEditorContextMenu.Entry.action(GuideScreenEditorAction.COLUMN));
@@ -2121,7 +2149,7 @@ public class GuideScreen extends GuiContainer
             actions.add(GuideScreenEditorAction.MERMAID);
             actions.add(GuideScreenEditorAction.FILE_TREE);
             actions.add(GuideScreenEditorAction.SUB_PAGES);
-            actions.add(GuideScreenEditorAction.CATEGORY_INDEX);
+            actions.add(GuideScreenEditorAction.CATEGORY);
             actions.add(GuideScreenEditorAction.FOOTNOTE_LIST);
             actions.add(GuideScreenEditorAction.ROW);
             actions.add(GuideScreenEditorAction.COLUMN);

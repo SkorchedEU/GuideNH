@@ -139,10 +139,13 @@ Pages can join one or more named categories using frontmatter:
 ```yaml
 categories:
   - basics
-  - machines
+  - machines|Arc Furnace
 ```
 
-Those categories become queryable through the built-in `<CategoryIndex>` tag.
+Each entry can be either a category name or `category|sort key`.
+
+Those categories are queryable through the built-in `<Category name="machines" rows="3" />` tag and also auto-create hidden searchable pages such as `Category:machines`.
+GuideNH also auto-creates the hidden searchable special pages `Special:AllPages` and `Special:Categories`.
 
 ## Item-Indexed Pages
 
@@ -229,15 +232,42 @@ Navigating to a link with an anchor scrolls the guide to the target heading or n
 
 Special case: `id=""` lists root navigation nodes.
 
-## `<CategoryIndex>`
+## `<Category>`
 
-`<CategoryIndex>` renders links to every page in a named category.
+`<Category>` renders links to every page in a named category.
+
+### Attributes
+
+| Attribute | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | string | none | Category name to render |
+| `rows` | positive integer | `3` | Number of display columns in the MediaWiki-style layout |
 
 ````md
-<CategoryIndex category="machines" />
+<Category name="machines" rows="3" />
 ````
 
 If the category is missing, GuideNH renders an inline error.
+
+The same category also has an auto-generated hidden searchable page at `Category:machines`.
+
+## `<Special>`
+
+`<Special>` renders one of the built-in MediaWiki-style special page listings.
+
+### Attributes
+
+| Attribute | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `name` | string | none | Supported values: `AllPages`, `Categories` |
+| `rows` | positive integer | `3` | Number of display columns in the MediaWiki-style layout |
+
+````md
+<Special name="AllPages" rows="4" />
+<Special name="Categories" rows="3" />
+````
+
+The same content is also available through the hidden searchable pages `Special:AllPages` and `Special:Categories`.
 
 ## Search Result Titles
 

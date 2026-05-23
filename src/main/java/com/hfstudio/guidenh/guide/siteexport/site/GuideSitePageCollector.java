@@ -14,11 +14,15 @@ import org.jetbrains.annotations.Nullable;
 
 import com.github.bsideup.jabel.Desugar;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
+import com.hfstudio.guidenh.guide.indices.CategoryIndex;
 import com.hfstudio.guidenh.guide.internal.MutableGuide;
 import com.hfstudio.guidenh.guide.internal.datadriven.DataDrivenGuideLoader;
 import com.hfstudio.guidenh.guide.internal.localization.GuideLocalizedPageSourceResolver;
 import com.hfstudio.guidenh.guide.internal.localization.GuideLocalizedPageSourceResolver.ResolvedGuidePageSource;
 import com.hfstudio.guidenh.guide.internal.resource.GuideResourceAccess;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSyntheticPageFactory;
+import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 
 import cpw.mods.fml.common.FMLLog;
 
@@ -87,7 +91,56 @@ public class GuideSitePageCollector {
             pageIdSet.add(page.getId());
         }
         List<ResourceLocation> pageIds = new ArrayList<>(pageIdSet);
-        return collect(guide.getId(), guide.getDefaultLanguage(), languages, pageIds);
+        List<GuideSitePageVariant> variants = new ArrayList<>();
+        Map<String, Map<ResourceLocation, Optional<LoadedPage>>> pageCacheByLanguage = new LinkedHashMap<>();
+
+        for (String language : languages) {
+            List<ParsedGuidePage> localizedPages = new ArrayList<>();
+            for (ResourceLocation pageId : pageIds) {
+                if (MediaWikiPageIds.isSyntheticPage(pageId)) {
+                    continue;
+                }
+
+                Optional<LoadedPage> loadedPage = loadPageCached(pageCacheByLanguage, language, pageId);
+                if (!loadedPage.isPresent()) {
+                    continue;
+                }
+
+                LoadedPage localized = loadedPage.get();
+                ParsedGuidePage page = localized.page();
+                localizedPages.add(page);
+                variants.add(
+                    new GuideSitePageVariant(
+                        guide.getId(),
+                        page.getId(),
+                        language,
+                        localized.sourceLanguage(),
+                        localized.fallbackUsed(),
+                        page));
+            }
+
+            var indexedPages = new ArrayList<>(localizedPages);
+            indexedPages.removeIf(
+                page -> !NavigationTree.areModRequirementsMet(
+                    page.getFrontmatter()
+                        .navigationEntry()));
+
+            CategoryIndex categoryIndex = new CategoryIndex();
+            categoryIndex.rebuild(indexedPages);
+            for (ParsedGuidePage syntheticPage : MediaWikiSyntheticPageFactory
+                .buildPages(guide, localizedPages, categoryIndex)
+                .values()) {
+                variants.add(
+                    new GuideSitePageVariant(
+                        guide.getId(),
+                        syntheticPage.getId(),
+                        language,
+                        language,
+                        false,
+                        syntheticPage));
+            }
+        }
+        return variants;
     }
 
     public static List<String> discoverLanguagesOrEmpty() {
