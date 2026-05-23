@@ -259,32 +259,34 @@ public class GuideSiteExportTask {
                                     templates.renderAll(),
                                     pageTitle);
 
-                                Map<String, Object> searchEntry = new LinkedHashMap<>();
-                                searchEntry.put("title", pageTitle);
-                                searchEntry.put(
-                                    "guideId",
-                                    guide.getId()
-                                        .toString());
-                                searchEntry.put(
-                                    "pageId",
-                                    variant.pageId()
-                                        .toString());
-                                searchEntry.put("url", pageUrl);
-                                searchEntry
-                                    .put("text", searchExtractor.searchableText(scopedGuide, variant.parsedPage()));
-                                searchEntry.put(
-                                    "mediaWikiSpecialPage",
-                                    MediaWikiPageIds.isCategoryPage(variant.pageId())
-                                        || MediaWikiPageIds.isSpecialPage(variant.pageId()));
-                                appendSearchIconData(
-                                    searchEntry,
-                                    context.navigationTree()
-                                        .getNodeById(variant.pageId()),
-                                    assetExporter,
-                                    itemIconExporter,
-                                    context.assetExportersByGuideId());
-                                searchEntriesByLanguage.computeIfAbsent(language, ignored2 -> new ArrayList<>())
-                                    .add(searchEntry);
+                                if (!MediaWikiPageIds.isSpecialPage(variant.pageId())) {
+                                    Map<String, Object> searchEntry = new LinkedHashMap<>();
+                                    searchEntry.put("title", pageTitle);
+                                    searchEntry.put(
+                                        "guideId",
+                                        guide.getId()
+                                            .toString());
+                                    searchEntry.put(
+                                        "pageId",
+                                        variant.pageId()
+                                            .toString());
+                                    searchEntry.put("url", pageUrl);
+                                    searchEntry
+                                        .put("text", searchExtractor.searchableText(scopedGuide, variant.parsedPage()));
+                                    searchEntry.put(
+                                        "mediaWikiSpecialPage",
+                                        MediaWikiPageIds.isCategoryPage(variant.pageId())
+                                            || MediaWikiPageIds.isSpecialPage(variant.pageId()));
+                                    appendSearchIconData(
+                                        searchEntry,
+                                        context.navigationTree()
+                                            .getNodeById(variant.pageId()),
+                                        assetExporter,
+                                        itemIconExporter,
+                                        context.assetExportersByGuideId());
+                                    searchEntriesByLanguage.computeIfAbsent(language, ignored2 -> new ArrayList<>())
+                                        .add(searchEntry);
+                                }
 
                                 if (firstPageUrl == null) {
                                     firstPageUrl = pageUrl;

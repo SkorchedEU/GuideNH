@@ -17,6 +17,7 @@ import com.hfstudio.guidenh.guide.document.block.LytBlock;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowContent;
 import com.hfstudio.guidenh.guide.document.interaction.GuideTooltip;
 import com.hfstudio.guidenh.guide.document.interaction.InteractiveElement;
+import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.render.RenderContext;
 import com.hfstudio.guidenh.guide.style.ResolvedTextStyle;
@@ -59,7 +60,7 @@ public class MediaWikiGeneratedListBlock extends LytBlock implements Interactive
     private final List<MediaWikiListEntry> entries = new ArrayList<>();
     private final List<RowLayout> rowLayouts = new ArrayList<>();
     private int rows = MediaWikiListPlanner.DEFAULT_ROWS;
-    private String emptyText = "No pages";
+    private String emptyText = GuidebookText.MediaWikiNoPages.text();
     @Nullable
     private RowLayout hoveredRow;
 
@@ -75,7 +76,7 @@ public class MediaWikiGeneratedListBlock extends LytBlock implements Interactive
     }
 
     public void setEmptyText(String emptyText) {
-        this.emptyText = emptyText != null && !emptyText.isEmpty() ? emptyText : "No pages";
+        this.emptyText = emptyText != null && !emptyText.isEmpty() ? emptyText : GuidebookText.MediaWikiNoPages.text();
     }
 
     @Override

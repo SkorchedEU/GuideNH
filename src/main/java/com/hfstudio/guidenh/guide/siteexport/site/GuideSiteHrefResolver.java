@@ -1,6 +1,8 @@
 package com.hfstudio.guidenh.guide.siteexport.site;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -14,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.hfstudio.guidenh.guide.PageAnchor;
 import com.hfstudio.guidenh.guide.compiler.IdUtils;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiExternalLinkSupport;
 
 import cpw.mods.fml.common.FMLLog;
 
@@ -71,6 +74,29 @@ public class GuideSiteHrefResolver {
 
     public static String resolvePageAnchor(@Nullable ResourceLocation currentPageId, PageAnchor anchor) {
         return resolvePageAnchor(currentPageId, null, anchor);
+    }
+
+    public static String resolveExternalConfirmHref(@Nullable ResourceLocation currentPageId, String targetUrl,
+        @Nullable String label) {
+        var externalUri = MediaWikiExternalLinkSupport.resolveExternalUri(targetUrl);
+        if (externalUri == null) {
+            return "";
+        }
+        String normalizedUrl = externalUri.toString();
+        StringBuilder href = new StringBuilder(resolveSitePath(currentPageId, "_site/external-link.html"));
+        href.append("?target=")
+            .append(urlEncode(normalizedUrl));
+        if (label != null && !label.trim()
+            .isEmpty()) {
+            href.append("&label=")
+                .append(urlEncode(label.trim()));
+        }
+        ExportContext exportContext = EXPORT_CONTEXT.get();
+        if (exportContext != null && exportContext.language != null && !exportContext.language.isEmpty()) {
+            href.append("&lang=")
+                .append(urlEncode(exportContext.language));
+        }
+        return href.toString();
     }
 
     public static String resolvePageAnchor(@Nullable ResourceLocation currentPageId, @Nullable ResourceLocation guideId,
@@ -159,6 +185,14 @@ public class GuideSiteHrefResolver {
         return new ResourceLocation(pageId.getResourceDomain(), "guidenh");
     }
 
+    private static String resolveSitePath(@Nullable ResourceLocation currentPageId, String targetPath) {
+        ExportContext exportContext = EXPORT_CONTEXT.get();
+        if (exportContext != null) {
+            return exportContext.siteUrl(currentPageId, targetPath);
+        }
+        return targetPath;
+    }
+
     private static String relativizePagePath(@Nullable ResourceLocation currentPageId, ResourceLocation targetPageId) {
         Path target = Paths.get(outputPageFile(targetPageId));
         Path current = currentPageId != null ? Paths.get(outputPageFile(currentPageId)) : null;
@@ -166,6 +200,14 @@ public class GuideSiteHrefResolver {
         String relative = currentDir != null ? currentDir.relativize(target)
             .toString() : target.toString();
         return relative.replace('\\', '/');
+    }
+
+    private static String urlEncode(String value) {
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("UTF-8 should always be supported", e);
+        }
     }
 
     public static class ContextScope implements AutoCloseable {
@@ -221,6 +263,19 @@ public class GuideSiteHrefResolver {
                 + language
                 + "/"
                 + outputPageFile(pageId).replace('\\', '/');
+        }
+
+        private String siteUrl(@Nullable ResourceLocation currentPageId, String targetPath) {
+            Path target = Paths.get(targetPath);
+            if (currentPageId == null) {
+                return target.toString()
+                    .replace('\\', '/');
+            }
+            Path current = Paths.get("guides", namespace, guidePath, language, outputPageFile(currentPageId));
+            Path currentDir = current.getParent();
+            String relative = currentDir != null ? currentDir.relativize(target)
+                .toString() : target.toString();
+            return relative.replace('\\', '/');
         }
     }
 }

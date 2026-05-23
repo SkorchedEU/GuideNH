@@ -19,6 +19,9 @@ import com.hfstudio.guidenh.guide.indices.CategoryIndex;
 import com.hfstudio.guidenh.guide.indices.PageIndex;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListContext;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListContextProvider;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialDataIndex;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialDataIndexer;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageRefreshController;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 
 public class GuideScopedView implements Guide, MediaWikiListContextProvider {
@@ -28,7 +31,9 @@ public class GuideScopedView implements Guide, MediaWikiListContextProvider {
     private final NavigationTree navigationTree;
     private final Map<Class<?>, PageIndex> indexOverrides;
     @Nullable
-    private final MediaWikiListContext mediaWikiListContext;
+    private volatile MediaWikiListContext mediaWikiListContext;
+    private volatile long mediaWikiListContextRevision = Long.MIN_VALUE;
+    private final MediaWikiSpecialPageRefreshController mediaWikiRefreshController = new MediaWikiSpecialPageRefreshController();
     private final Map<ParsedGuidePage, GuidePage> compiledPages = Collections
         .synchronizedMap(new IdentityHashMap<ParsedGuidePage, GuidePage>());
 
@@ -40,6 +45,7 @@ public class GuideScopedView implements Guide, MediaWikiListContextProvider {
         this.navigationTree = navigationTree != null ? navigationTree : new NavigationTree();
         this.indexOverrides = indexOverrides != null ? new LinkedHashMap<>(indexOverrides) : Collections.emptyMap();
         this.mediaWikiListContext = mediaWikiListContext;
+        requestMediaWikiContextWarmup(mediaWikiRefreshController.currentRevision());
     }
 
     public static GuideScopedView create(Guide delegate, Map<ResourceLocation, ParsedGuidePage> parsedPagesById,
@@ -47,22 +53,7 @@ public class GuideScopedView implements Guide, MediaWikiListContextProvider {
         Map<Class<?>, PageIndex> safeIndexOverrides = indexOverrides != null ? new LinkedHashMap<>(indexOverrides)
             : Collections.emptyMap();
         NavigationTree navigationTree = NavigationTree.build(delegate, parsedPagesById.values());
-        GuideScopedView scopedGuide = new GuideScopedView(
-            delegate,
-            parsedPagesById,
-            navigationTree,
-            safeIndexOverrides,
-            null);
-        PageIndex categoryIndexOverride = safeIndexOverrides.get(CategoryIndex.class);
-        if (!(categoryIndexOverride instanceof CategoryIndex categoryIndex)) {
-            return scopedGuide;
-        }
-        return new GuideScopedView(
-            delegate,
-            parsedPagesById,
-            navigationTree,
-            safeIndexOverrides,
-            MediaWikiListContext.create(scopedGuide, parsedPagesById.values(), navigationTree, categoryIndex));
+        return new GuideScopedView(delegate, parsedPagesById, navigationTree, safeIndexOverrides, null);
     }
 
     @Override
@@ -142,6 +133,46 @@ public class GuideScopedView implements Guide, MediaWikiListContextProvider {
 
     @Override
     public @Nullable MediaWikiListContext getMediaWikiListContext() {
-        return mediaWikiListContext;
+        long currentRevision = mediaWikiRefreshController.currentRevision();
+        MediaWikiListContext cached = mediaWikiListContext;
+        if (cached != null && mediaWikiListContextRevision == currentRevision) {
+            return cached;
+        }
+        synchronized (this) {
+            if (mediaWikiListContext != null && mediaWikiListContextRevision == currentRevision) {
+                return mediaWikiListContext;
+            }
+            PageIndex categoryIndexOverride = getIndex(CategoryIndex.class);
+            if (!(categoryIndexOverride instanceof CategoryIndex categoryIndex)) {
+                return null;
+            }
+            MediaWikiSpecialDataIndex specialDataIndex = new MediaWikiSpecialDataIndexer()
+                .build(this, parsedPagesById.values(), categoryIndex);
+            mediaWikiListContext = MediaWikiListContext
+                .create(this, parsedPagesById.values(), navigationTree, categoryIndex, specialDataIndex);
+            mediaWikiListContextRevision = currentRevision;
+            return mediaWikiListContext;
+        }
+    }
+
+    private void requestMediaWikiContextWarmup(long revision) {
+        PageIndex categoryIndexOverride = getIndex(CategoryIndex.class);
+        if (!(categoryIndexOverride instanceof CategoryIndex categoryIndex)) {
+            return;
+        }
+        Map<ResourceLocation, ParsedGuidePage> pagesSnapshot = new LinkedHashMap<>(parsedPagesById);
+        mediaWikiRefreshController.requestRefresh(revision, () -> {
+            MediaWikiSpecialDataIndex specialDataIndex = new MediaWikiSpecialDataIndexer()
+                .build(this, pagesSnapshot.values(), categoryIndex);
+            MediaWikiListContext context = MediaWikiListContext
+                .create(this, pagesSnapshot.values(), navigationTree, categoryIndex, specialDataIndex);
+            synchronized (this) {
+                if (!mediaWikiRefreshController.isCurrent(revision)) {
+                    return;
+                }
+                mediaWikiListContext = context;
+                mediaWikiListContextRevision = revision;
+            }
+        });
     }
 }

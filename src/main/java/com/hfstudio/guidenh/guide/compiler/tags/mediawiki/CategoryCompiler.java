@@ -10,6 +10,7 @@ import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.BlockTagCompiler;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.indices.CategoryIndex;
+import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListEntry;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageListBuilder;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
@@ -26,7 +27,7 @@ public class CategoryCompiler extends BlockTagCompiler {
         String categoryName = el.getAttributeString("name", null);
         if (categoryName == null || categoryName.trim()
             .isEmpty()) {
-            parent.appendError(compiler, "Missing category name", el);
+            parent.appendError(compiler, GuidebookText.MediaWikiMissingCategoryName.text(), el);
             return;
         }
 
@@ -38,8 +39,10 @@ public class CategoryCompiler extends BlockTagCompiler {
         var context = MediaWikiTagCompilerSupport.createListContext(guide, compiler.getIndex(CategoryIndex.class));
         List<MediaWikiListEntry> entries = MediaWikiPageListBuilder.buildCategoryMembers(context, categoryName.trim());
         parent.append(
-            MediaWikiTagCompilerSupport
-                .createBlock(entries, MediaWikiTagCompilerSupport.readRows(el), "No pages in this category"));
+            MediaWikiTagCompilerSupport.createBlock(
+                entries,
+                MediaWikiTagCompilerSupport.readRows(el),
+                GuidebookText.MediaWikiNoPagesInCategory.text()));
     }
 
     @Override

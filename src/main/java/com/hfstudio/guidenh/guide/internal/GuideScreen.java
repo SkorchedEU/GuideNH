@@ -111,6 +111,8 @@ import com.hfstudio.guidenh.guide.internal.util.LangUtil;
 import com.hfstudio.guidenh.guide.layout.LayoutContext;
 import com.hfstudio.guidenh.guide.layout.MinecraftFontMetrics;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialGeneratedBlock;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageIds;
 import com.hfstudio.guidenh.guide.navigation.NavigationNode;
 import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 import com.hfstudio.guidenh.guide.render.VanillaRenderContext;
@@ -297,6 +299,8 @@ public class GuideScreen extends GuiContainer
     private SceneEditorMultilineTextArea guideEditorTextArea;
     @Nullable
     private GuideScreenEditorContextMenu guideEditorContextMenu;
+    @Nullable
+    private GuideScreenContextMenu homePageContextMenu;
     @Nullable
     private ParsedGuidePage guideEditorDraftPage;
     @Nullable
@@ -608,7 +612,8 @@ public class GuideScreen extends GuiContainer
         if (currentRoute.isContent()) {
             guide = GuideRegistry.getById(currentRoute.guideId());
             currentAnchor = currentRoute.anchor();
-            pendingAnchorScroll = currentAnchor != null && currentAnchor.anchor() != null;
+            pendingAnchorScroll = currentAnchor != null && currentAnchor.anchor() != null
+                && !MediaWikiPageIds.isSpecialPage(currentAnchor.pageId());
             if (guide == null || currentAnchor == null) {
                 currentRoute = GuideScreenRoute.home();
                 guide = null;
@@ -2321,6 +2326,10 @@ public class GuideScreen extends GuiContainer
             document = null;
             schedulePendingContentPageLoad();
         }
+        if (document != null && isSpecialPageWithSearchField()) {
+            applySpecialPageSearchQuery(queryFromCurrentAnchor());
+        }
+        syncSearchFieldToCurrentRoute();
         refreshCurrentPageTitle();
         if (isGuideEditorActive()) {
             refreshGuideEditorDraft(true);
@@ -2433,6 +2442,10 @@ public class GuideScreen extends GuiContainer
         }
         currentPage = loadedPage;
         document = loadedPage != null ? loadedPage.document() : null;
+        if (document != null && isSpecialPageWithSearchField()) {
+            applySpecialPageSearchQuery(queryFromCurrentAnchor());
+        }
+        syncSearchFieldToCurrentRoute();
         if (loadedPage != null) {
             queuePageSceneRegistrations(loadedPage);
         }
@@ -2685,6 +2698,7 @@ public class GuideScreen extends GuiContainer
             drawGuideEditorContextMenu(mouseX, mouseY);
             GuideScreenNeiBridge.drawNativeNei(this, mouseX, mouseY);
         }
+        drawHomePageContextMenu(mouseX, mouseY);
 
         if (isGuideEditorActive()) {
             GuideScreenNeiBridge.drawNativeNeiTooltip(this, mouseX, mouseY);
@@ -2873,6 +2887,15 @@ public class GuideScreen extends GuiContainer
         guideEditorContextMenu.setViewport(this.width, this.height, fontRendererObj);
         guideEditorContextMenu.update(mouseX, mouseY, this.width, this.height, fontRendererObj);
         guideEditorContextMenu.draw(fontRendererObj, mouseX, mouseY);
+    }
+
+    private void drawHomePageContextMenu(int mouseX, int mouseY) {
+        if (homePageContextMenu == null || !homePageContextMenu.isOpen()) {
+            return;
+        }
+        homePageContextMenu.setViewport(this.width, this.height, fontRendererObj);
+        homePageContextMenu.update(mouseX, mouseY, this.width, this.height, fontRendererObj);
+        homePageContextMenu.draw(fontRendererObj, mouseX, mouseY);
     }
 
     private int layoutGuideEditorActionButtons(int startX, int startY, int availableWidth) {
@@ -3795,6 +3818,13 @@ public class GuideScreen extends GuiContainer
             }
             return;
         }
+        if (homePageContextMenu != null && homePageContextMenu.isOpen()) {
+            String menuTooltip = homePageContextMenu.getHoveredTooltip();
+            if (menuTooltip != null) {
+                drawTooltipText(menuTooltip, mouseX, mouseY);
+            }
+            return;
+        }
         if (navBar.isOpen() && navBar.contains(mouseX, mouseY)) {
             String navTooltip = navBar.getTooltip(mouseX, mouseY, isNavigationNewPageButtonVisible());
             if (navTooltip != null) {
@@ -4510,8 +4540,23 @@ public class GuideScreen extends GuiContainer
     protected void mouseClicked(int mouseX, int mouseY, int button) {
         lastMouseX = mouseX;
         lastMouseY = mouseY;
+        if (handleHomePageToolbarRightClick(mouseX, mouseY, button)) {
+            return;
+        }
         if (handleGuideEditorToolbarRightClick(mouseX, mouseY, button)) {
             return;
+        }
+        if (homePageContextMenu != null && homePageContextMenu.isOpen()) {
+            if (homePageContextMenu.mouseClicked(
+                mouseX,
+                mouseY,
+                button,
+                this::performHomePageContextMenuAction,
+                fontRendererObj,
+                width,
+                height)) {
+                return;
+            }
         }
         if (GuideScreenNeiBridge.mouseClicked(this, mouseX, mouseY, button)) {
             return;
@@ -4565,7 +4610,11 @@ public class GuideScreen extends GuiContainer
                 if (button == 1) {
                     searchField.setFocused(true);
                     searchField.setText("");
-                    updateSearchQuery("");
+                    if (isSearchPage()) {
+                        updateSearchQuery("");
+                    } else if (isSpecialPageWithSearchField()) {
+                        updateSpecialPageQuery("");
+                    }
                 }
                 return;
             }
@@ -4672,6 +4721,62 @@ public class GuideScreen extends GuiContainer
         return true;
     }
 
+    private boolean handleHomePageToolbarRightClick(int mouseX, int mouseY, int button) {
+        if (button != 1 || btnHomePage == null
+            || !btnHomePage.visible
+            || !btnHomePage.mousePressed(mc, mouseX, mouseY)) {
+            return false;
+        }
+        closeHomePageContextMenu();
+        openHomePageContextMenu(mouseX, mouseY);
+        return true;
+    }
+
+    private void openHomePageContextMenu(int mouseX, int mouseY) {
+        if (homePageContextMenu == null) {
+            List<GuideScreenContextMenu.Entry> entries = new ArrayList<>();
+            entries.add(
+                GuideScreenContextMenu.Entry.action(
+                    GuidebookText.HomePageSpecialPages.text(),
+                    GuideScreenContextMenu.ContextMenuAction.OPEN_SPECIAL_PAGES));
+            homePageContextMenu = new GuideScreenContextMenu(entries);
+        }
+        homePageContextMenu.open(mouseX, mouseY, width, height, fontRendererObj);
+    }
+
+    private void closeHomePageContextMenu() {
+        if (homePageContextMenu != null) {
+            homePageContextMenu.close();
+        }
+    }
+
+    private void performHomePageContextMenuAction(GuideScreenContextMenu.ContextMenuAction action) {
+        if (action == GuideScreenContextMenu.ContextMenuAction.OPEN_SPECIAL_PAGES) {
+            openSpecialPagesFromContextMenu();
+        }
+    }
+
+    private void openSpecialPagesFromContextMenu() {
+        MutableGuide activeGuide = guide;
+        if (activeGuide == null && currentRoute != null && currentRoute.guideId() != null) {
+            activeGuide = GuideRegistry.getById(currentRoute.guideId());
+        }
+        if (activeGuide == null) {
+            for (MutableGuide candidate : GuideRegistry.getAll()) {
+                activeGuide = candidate;
+                break;
+            }
+        }
+        if (activeGuide == null) {
+            return;
+        }
+        navigateTo(
+            activeGuide.getId(),
+            PageAnchor.page(
+                MediaWikiPageIds
+                    .specialPageId(activeGuide.getDefaultNamespace(), MediaWikiSpecialPageIds.SPECIAL_PAGES)));
+    }
+
     private boolean consumeCustomClickSound(LytDocument.HitTestResult hit) {
         var fc = hit.content();
         while (fc != null) {
@@ -4766,6 +4871,13 @@ public class GuideScreen extends GuiContainer
         if (GuideScreenNeiBridge.mouseDragged(this, mouseX, mouseY, clickedMouseButton, timeSinceLastClick)) {
             return;
         }
+        if (homePageContextMenu != null && homePageContextMenu.isOpen()) {
+            if (homePageContextMenu
+                .mouseDragged(mouseX, mouseY, clickedMouseButton, this.width, this.height, fontRendererObj)) {
+                return;
+            }
+            return;
+        }
         if (isExactHomeRoute() && homePageController.mouseDragged(mouseX, mouseY)) {
             return;
         }
@@ -4803,6 +4915,10 @@ public class GuideScreen extends GuiContainer
             return;
         }
         if (state != -1 && GuideScreenNeiBridge.mouseReleased(this, mouseX, mouseY, state)) {
+            return;
+        }
+        if (homePageContextMenu != null && homePageContextMenu.isOpen()) {
+            homePageContextMenu.mouseReleased(state);
             return;
         }
         if (handleGuideEditorMouseReleased(mouseX, mouseY, state)) {
@@ -5259,12 +5375,30 @@ public class GuideScreen extends GuiContainer
         return GuideSearchPage.isSearchAnchor(currentAnchor);
     }
 
+    private boolean isSpecialPage() {
+        return currentAnchor != null && currentAnchor.pageId() != null
+            && MediaWikiPageIds.isSpecialPage(currentAnchor.pageId());
+    }
+
+    private boolean isSpecialPageWithSearchField() {
+        if (!isSpecialPage()) {
+            return false;
+        }
+        String specialName = MediaWikiPageIds.specialPageName(currentAnchor.pageId());
+        if (specialName == null) {
+            return false;
+        }
+        return !MediaWikiSpecialPageIds.DOWNLOAD_GUIDENH_EXTENSION.equalsIgnoreCase(specialName)
+            && !MediaWikiSpecialPageIds.LANGUAGE_STATISTICS.equalsIgnoreCase(specialName)
+            && !MediaWikiSpecialPageIds.TRANSLATION_STATISTICS.equalsIgnoreCase(specialName);
+    }
+
     private boolean isItemLinksPage() {
         return GuideItemLinksPage.isItemLinksAnchor(currentAnchor);
     }
 
     private void ensureSearchField() {
-        if (!isSearchPage()) {
+        if (!isSearchPage() && !isSpecialPageWithSearchField()) {
             searchField = null;
             return;
         }
@@ -5273,8 +5407,7 @@ public class GuideScreen extends GuiContainer
         int fieldY = panelY + SEARCH_TOOLBAR_FIELD_Y_OFFSET;
         int fieldW = getSearchToolbarFieldWidth(fieldX);
         boolean focused = searchField != null && searchField.isFocused();
-        String currentText = searchField != null ? searchField.getText()
-            : GuideSearchPage.queryFromAnchor(currentAnchor);
+        String currentText = searchField != null ? searchField.getText() : queryFromCurrentAnchor();
         if (searchField == null || searchField.xPosition != fieldX
             || searchField.yPosition != fieldY
             || searchField.width != fieldW) {
@@ -5285,9 +5418,27 @@ public class GuideScreen extends GuiContainer
             searchField.setFocused(focused || currentText.isEmpty());
         }
 
-        String query = GuideSearchPage.queryFromAnchor(currentAnchor);
+        String query = queryFromCurrentAnchor();
         if (!Objects.equals(searchField.getText(), query)) {
             searchField.setText(query);
+        }
+    }
+
+    private void syncSearchFieldToCurrentRoute() {
+        if (!isSearchPage() && !isSpecialPageWithSearchField()) {
+            searchField = null;
+            return;
+        }
+        ensureSearchField();
+        if (searchField == null) {
+            return;
+        }
+        String query = queryFromCurrentAnchor();
+        if (!Objects.equals(searchField.getText(), query)) {
+            searchField.setText(query);
+        }
+        if (!isSearchPage() && query.isEmpty()) {
+            searchField.setFocused(false);
         }
     }
 
@@ -5358,6 +5509,16 @@ public class GuideScreen extends GuiContainer
     @Nullable
     private LytDocument getActiveDocument() {
         return isSearchPage() ? searchDocument : document;
+    }
+
+    private String queryFromCurrentAnchor() {
+        if (isSearchPage()) {
+            return GuideSearchPage.queryFromAnchor(currentAnchor);
+        }
+        if (isSpecialPage()) {
+            return currentAnchor != null && currentAnchor.anchor() != null ? currentAnchor.anchor() : "";
+        }
+        return "";
     }
 
     private void rebuildSearchDocumentIfNeeded(boolean force) {
@@ -5651,7 +5812,8 @@ public class GuideScreen extends GuiContainer
     }
 
     private boolean handleSearchFieldKey(char typedChar, int keyCode) {
-        if (!isSearchPage() || searchField == null || keyCode == Keyboard.KEY_ESCAPE) {
+        if ((!isSearchPage() && !isSpecialPageWithSearchField()) || searchField == null
+            || keyCode == Keyboard.KEY_ESCAPE) {
             return false;
         }
 
@@ -5668,7 +5830,11 @@ public class GuideScreen extends GuiContainer
         searchField.textboxKeyTyped(typedChar, keyCode);
         String after = searchField.getText();
         if (!Objects.equals(before, after)) {
-            updateSearchQuery(after);
+            if (isSearchPage()) {
+                updateSearchQuery(after);
+            } else if (isSpecialPageWithSearchField()) {
+                updateSpecialPageQuery(after);
+            }
         }
 
         return !focused || shouldConsumeFocusedSearchKey(typedChar, keyCode, before, after);
@@ -5678,6 +5844,7 @@ public class GuideScreen extends GuiContainer
         var nextAnchor = GuideSearchPage.anchorForQuery(query);
         if (nextAnchor.equals(currentAnchor)) {
             rebuildSearchDocumentIfNeeded(false);
+            syncSearchFieldToCurrentRoute();
             return;
         }
 
@@ -5694,6 +5861,53 @@ public class GuideScreen extends GuiContainer
         rebuildSearchDocumentIfNeeded(true);
         scrollY = 0;
         rebuildToolbar();
+        syncSearchFieldToCurrentRoute();
+    }
+
+    private void updateSpecialPageQuery(String query) {
+        if (!isSpecialPage() || currentAnchor == null || guide == null) {
+            return;
+        }
+        PageAnchor nextAnchor = query == null || query.isEmpty() ? PageAnchor.page(currentAnchor.pageId())
+            : new PageAnchor(currentAnchor.pageId(), query);
+        if (nextAnchor.equals(currentAnchor)) {
+            applySpecialPageSearchQuery(query);
+            syncSearchFieldToCurrentRoute();
+            return;
+        }
+
+        rememberCurrentContentStateIfEligible();
+        history.push(captureCurrentViewState());
+        forwardHistory.clear();
+        currentAnchor = nextAnchor;
+        currentRoute = GuideScreenRoute.content(guide.getId(), nextAnchor);
+        pendingAnchorScroll = false;
+        applySpecialPageSearchQuery(query);
+        scrollY = 0;
+        syncSearchFieldToCurrentRoute();
+    }
+
+    private void applySpecialPageSearchQuery(String query) {
+        if (document == null) {
+            return;
+        }
+        updateSpecialSearchBlocks(document, query != null ? query : "");
+        clearInteractionState();
+        layoutDocument = null;
+        lastLayoutWidth = -1;
+        clampScroll();
+    }
+
+    private void updateSpecialSearchBlocks(LytNode root, String query) {
+        if (root == null) {
+            return;
+        }
+        if (root instanceof MediaWikiSpecialGeneratedBlock specialBlock) {
+            specialBlock.setSearchQuery(query);
+        }
+        for (LytNode child : root.getChildren()) {
+            updateSpecialSearchBlocks(child, query);
+        }
     }
 
     private void recordHomeHistoryIfEligible() {

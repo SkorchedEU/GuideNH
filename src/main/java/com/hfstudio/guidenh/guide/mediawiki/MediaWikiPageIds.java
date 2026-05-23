@@ -9,8 +9,8 @@ public class MediaWikiPageIds {
 
     public static final String CATEGORY_TITLE_PREFIX = "Category:";
     public static final String SPECIAL_TITLE_PREFIX = "Special:";
-    public static final String SPECIAL_ALL_PAGES = "AllPages";
-    public static final String SPECIAL_CATEGORIES = "Categories";
+    public static final String SPECIAL_ALL_PAGES = MediaWikiSpecialPageIds.ALL_PAGES;
+    public static final String SPECIAL_CATEGORIES = MediaWikiSpecialPageIds.CATEGORIES;
 
     private static final String SYNTHETIC_ROOT = "__mediawiki/";
     private static final String CATEGORY_ROOT = SYNTHETIC_ROOT + "category/";
@@ -39,6 +39,23 @@ public class MediaWikiPageIds {
     public static boolean isSpecialPage(ResourceLocation pageId) {
         return pageId != null && pageId.getResourcePath()
             .startsWith(SPECIAL_ROOT);
+    }
+
+    public static boolean isSpecialPagesIndex(ResourceLocation pageId) {
+        return pageId != null && specialPageName(pageId) != null
+            && MediaWikiSpecialPageIds.SPECIAL_PAGES.equalsIgnoreCase(specialPageName(pageId));
+    }
+
+    public static String specialPageName(ResourceLocation pageId) {
+        if (!isSpecialPage(pageId)) {
+            return null;
+        }
+        String path = pageId.getResourcePath();
+        int start = SPECIAL_ROOT.length();
+        if (path.length() <= start || !path.endsWith(".md")) {
+            return null;
+        }
+        return path.substring(start, path.length() - 3);
     }
 
     public static String toCategoryTitle(String categoryName) {

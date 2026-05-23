@@ -1,7 +1,6 @@
 package com.hfstudio.guidenh.guide.compiler.tags.mediawiki;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 import com.hfstudio.guidenh.guide.compiler.IndexingContext;
@@ -10,11 +9,15 @@ import com.hfstudio.guidenh.guide.compiler.PageCompiler;
 import com.hfstudio.guidenh.guide.compiler.tags.BlockTagCompiler;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.indices.CategoryIndex;
-import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListEntry;
+import com.hfstudio.guidenh.guide.internal.GuidebookText;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageQuery;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageResolver;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageResult;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 
 public class SpecialCompiler extends BlockTagCompiler {
+
+    private final MediaWikiSpecialPageResolver resolver = new MediaWikiSpecialPageResolver();
 
     @Override
     public Set<String> getTagNames() {
@@ -26,12 +29,12 @@ public class SpecialCompiler extends BlockTagCompiler {
         String rawSpecialName = el.getAttributeString("name", null);
         if (rawSpecialName == null || rawSpecialName.trim()
             .isEmpty()) {
-            parent.appendError(compiler, "Missing special page name", el);
+            parent.appendError(compiler, GuidebookText.MediaWikiMissingSpecialPageName.text(), el);
             return;
         }
-        String specialName = MediaWikiSpecialPageResolver.normalizeSupportedName(rawSpecialName);
+        String specialName = resolver.normalizeSupportedName(rawSpecialName);
         if (specialName == null) {
-            parent.appendError(compiler, "Unsupported special page: " + rawSpecialName, el);
+            parent.appendError(compiler, GuidebookText.MediaWikiUnsupportedSpecialPage.text(rawSpecialName), el);
             return;
         }
 
@@ -41,15 +44,15 @@ public class SpecialCompiler extends BlockTagCompiler {
         }
 
         var context = MediaWikiTagCompilerSupport.createListContext(guide, compiler.getIndex(CategoryIndex.class));
-        List<MediaWikiListEntry> entries = MediaWikiSpecialPageResolver.resolveEntries(context, specialName);
-        parent.append(
-            MediaWikiTagCompilerSupport
-                .createBlock(entries, MediaWikiTagCompilerSupport.readRows(el), "No pages available"));
+        MediaWikiSpecialPageQuery specialQuery = MediaWikiTagCompilerSupport.readSpecialQuery(el);
+        MediaWikiSpecialPageResult result = resolver
+            .resolve(context, specialName, specialQuery.withVisibleCount(Integer.MAX_VALUE));
+        parent.append(MediaWikiTagCompilerSupport.createSpecialBlock(result, MediaWikiTagCompilerSupport.readRows(el)));
     }
 
     @Override
     public void index(IndexingContext indexer, MdxJsxElementFields el, IndexingSink sink) {
-        String specialName = MediaWikiSpecialPageResolver.normalizeSupportedName(el.getAttributeString("name", null));
+        String specialName = resolver.normalizeSupportedName(el.getAttributeString("name", null));
         if (specialName == null) {
             return;
         }
@@ -62,7 +65,10 @@ public class SpecialCompiler extends BlockTagCompiler {
         var context = MediaWikiTagCompilerSupport.createListContext(guide, indexer.getIndex(CategoryIndex.class));
         sink.appendText(el, specialName);
         sink.appendBreak();
-        MediaWikiTagCompilerSupport
-            .indexEntries(sink, el, MediaWikiSpecialPageResolver.resolveEntries(context, specialName));
+        MediaWikiSpecialPageQuery specialQuery = MediaWikiTagCompilerSupport.readSpecialQuery(el);
+        MediaWikiTagCompilerSupport.indexSpecialResult(
+            sink,
+            el,
+            resolver.resolve(context, specialName, specialQuery.withVisibleCount(MediaWikiSpecialPageQuery.PAGE_SIZE)));
     }
 }

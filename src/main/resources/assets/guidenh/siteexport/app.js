@@ -1,6 +1,69 @@
 import { installSearchUi } from "./search.js";
 import { disposeHydratedScenes, hydrateVisibleScenes } from "./viewer.js";
 
+function installMediaWikiSpecialFilters(root) {
+  const pages = root.querySelectorAll("[data-guide-special-page]");
+  for (const page of pages) {
+    const input = page.querySelector("[data-guide-special-filter]");
+    const showMoreButton = page.querySelector("[data-guide-special-show-more]");
+    if (!(input instanceof HTMLInputElement)) {
+      continue;
+    }
+    const entries = Array.from(page.querySelectorAll("[data-guide-special-entry]"));
+    const groups = Array.from(page.querySelectorAll("[data-guide-special-group]"));
+    const mode = page.getAttribute("data-guide-special-mode") || "flat";
+    const defaultVisibleRaw = Number(page.getAttribute("data-guide-special-default-visible") || "0");
+    const defaultVisible = Number.isFinite(defaultVisibleRaw) && defaultVisibleRaw > 0 ? defaultVisibleRaw : Number.MAX_SAFE_INTEGER;
+    let visibleCount = defaultVisible;
+    const apply = () => {
+      const query = input.value.trim().toLowerCase();
+      if (!query) {
+        if (mode === "grouped") {
+          for (const entry of entries) {
+            entry.hidden = false;
+          }
+          for (let index = 0; index < groups.length; index++) {
+            groups[index].hidden = index >= visibleCount;
+          }
+        } else {
+          for (let index = 0; index < entries.length; index++) {
+            entries[index].hidden = index >= visibleCount;
+          }
+        }
+      } else {
+        for (const entry of entries) {
+          const searchBlob = (entry.getAttribute("data-guide-special-search") || entry.textContent || "").toLowerCase();
+          entry.hidden = !searchBlob.includes(query);
+        }
+      }
+      for (const group of groups) {
+        const visibleChildren = group.querySelector("[data-guide-special-entry]:not([hidden])");
+        group.hidden = !visibleChildren;
+      }
+      if (showMoreButton instanceof HTMLElement) {
+        const hasMore = !query && visibleCount < (mode === "grouped" ? groups.length : entries.length);
+        showMoreButton.hidden = !hasMore;
+      }
+    };
+    input.addEventListener("input", apply);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        input.value = "";
+        visibleCount = defaultVisible;
+        apply();
+      }
+    });
+    if (showMoreButton instanceof HTMLElement) {
+      showMoreButton.addEventListener("click", () => {
+        const total = mode === "grouped" ? groups.length : entries.length;
+        visibleCount = Math.min(total, visibleCount + 60);
+        apply();
+      });
+    }
+    apply();
+  }
+}
+
 function cycleChildren(container) {
   const current = container.querySelector(".current");
   if (current) {
@@ -571,6 +634,7 @@ function installTooltips(root) {
 
 document.addEventListener("DOMContentLoaded", () => {
   installSearchUi(document);
+  installMediaWikiSpecialFilters(document);
   installTooltips(document);
   installIngredientCycling(document);
   installImageAnnotations(document);

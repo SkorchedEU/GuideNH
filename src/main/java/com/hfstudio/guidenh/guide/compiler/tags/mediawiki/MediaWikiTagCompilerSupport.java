@@ -1,6 +1,8 @@
 package com.hfstudio.guidenh.guide.compiler.tags.mediawiki;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -9,13 +11,21 @@ import com.hfstudio.guidenh.guide.color.SymbolicColor;
 import com.hfstudio.guidenh.guide.compiler.IndexingContext;
 import com.hfstudio.guidenh.guide.compiler.IndexingSink;
 import com.hfstudio.guidenh.guide.compiler.PageCompiler;
+import com.hfstudio.guidenh.guide.document.block.LytBlock;
 import com.hfstudio.guidenh.guide.document.block.LytBlockContainer;
 import com.hfstudio.guidenh.guide.indices.CategoryIndex;
+import com.hfstudio.guidenh.guide.internal.GuidebookText;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiGeneratedListBlock;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListContext;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListContextProvider;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListEntry;
 import com.hfstudio.guidenh.guide.mediawiki.MediaWikiListPlanner;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialGeneratedBlock;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialGroupedEntry;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialListEntry;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageKind;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageQuery;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiSpecialPageResult;
 import com.hfstudio.guidenh.guide.style.BorderStyle;
 import com.hfstudio.guidenh.libs.mdast.mdx.model.MdxJsxElementFields;
 import com.hfstudio.guidenh.libs.unist.UnistNode;
@@ -72,10 +82,81 @@ public class MediaWikiTagCompilerSupport {
         }
     }
 
+    public static MediaWikiSpecialPageQuery readSpecialQuery(MdxJsxElementFields el) {
+        Map<String, String> parameters = new LinkedHashMap<>();
+        appendSpecialQueryParameter(
+            parameters,
+            MediaWikiSpecialPageQuery.PARAM_PAGE,
+            el.getAttributeString("page", null));
+        appendSpecialQueryParameter(
+            parameters,
+            MediaWikiSpecialPageQuery.PARAM_PREFIX,
+            el.getAttributeString("prefix", null));
+        appendSpecialQueryParameter(
+            parameters,
+            MediaWikiSpecialPageQuery.PARAM_LANGUAGE,
+            el.getAttributeString("language", null));
+        String searchText = sanitizeOptionalText(el.getAttributeString("query", null));
+        return new MediaWikiSpecialPageQuery(
+            searchText != null ? searchText : "",
+            MediaWikiSpecialPageQuery.PAGE_SIZE,
+            parameters);
+    }
+
+    private static void appendSpecialQueryParameter(Map<String, String> parameters, String key,
+        @Nullable String value) {
+        String sanitizedValue = sanitizeOptionalText(value);
+        if (sanitizedValue != null) {
+            parameters.put(key, sanitizedValue);
+        }
+    }
+
+    private static @Nullable String sanitizeOptionalText(@Nullable String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     public static void indexEntries(IndexingSink sink, UnistNode parent, List<MediaWikiListEntry> entries) {
         for (MediaWikiListEntry entry : entries) {
             sink.appendText(parent, entry.title());
             sink.appendBreak();
         }
     }
+
+    public static LytBlock createSpecialBlock(MediaWikiSpecialPageResult result, int rows) {
+        var block = new MediaWikiSpecialGeneratedBlock();
+        block.setFullWidth(true);
+        block.setBorderTop(new BorderStyle(SymbolicColor.TABLE_BORDER, 1));
+        block.setBorderBottom(new BorderStyle(SymbolicColor.TABLE_BORDER, 1));
+        block.setResult(result);
+        block.setRows(MediaWikiListPlanner.sanitizeRows(rows));
+        block.setEmptyText(GuidebookText.MediaWikiNoPages.text());
+        return block;
+    }
+
+    public static void indexSpecialResult(IndexingSink sink, UnistNode parent, MediaWikiSpecialPageResult result) {
+        if (result == null) {
+            return;
+        }
+        if (result.kind() == MediaWikiSpecialPageKind.GROUPED
+            || result.kind() == MediaWikiSpecialPageKind.GROUP_INDEX) {
+            for (MediaWikiSpecialGroupedEntry group : result.groupedEntries()) {
+                sink.appendText(parent, group.title());
+                sink.appendBreak();
+                for (MediaWikiSpecialListEntry child : group.children()) {
+                    sink.appendText(parent, child.title());
+                    sink.appendBreak();
+                }
+            }
+            return;
+        }
+        for (MediaWikiSpecialListEntry entry : result.flatEntries()) {
+            sink.appendText(parent, entry.title());
+            sink.appendBreak();
+        }
+    }
+
 }

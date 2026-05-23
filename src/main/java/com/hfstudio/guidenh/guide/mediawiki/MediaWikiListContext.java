@@ -19,7 +19,7 @@ import com.hfstudio.guidenh.guide.navigation.NavigationTree;
 
 @Desugar
 public record MediaWikiListContext(Guide guide, Map<ResourceLocation, ParsedGuidePage> parsedPagesById,
-    NavigationTree navigationTree, CategoryIndex categoryIndex) {
+    NavigationTree navigationTree, CategoryIndex categoryIndex, MediaWikiSpecialDataIndex specialDataIndex) {
 
     private static final Set<ResourceLocation> EMPTY_PAGE_IDS = Collections.emptySet();
 
@@ -28,11 +28,19 @@ public record MediaWikiListContext(Guide guide, Map<ResourceLocation, ParsedGuid
         Objects.requireNonNull(parsedPagesById, "parsedPagesById");
         Objects.requireNonNull(navigationTree, "navigationTree");
         Objects.requireNonNull(categoryIndex, "categoryIndex");
+        Objects.requireNonNull(specialDataIndex, "specialDataIndex");
         parsedPagesById = Collections.unmodifiableMap(new LinkedHashMap<>(parsedPagesById));
     }
 
     public static MediaWikiListContext create(Guide guide, Collection<ParsedGuidePage> pages,
         NavigationTree navigationTree, CategoryIndex categoryIndex) {
+        MediaWikiSpecialDataIndex specialDataIndex = new MediaWikiSpecialDataIndexer()
+            .build(guide, pages, categoryIndex);
+        return create(guide, pages, navigationTree, categoryIndex, specialDataIndex);
+    }
+
+    public static MediaWikiListContext create(Guide guide, Collection<ParsedGuidePage> pages,
+        NavigationTree navigationTree, CategoryIndex categoryIndex, MediaWikiSpecialDataIndex specialDataIndex) {
         Map<ResourceLocation, ParsedGuidePage> parsedPagesById = new LinkedHashMap<>();
         if (pages != null) {
             for (ParsedGuidePage page : pages) {
@@ -41,7 +49,7 @@ public record MediaWikiListContext(Guide guide, Map<ResourceLocation, ParsedGuid
                 }
             }
         }
-        return new MediaWikiListContext(guide, parsedPagesById, navigationTree, categoryIndex);
+        return new MediaWikiListContext(guide, parsedPagesById, navigationTree, categoryIndex, specialDataIndex);
     }
 
     public Collection<ParsedGuidePage> pages() {

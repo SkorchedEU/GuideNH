@@ -24,20 +24,11 @@ public class MediaWikiSyntheticPageFactory {
             .toString();
 
         var syntheticPages = new LinkedHashMap<ResourceLocation, ParsedGuidePage>();
-        syntheticPages.put(
-            MediaWikiPageIds.specialPageId(namespace, MediaWikiPageIds.SPECIAL_ALL_PAGES),
-            parseSyntheticPage(
-                sourcePack,
-                language,
-                MediaWikiPageIds.specialPageId(namespace, MediaWikiPageIds.SPECIAL_ALL_PAGES),
-                buildSpecialSource(MediaWikiPageIds.SPECIAL_ALL_PAGES)));
-        syntheticPages.put(
-            MediaWikiPageIds.specialPageId(namespace, MediaWikiPageIds.SPECIAL_CATEGORIES),
-            parseSyntheticPage(
-                sourcePack,
-                language,
-                MediaWikiPageIds.specialPageId(namespace, MediaWikiPageIds.SPECIAL_CATEGORIES),
-                buildSpecialSource(MediaWikiPageIds.SPECIAL_CATEGORIES)));
+        for (MediaWikiSpecialDefinition definition : MediaWikiSpecialCatalog.definitions()) {
+            ResourceLocation pageId = MediaWikiPageIds.specialPageId(namespace, definition.name());
+            syntheticPages
+                .put(pageId, parseSyntheticPage(sourcePack, language, pageId, buildSpecialSource(definition.name())));
+        }
 
         for (String categoryName : categoryIndex.getCategoryNames()) {
             ResourceLocation pageId = MediaWikiPageIds.categoryPageId(namespace, categoryName);
@@ -82,7 +73,7 @@ public class MediaWikiSyntheticPageFactory {
     private static String buildSpecialSource(String specialName) {
         StringBuilder source = new StringBuilder();
         source.append("# ")
-            .append(MediaWikiPageIds.toSpecialTitle(specialName))
+            .append(MediaWikiPageTitleResolver.resolveSpecialTitle(specialName))
             .append("\n\n")
             .append("<Special name=\"")
             .append(specialName)

@@ -45,7 +45,8 @@ import com.hfstudio.guidenh.guide.compiler.IndexingSink;
 import com.hfstudio.guidenh.guide.compiler.ParsedGuidePage;
 import com.hfstudio.guidenh.guide.document.flow.LytFlowContent;
 import com.hfstudio.guidenh.guide.internal.util.LangUtil;
-import com.hfstudio.guidenh.libs.mdast.model.MdAstHeading;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageIds;
+import com.hfstudio.guidenh.guide.mediawiki.MediaWikiPageTitleResolver;
 import com.hfstudio.guidenh.libs.unist.UnistNode;
 
 import cpw.mods.fml.common.FMLLog;
@@ -318,6 +319,9 @@ public class GuideSearch implements AutoCloseable {
 
     @Nullable
     private Document createPageDocument(Guide guide, ParsedGuidePage page) {
+        if (MediaWikiPageIds.isSpecialPage(page.getId())) {
+            return null;
+        }
         var pageText = getSearchableText(guide, page);
         var pageTitle = getPageTitle(guide, page);
 
@@ -362,38 +366,7 @@ public class GuideSearch implements AutoCloseable {
     }
 
     public static String getPageTitle(Guide guide, ParsedGuidePage page) {
-
-        // Frontmatter navigation title wins.
-        var navigationEntry = page.getFrontmatter()
-            .navigationEntry();
-        if (navigationEntry != null) {
-            return navigationEntry.title();
-        }
-
-        // Fall back to the first level-1 heading.
-        for (var child : page.getAstRoot()
-            .children()) {
-            if (child instanceof MdAstHeading heading && heading.depth == 1) {
-                var pageTitle = new StringBuilder();
-                var sink = new IndexingSink() {
-
-                    @Override
-                    public void appendText(UnistNode parent, String text) {
-                        pageTitle.append(text);
-                    }
-
-                    @Override
-                    public void appendBreak() {
-                        pageTitle.append(' ');
-                    }
-                };
-                new PageIndexer(guide, guide.getExtensions(), page.getId()).indexContent(heading.children(), sink);
-                return pageTitle.toString();
-            }
-        }
-
-        return page.getId()
-            .toString();
+        return MediaWikiPageTitleResolver.resolvePageTitle(guide, page);
     }
 
     public static String getSearchableText(Guide guide, ParsedGuidePage page) {
