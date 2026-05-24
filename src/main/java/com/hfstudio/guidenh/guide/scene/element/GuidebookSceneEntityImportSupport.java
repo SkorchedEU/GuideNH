@@ -16,7 +16,14 @@ public class GuidebookSceneEntityImportSupport {
     @Nullable
     public static Entity loadImportedEntity(@Nullable World world, NBTTagCompound entry, float offsetX, float offsetY,
         float offsetZ, float maxY) {
-        ImportedSceneEntity importedEntity = loadImportedEntityRecord(world, entry, offsetX, offsetY, offsetZ, 0f, maxY);
+        ImportedSceneEntity importedEntity = loadImportedEntityRecord(
+            world,
+            entry,
+            offsetX,
+            offsetY,
+            offsetZ,
+            0f,
+            maxY);
         return importedEntity != null ? importedEntity.entity() : null;
     }
 
@@ -37,13 +44,20 @@ public class GuidebookSceneEntityImportSupport {
     @Nullable
     public static Entity loadImportedEntity(@Nullable World world, NBTTagCompound entry, float offsetX, float offsetY,
         float offsetZ, float minY, float maxY) {
-        ImportedSceneEntity importedEntity = loadImportedEntityRecord(world, entry, offsetX, offsetY, offsetZ, minY, maxY);
+        ImportedSceneEntity importedEntity = loadImportedEntityRecord(
+            world,
+            entry,
+            offsetX,
+            offsetY,
+            offsetZ,
+            minY,
+            maxY);
         return importedEntity != null ? importedEntity.entity() : null;
     }
 
     @Nullable
-    public static ImportedSceneEntity loadImportedEntityRecord(@Nullable World world, NBTTagCompound entry, float offsetX,
-        float offsetY, float offsetZ, float minY, float maxY) {
+    public static ImportedSceneEntity loadImportedEntityRecord(@Nullable World world, NBTTagCompound entry,
+        float offsetX, float offsetY, float offsetZ, float minY, float maxY) {
         Entity entity = loadImportedEntityInstance(world, entry, offsetX, offsetY, offsetZ, minY, maxY);
         if (entity == null) {
             return null;

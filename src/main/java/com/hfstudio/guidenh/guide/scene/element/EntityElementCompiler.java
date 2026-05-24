@@ -40,10 +40,10 @@ public class EntityElementCompiler implements SceneElementTagCompiler {
         String data = MdxAttrs.getString(compiler, errorSink, el, "data", null);
         String playerName = MdxAttrs.getString(compiler, errorSink, el, "name", null);
         String playerUuid = MdxAttrs.getString(compiler, errorSink, el, "uuid", null);
-        String sceneEntityId = GuidebookSceneEntityLoader.trimToNull(
-            MdxAttrs.getString(compiler, errorSink, el, "sceneEntityId", null));
-        String mountTargetSceneEntityId = GuidebookSceneEntityLoader.trimToNull(
-            MdxAttrs.getString(compiler, errorSink, el, "mount", null));
+        String sceneEntityId = GuidebookSceneEntityLoader
+            .trimToNull(MdxAttrs.getString(compiler, errorSink, el, "sceneEntityId", null));
+        String mountTargetSceneEntityId = GuidebookSceneEntityLoader
+            .trimToNull(MdxAttrs.getString(compiler, errorSink, el, "mount", null));
         Boolean unmount = getOptionalBoolean(compiler, errorSink, el, "unmount");
         Boolean showName = getOptionalBoolean(compiler, errorSink, el, "showName");
         Boolean showCape = getOptionalBoolean(compiler, errorSink, el, "showCape");

@@ -179,6 +179,7 @@ GuideNH 当前注册了以下场景子标签：
 - `<BlockStats>`
 - `<PlaySound>`
 - `<RemoveBlocks>`
+- `<RemoveEntity>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
@@ -505,6 +506,9 @@ GuideNH 当前注册了以下场景子标签：
 | `rotationY` | 否 | yaw，角度，默认 `-45` |
 | `rotationX` | 否 | pitch，角度，默认 `0` |
 | `data` | 否 | summon 风格 SNBT，会在生成前并入实体 NBT |
+| `sceneEntityId` | 否 | 稳定的场景内实体 id，供后续 `<Entity>` / `<RemoveEntity>` 操作以及导入场景快照恢复时引用 |
+| `mount` | 否 | 该实体生成后要骑乘的目标载具稳定 `sceneEntityId` |
+| `unmount` | 否 | 布尔表达式，生成后或状态重放时清除该实体当前的稳定骑乘关系 |
 | `name` | 否 | 当 `id` 是 `player`、`fakeplayer`、`minecraft:player` 或 `minecraft:fakeplayer` 时使用的预览玩家名 |
 | `uuid` | 否 | 使用上述玩家 id 时的预览玩家 UUID |
 | `showName` | 否 | 控制预览玩家头顶名牌的布尔表达式；对玩家预览 id 默认 `true` |
@@ -520,6 +524,10 @@ GuideNH 当前注册了以下场景子标签：
 
 - 实体包围盒会参与场景自动居中和可见层筛选
 - 当预览世界尚未准备好时，实体创建会优雅回退，并在首次渲染时绑定
+- `sceneEntityId` 不是必填，但只要后续要删除、重建、重新骑乘或从缓存恢复同一个逻辑实体，强烈建议填写
+- 同一个 `sceneEntityId` 可以关联多个运行时实体；`<RemoveEntity sceneEntityId="..."/>` 会一起移除当前登记到该稳定 id 的全部实体
+- `mount` 通过稳定场景 id 建立骑乘关系，而不是依赖原始 NBT 乘客链，因此回放、导入导出、预览重建和 Ponder 拖动时间轴时都能稳定恢复
+- `unmount={true}` 会先清除该实体当前的稳定骑乘关系，再应用后续新的骑乘关系
 - 玩家预览 id 会创建客户端侧 fake remote player，以复用普通玩家渲染器和皮肤管线
 - 若玩家预览既未提供 `name` 也未提供 `uuid`，GuideNH 会回退到 `Steve` 和原版默认皮肤
 - 只提供 `name` 时，GuideNH 会先尝试解析真实在线 profile 以加载皮肤和披风；失败时回退到稳定离线 UUID
@@ -537,6 +545,28 @@ GuideNH 当前注册了以下场景子标签：
 <GameScene zoom={4} interactive={true}>
   <Block id="minecraft:grass" />
   <Entity id="minecraft:sheep" y="1" data="{Color:2}" />
+</GameScene>
+````
+
+稳定 id 骑乘示例：
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:horse" x="1.5" y="1" sceneEntityId="horse" />
+  <Entity id="player" x="1.5" y="2" sceneEntityId="rider" mount="horse" name="GuideNH" />
+</GameScene>
+````
+
+取消骑乘与删除示例：
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:horse" x="1.5" y="1" sceneEntityId="horse" />
+  <Entity id="player" x="1.5" y="2" sceneEntityId="rider" mount="horse" name="GuideNH" />
+  <Entity id="player" x="3" y="1" sceneEntityId="rider" unmount={true} name="GuideNH" />
+  <RemoveEntity sceneEntityId="horse" />
 </GameScene>
 ````
 
@@ -566,6 +596,31 @@ GuideNH 当前注册了以下场景子标签：
   <Block id="minecraft:grass" />
   <Entity id="player" y="1" name="Huan_F" showName={true} showCape={true} />
   <Entity id="player" x="2" y="1" showName={false} showCape={false} />
+</GameScene>
+````
+
+## `<RemoveEntity>`
+
+按稳定 `sceneEntityId` 移除当前登记到该 id 的全部运行时实体。
+
+| 属性 | 必需 | 含义 |
+| --- | --- | --- |
+| `sceneEntityId` | 是 | 需要移除的稳定场景实体 id |
+| `unmount` | 否 | 在移除前先清除稳定骑乘关系的布尔表达式 |
+
+说明：
+
+- 这是场景标签侧对应 Ponder `removeEntities` 的删除能力
+- 删除走稳定 id 索引，不需要每帧全量扫描全部实体
+- 如果多个导入或重放出的实体共享同一个 `sceneEntityId`，会被一起移除
+
+示例：
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:pig" y="1" sceneEntityId="demoPig" />
+  <RemoveEntity sceneEntityId="demoPig" />
 </GameScene>
 ````
 

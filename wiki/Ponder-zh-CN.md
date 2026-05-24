@@ -64,6 +64,7 @@ assets/<modid>/guidebooks/
 | `mergeEntityNBT` | 数组 | 否 | 将 SNBT 复合标签合并到引用实体。 |
 | `modifyEntityNBT` | 数组 | 否 | 将引用实体的某个 NBT 路径设置为指定 SNBT 值。 |
 | `removeEntityNBT` | 数组 | 否 | 删除引用实体的某个 NBT 路径。 |
+| `removeEntities` | 数组 | 否 | 通过稳定场景实体注册表，按 `ref` 删除一个或多个思索时间轴实体。 |
 
 ### 摄像机字段（均为可选）
 
@@ -293,6 +294,7 @@ assets/<modid>/guidebooks/
   "createEntities": [
     {
       "ref": "marker",
+      "sceneEntityId": "marker",
       "id": "minecraft:pig",
       "x": 1.5, "y": 1.0, "z": 2.5,
       "yaw": 180,
@@ -305,11 +307,15 @@ assets/<modid>/guidebooks/
 | 字段 | 说明 |
 |------|------|
 | `ref` | 必填，本思索 JSON 内用于后续操作的引用名。 |
+| `sceneEntityId` | 可选，稳定的场景内实体 id，用于骑乘关系、可重放替换、导入导出恢复，以及后续删除同一个逻辑实体。默认会基于 `ref` 生成内部稳定 id。 |
 | `id` | 实体 ID，例如 `minecraft:pig`、`Pig` 或场景实体加载器支持的模组实体 ID。 |
 | `x`, `y`, `z` | 可选生成位置。未填写且 `nbt` 没有 `Pos` 时默认为 `0, 0, 0`。 |
 | `yaw`, `pitch` | 可选生成旋转。未填写且 `nbt` 没有 `Rotation` 时默认为 `0, 0`。 |
+| `bodyYaw`, `headYaw` | 可选的生物身体 / 头部 yaw 覆盖；若只写 `yaw`，未写这两个字段时会默认跟随 `yaw`。 |
 | `nbt` | 可选，实体创建时应用的 SNBT 复合标签。 |
 | `name`, `uuid` | 可选，创建预览玩家实体时使用的玩家档案字段。 |
+| `mount` | 可选，该实体创建后或后续重放时要骑乘的目标载具稳定 `sceneEntityId`。 |
+| `unmount` | 可选，布尔值；在后续新的 `mount` 应用前，先清除该实体当前稳定骑乘关系。 |
 
 实体创建后，可以使用实体 NBT 操作：
 
@@ -339,8 +345,43 @@ assets/<modid>/guidebooks/
 }
 ```
 
+实体动作也可以在不改 NBT 的情况下直接调整位置、预览玩家姿态和稳定骑乘关系：
+
+```json
+{
+  "time": 80,
+  "createEntities": [
+    { "ref": "cart", "sceneEntityId": "cart", "id": "minecraft:minecart", "x": 1.5, "y": 1.0, "z": 1.5 },
+    { "ref": "rider", "sceneEntityId": "rider", "id": "player", "name": "GuideNH", "x": 1.5, "y": 1.0, "z": 1.5, "mount": "cart" }
+  ],
+  "modifyEntityNBT": [
+    { "ref": "rider", "headYaw": 270.0, "leftArmRotation": "-40 0 0" }
+  ]
+}
+```
+
+若需要取消骑乘或删除时间轴实体，可以使用 `unmount` 或 `removeEntities`：
+
+```json
+{
+  "time": 120,
+  "modifyEntityNBT": [
+    { "ref": "rider", "unmount": true, "x": 2.5, "y": 1.0, "z": 1.5 }
+  ],
+  "removeEntities": [
+    { "ref": "cart" }
+  ]
+}
+```
+
 与方块实体操作一样，实体操作会在关键帧变化时从头重放；向后拖动进度条时，
 思索时间轴创建的实体会被移除并重新创建到目标时刻的正确状态。
+
+说明：
+
+- `ref` 用来定位当前要修改或删除的思索时间轴实体。
+- `sceneEntityId` 和 `mount` 用来描述稳定的跨实体关系；`mount` 指向的始终是稳定场景 id，而不是另一个 `ref`。
+- 不建议只依赖原始乘客 NBT 来表达跨实体场景关系。真正保证回放、重建、导入导出和编辑器预览刷新后仍然稳定一致的是这套稳定注册表。
 
 ---
 

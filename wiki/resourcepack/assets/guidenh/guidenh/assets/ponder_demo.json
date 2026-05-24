@@ -223,6 +223,7 @@
       "createEntities": [
         {
           "ref": "finished_pig",
+          "sceneEntityId": "finished_pig",
           "id": "minecraft:pig",
           "x": 1.5,
           "y": 1.0,
@@ -234,6 +235,7 @@
         },
         {
           "ref": "guide_operator",
+          "sceneEntityId": "guide_operator",
           "id": "player",
           "name": "GuideNH",
           "x": 2.45,
@@ -276,10 +278,16 @@
           "path": "CustomNameVisible"
         }
       ],
+      "setEntityNBT": [
+        {
+          "ref": "guide_operator",
+          "mount": "finished_pig"
+        }
+      ],
       "annotations": [
         {
           "type": "text",
-          "text": "The runtime can also animate timeline-owned entities with replay-safe presets.",
+          "text": "Timeline entities can use stable scene ids for mount, unmount, and removal without raw runtime ids.",
           "independent": true,
           "yOffset": 50,
           "maxWidth": 200,
@@ -375,6 +383,34 @@
         {
           "ref": "guide_operator",
           "preset": "unsneak"
+        }
+      ],
+      "modifyEntityNBT": [
+        {
+          "ref": "guide_operator",
+          "unmount": true,
+          "x": 2.35,
+          "y": 1.0,
+          "z": 1.45
+        }
+      ]
+    },
+    {
+      "time": 402,
+      "label": "Remove mounted entity",
+      "removeEntities": [
+        {
+          "ref": "finished_pig"
+        }
+      ],
+      "annotations": [
+        {
+          "type": "text",
+          "text": "removeEntities deletes by ref while the stable registry keeps replay and seeking deterministic.",
+          "independent": true,
+          "yOffset": 56,
+          "maxWidth": 220,
+          "color": "0xFFFFD966"
         }
       ]
     },

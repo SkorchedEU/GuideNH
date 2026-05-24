@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Locale;
 
 import net.minecraft.block.Block;
-import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -431,7 +430,14 @@ public class SceneEditorSceneNodePreviewApplier {
             for (int i = 0; i < entitiesTag.tagCount(); i++) {
                 NBTTagCompound et = entitiesTag.getCompoundTagAt(i);
                 GuidebookSceneEntityImportSupport.ImportedSceneEntity importedEntity = GuidebookSceneEntityImportSupport
-                    .loadImportedEntityRecord(fakeWorld, et, 0f, 0f, 0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+                    .loadImportedEntityRecord(
+                        fakeWorld,
+                        et,
+                        0f,
+                        0f,
+                        0f,
+                        Float.NEGATIVE_INFINITY,
+                        Float.POSITIVE_INFINITY);
                 if (importedEntity != null) {
                     level.addEntity(importedEntity.entity(), importedEntity.sceneEntityId());
                     if (Boolean.TRUE.equals(importedEntity.unmount())) {

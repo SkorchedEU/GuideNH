@@ -63,8 +63,9 @@ Press ▶ to play, or drag the timeline. The keyframe nodes snap the timeline to
 | `particles` | array? | Keyframe-triggered particle bursts and presets |
 | `blockChanges` | array? | Block replacements applied when this keyframe activates |
 | `mergeTileNBT` / `modifyTileNBT` / `removeTileNBT` | array? | Seek-safe tile-entity NBT operations |
-| `createEntities` | array? | Create Ponder-owned entities referenced by `ref`, including optional transform and preview-player pose fields |
-| `setEntityNBT` / `mergeEntityNBT` / `modifyEntityNBT` / `removeEntityNBT` | array? | Seek-safe entity updates; besides NBT, these actions can also adjust transform and preview-player visual state |
+| `createEntities` | array? | Create Ponder-owned entities referenced by `ref`, with optional stable `sceneEntityId`, mount state, transform, and preview-player pose fields |
+| `setEntityNBT` / `mergeEntityNBT` / `modifyEntityNBT` / `removeEntityNBT` | array? | Seek-safe entity updates; besides NBT, these actions can also adjust transform, stable mount state, and preview-player visual state |
+| `removeEntities` | array? | Remove Ponder-owned entities by `ref` through the stable scene-entity registry |
 | `animateEntities` | array? | Replay-safe timed animation presets applied to referenced Ponder entities |
 
 ---
@@ -408,6 +409,7 @@ and update them later by `ref`.
 "createEntities": [
   {
     "ref": "marker",
+    "sceneEntityId": "marker",
     "id": "minecraft:pig",
     "x": 1.5, "y": 1.0, "z": 2.5,
     "yaw": 180.0,
@@ -446,12 +448,16 @@ and update them later by `ref`.
 
 Supported entity state fields:
 
+- `sceneEntityId` gives the entity a stable scene-local id. `mount` always targets one of those stable ids, not another `ref`.
 - `x`, `y`, `z` reposition the referenced entity.
 - `yaw`, `pitch`, `bodyYaw`, and `headYaw` control the facing direction. If `yaw` is provided without `bodyYaw` / `headYaw`, they follow `yaw` by default.
+- `mount` attaches the current entity to another stable `sceneEntityId`. `unmount: true` clears the current stable mount relation.
 - `showName`, `showCape`, and `baby` mirror the same options from `<Entity>`.
 - Preview-player entities (`id: "player"` and the other preview-player aliases) also accept `headRotation`, `leftArmRotation`, `rightArmRotation`, `leftLegRotation`, `rightLegRotation`, and `capeRotation`, each written as `"x y z"` degrees.
 
-`setEntityNBT` replaces the referenced entity's NBT with a new SNBT compound. The other entity action arrays may omit their NBT payload entirely if you only want to adjust transform or preview-player pose. All entity actions are replayed from keyframe 0 when seeking, so created entities do not linger when you scrub backwards.
+`setEntityNBT` replaces the referenced entity's NBT with a new SNBT compound. The other entity action arrays may omit their NBT payload entirely if you only want to adjust transform, mount state, or preview-player pose. `removeEntities` removes an entity by `ref` without needing raw runtime ids. All entity actions are replayed from keyframe 0 when seeking, so created entities do not linger when you scrub backwards.
+
+Raw passenger NBT alone is not the recommended way to build cross-entity scene relationships. Stable scene ids are what keep mount, unmount, replacement, and removal behavior deterministic across replay, preview rebuild, import/export, and site-facing captures.
 
 Timed entity presets use `animateEntities`:
 

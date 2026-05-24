@@ -4,8 +4,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -210,6 +212,8 @@ public class LytGuidebookScene extends LytBlock {
     private final Set<Integer> triggeredPonderSoundKeyframes = new HashSet<>();
     private final Map<Long, PonderBlockInfo> ponderBlockSnapshot = new LinkedHashMap<>();
     private final Map<String, PonderEntityRuntime> ponderEntityRefs = new LinkedHashMap<>();
+    private final Map<String, PonderEntityRuntime> ponderEntityRuntimesBySceneEntityId = new HashMap<>();
+    private final Map<String, LinkedHashSet<String>> ponderSceneEntityRefs = new HashMap<>();
     private final List<PonderEntityAnimationRuntimeSupport.TimedAnimation> ponderTimedEntityAnimations = new ArrayList<>();
     private final Map<String, PonderEntityAnimationRuntimeSupport.Baseline> ponderEntityAnimationBaselines = new LinkedHashMap<>();
     private final Map<Long, PonderWeatherColumnReservation> ponderWeatherColumnReservations = new LinkedHashMap<>();
@@ -4280,6 +4284,8 @@ public class LytGuidebookScene extends LytBlock {
         clearPonderEntities();
         ponderBlockSnapshot.clear();
         ponderEntityRefs.clear();
+        ponderEntityRuntimesBySceneEntityId.clear();
+        ponderSceneEntityRefs.clear();
         clearPonderEntityAnimationBaselines();
         snapshotPonderBlocks();
         ponderTimelineBaselineReady = true;
@@ -4672,6 +4678,8 @@ public class LytGuidebookScene extends LytBlock {
     private void snapshotPonderBlocks() {
         ponderBlockSnapshot.clear();
         ponderEntityRefs.clear();
+        ponderEntityRuntimesBySceneEntityId.clear();
+        ponderSceneEntityRefs.clear();
         if (ponderSceneData == null) return;
         for (PonderKeyframe kf : ponderSceneData.getKeyframes()) {
             for (PonderKeyframeBlockChange bc : kf.getBlockChanges()) {
@@ -4738,6 +4746,8 @@ public class LytGuidebookScene extends LytBlock {
         clearPonderEntities();
         ponderBlockSnapshot.clear();
         ponderEntityRefs.clear();
+        ponderEntityRuntimesBySceneEntityId.clear();
+        ponderSceneEntityRefs.clear();
         ponderTimelineBaselineReady = false;
     }
 
@@ -5039,12 +5049,15 @@ public class LytGuidebookScene extends LytBlock {
         }
         PonderEntityRuntime existing = ponderEntityRefs.remove(ref);
         if (existing != null) {
-            level.removeEntitiesBySceneEntityId(existing.sceneEntityId);
+            unregisterPonderEntityRef(ref, existing);
+            ponderEntityAnimationBaselines.remove(ref);
+            removePonderRuntimeBySceneEntityId(existing.sceneEntityId);
         }
         level.addEntity(entity, sceneEntityId);
         applyPonderEntityState(entity, entityId, action, true);
-        ponderEntityRefs
-            .put(ref, new PonderEntityRuntime(sceneEntityId, entityId, action.getName(), action.getUuid()));
+        registerPonderEntityRuntime(
+            ref,
+            new PonderEntityRuntime(sceneEntityId, entityId, action.getName(), action.getUuid()));
     }
 
     private void removePonderEntity(PonderKeyframeEntityAction action) {
@@ -5056,8 +5069,9 @@ public class LytGuidebookScene extends LytBlock {
         if (runtime == null) {
             return;
         }
-        level.removeEntitiesBySceneEntityId(runtime.sceneEntityId);
+        unregisterPonderEntityRef(ref, runtime);
         ponderEntityAnimationBaselines.remove(ref);
+        removePonderRuntimeBySceneEntityId(runtime.sceneEntityId);
     }
 
     private void setPonderEntityNbt(PonderKeyframeEntityAction action) {
@@ -5158,8 +5172,7 @@ public class LytGuidebookScene extends LytBlock {
         Entity replacement = GuidebookSceneEntityLoader
             .loadFromNbt(fakeWorld, entityId, tag, runtime.playerName, runtime.playerUuid);
         if (replacement != null) {
-            level.removeEntity(entity.getEntityId());
-            level.addEntity(replacement, runtime.sceneEntityId);
+            level.replaceEntityPreservingSceneId(entity.getEntityId(), replacement);
             return replacement;
         }
         return entity;
@@ -5168,15 +5181,7 @@ public class LytGuidebookScene extends LytBlock {
     @Nullable
     private PonderEntityRuntime findPonderEntityRuntime(Entity entity) {
         String sceneEntityId = level.getSceneEntityId(entity.getEntityId());
-        if (sceneEntityId == null) {
-            return null;
-        }
-        for (PonderEntityRuntime runtime : ponderEntityRefs.values()) {
-            if (runtime.sceneEntityId.equals(sceneEntityId)) {
-                return runtime;
-            }
-        }
-        return null;
+        return sceneEntityId != null ? ponderEntityRuntimesBySceneEntityId.get(sceneEntityId) : null;
     }
 
     private void applyPonderEntityTransform(NBTTagCompound tag, PonderKeyframeEntityAction action) {
@@ -5268,11 +5273,55 @@ public class LytGuidebookScene extends LytBlock {
     }
 
     private void clearPonderEntities() {
+        Set<String> removedSceneEntityIds = new HashSet<>();
         for (PonderEntityRuntime runtime : ponderEntityRefs.values()) {
-            level.removeEntitiesBySceneEntityId(runtime.sceneEntityId);
+            if (removedSceneEntityIds.add(runtime.sceneEntityId)) {
+                level.removeEntitiesBySceneEntityId(runtime.sceneEntityId);
+            }
         }
         ponderEntityRefs.clear();
+        ponderEntityRuntimesBySceneEntityId.clear();
+        ponderSceneEntityRefs.clear();
         clearPonderEntityAnimationBaselines();
+    }
+
+    private void removePonderRuntimeBySceneEntityId(String sceneEntityId) {
+        if (sceneEntityId == null) {
+            return;
+        }
+
+        level.removeEntitiesBySceneEntityId(sceneEntityId);
+
+        LinkedHashSet<String> refs = ponderSceneEntityRefs.remove(sceneEntityId);
+        if (refs == null || refs.isEmpty()) {
+            ponderEntityRuntimesBySceneEntityId.remove(sceneEntityId);
+            return;
+        }
+        ponderEntityRuntimesBySceneEntityId.remove(sceneEntityId);
+        for (String removedRef : refs) {
+            ponderEntityRefs.remove(removedRef);
+            ponderEntityAnimationBaselines.remove(removedRef);
+        }
+    }
+
+    private void registerPonderEntityRuntime(String ref, PonderEntityRuntime runtime) {
+        ponderEntityRefs.put(ref, runtime);
+        ponderEntityRuntimesBySceneEntityId.put(runtime.sceneEntityId, runtime);
+        ponderSceneEntityRefs.computeIfAbsent(runtime.sceneEntityId, ignored -> new LinkedHashSet<>())
+            .add(ref);
+    }
+
+    private void unregisterPonderEntityRef(String ref, PonderEntityRuntime runtime) {
+        LinkedHashSet<String> refs = ponderSceneEntityRefs.get(runtime.sceneEntityId);
+        if (refs == null) {
+            return;
+        }
+        refs.remove(ref);
+        if (!refs.isEmpty()) {
+            return;
+        }
+        ponderSceneEntityRefs.remove(runtime.sceneEntityId);
+        ponderEntityRuntimesBySceneEntityId.remove(runtime.sceneEntityId);
     }
 
     private GuidebookSceneParticle acquirePonderParticle() {
@@ -5322,11 +5371,16 @@ public class LytGuidebookScene extends LytBlock {
             return;
         }
 
-        for (Map.Entry<String, PonderEntityAnimationRuntimeSupport.Baseline> entry : ponderEntityAnimationBaselines
-            .entrySet()) {
-            Entity entity = resolvePonderAnimatedEntity(entry.getKey());
-            if (entity != null) {
-                PonderEntityAnimationRuntimeSupport.restoreBaseline(entity, entry.getValue());
+        Map<String, Entity> resolvedEntities = new HashMap<>();
+        for (String ref : ponderEntityAnimationBaselines.keySet()) {
+            Entity entity = resolvePonderAnimatedEntity(ref);
+            if (entity == null) {
+                continue;
+            }
+            resolvedEntities.put(ref, entity);
+            PonderEntityAnimationRuntimeSupport.Baseline baseline = ponderEntityAnimationBaselines.get(ref);
+            if (baseline != null) {
+                PonderEntityAnimationRuntimeSupport.restoreBaseline(entity, baseline);
             }
         }
 
@@ -5335,14 +5389,23 @@ public class LytGuidebookScene extends LytBlock {
                 break;
             }
 
-            Entity entity = resolvePonderAnimatedEntity(timedAnimation.ref());
+            String ref = timedAnimation.ref();
+            Entity entity = resolvedEntities.get(ref);
+            if (entity == null) {
+                entity = resolvePonderAnimatedEntity(ref);
+                if (entity != null) {
+                    resolvedEntities.put(ref, entity);
+                }
+            }
             if (entity == null) {
                 continue;
             }
 
-            ponderEntityAnimationBaselines.computeIfAbsent(
-                timedAnimation.ref(),
-                ignored -> PonderEntityAnimationRuntimeSupport.captureBaseline(entity));
+            PonderEntityAnimationRuntimeSupport.Baseline frameBaseline = ponderEntityAnimationBaselines.get(ref);
+            if (frameBaseline == null) {
+                frameBaseline = PonderEntityAnimationRuntimeSupport.captureBaseline(entity);
+                ponderEntityAnimationBaselines.put(ref, frameBaseline);
+            }
 
             int elapsedTicks = tick - timedAnimation.startTick();
             if (elapsedTicks < 0) {
@@ -5353,8 +5416,6 @@ public class LytGuidebookScene extends LytBlock {
                 continue;
             }
 
-            PonderEntityAnimationRuntimeSupport.Baseline frameBaseline = PonderEntityAnimationRuntimeSupport
-                .captureBaseline(entity);
             PonderEntityAnimationRuntimeSupport.apply(
                 entity,
                 frameBaseline,

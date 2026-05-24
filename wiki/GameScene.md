@@ -196,6 +196,7 @@ GuideNH currently registers these scene child tags:
 - `<BlockStats>`
 - `<PlaySound>`
 - `<RemoveBlocks>`
+- `<RemoveEntity>`
 - `<ReplaceBlock>`
 - `<PlaceBlock>`
 - `<BlockAnnotationTemplate>`
@@ -530,6 +531,9 @@ The attributes follow summon-style entity placement and SNBT data.
 | `rotationY` | no | yaw in degrees, default `-45` |
 | `rotationX` | no | pitch in degrees, default `0` |
 | `data` | no | summon-style SNBT merged into the entity NBT before spawn |
+| `sceneEntityId` | no | stable scene-local entity id used by later `<Entity>` / `<RemoveEntity>` operations and by imported scene snapshots |
+| `mount` | no | stable `sceneEntityId` of the vehicle that this entity should ride after spawn |
+| `unmount` | no | boolean expression that clears this entity's current stable mount relation after spawn or state replay |
 | `baby` | no | boolean expression forcing supported entities into baby form; omitted leaves the entity's normal age/state unchanged |
 | `name` | no | preview player name when `id` is `player`, `fakeplayer`, `minecraft:player`, or `minecraft:fakeplayer` |
 | `uuid` | no | preview player UUID when using one of the player ids above |
@@ -546,6 +550,10 @@ Notes:
 
 - entity bounds participate in scene auto-centering and visible-layer filtering
 - entity creation falls back gracefully when the preview world is not ready yet, then binds on first render
+- `sceneEntityId` is optional, but strongly recommended whenever later scene mutations need to find, remove, remount, or restore the same logical entity without scanning by raw runtime id
+- one `sceneEntityId` can own more than one runtime entity instance; `<RemoveEntity sceneEntityId="..."/>` removes every entity currently registered to that stable id
+- `mount` links entities by stable scene id rather than by raw NBT passenger lists, so replay, import/export, preview rebuild, and Ponder seeking can all restore the same rider/vehicle relation deterministically
+- `unmount={true}` clears the stable mount relation for that entity before any later mount is applied
 - `baby={true}` currently supports preview players, ageable mobs, vanilla zombies, and modded entities that expose stable `setChild(boolean)` or `setBaby(boolean)` style APIs
 - child-state entities are re-aligned to their current position after resizing so hover and pick bounds stay centered on the rendered model
 - player preview ids create a client-side fake remote player so the normal player renderer and skin pipeline can be used
@@ -565,6 +573,28 @@ Example:
 <GameScene zoom={4} interactive={true}>
   <Block id="minecraft:grass" />
   <Entity id="minecraft:sheep" y="1" data="{Color:2}" />
+</GameScene>
+````
+
+Stable-id mount example:
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:horse" x="1.5" y="1" sceneEntityId="horse" />
+  <Entity id="player" x="1.5" y="2" sceneEntityId="rider" mount="horse" name="GuideNH" />
+</GameScene>
+````
+
+Removal and unmount example:
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:horse" x="1.5" y="1" sceneEntityId="horse" />
+  <Entity id="player" x="1.5" y="2" sceneEntityId="rider" mount="horse" name="GuideNH" />
+  <Entity id="player" x="3" y="1" sceneEntityId="rider" unmount={true} name="GuideNH" />
+  <RemoveEntity sceneEntityId="horse" />
 </GameScene>
 ````
 
@@ -604,6 +634,31 @@ Preview player name and cape example:
   <Block id="minecraft:grass" />
   <Entity id="player" y="1" name="Huan_F" showName={true} showCape={true} />
   <Entity id="player" x="2" y="1" showName={false} showCape={false} />
+</GameScene>
+````
+
+## `<RemoveEntity>`
+
+Removes every runtime entity currently registered to one stable `sceneEntityId`.
+
+| Attribute | Required | Meaning |
+| --- | --- | --- |
+| `sceneEntityId` | yes | stable scene-local entity id to remove |
+| `unmount` | no | boolean expression that clears the stable mount relation before removal |
+
+Notes:
+
+- this is the scene-side counterpart to Ponder's `removeEntities`
+- removal works on the indexed stable-id registry, so it does not need to scan all entities every frame
+- if multiple imported or replayed entities share the same `sceneEntityId`, they are removed together
+
+Example:
+
+````md
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:pig" y="1" sceneEntityId="demoPig" />
+  <RemoveEntity sceneEntityId="demoPig" />
 </GameScene>
 ````
 

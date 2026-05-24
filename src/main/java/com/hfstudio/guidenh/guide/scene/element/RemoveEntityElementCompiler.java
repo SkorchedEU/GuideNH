@@ -25,8 +25,8 @@ public class RemoveEntityElementCompiler implements SceneElementTagCompiler {
             return;
         }
 
-        String sceneEntityId = GuidebookSceneEntityLoader.trimToNull(
-            MdxAttrs.getString(compiler, errorSink, el, "sceneEntityId", null));
+        String sceneEntityId = GuidebookSceneEntityLoader
+            .trimToNull(MdxAttrs.getString(compiler, errorSink, el, "sceneEntityId", null));
         if (sceneEntityId == null) {
             errorSink.appendError(compiler, "<RemoveEntity> missing sceneEntityId attribute", el);
             return;

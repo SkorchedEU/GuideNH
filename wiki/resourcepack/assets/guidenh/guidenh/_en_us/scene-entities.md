@@ -72,3 +72,16 @@ Slot `102b` is the chestplate slot; setting it to an elytra item renders the ely
     data='{Inventory:[{Slot:102b,id:"etfuturum:elytra",Count:1b}]}'
   />
 </GameScene>
+
+## Stable Scene IDs, Mount, Unmount, and Remove
+
+`sceneEntityId` gives a scene entity a stable logical id. `mount` and `unmount` use that stable id,
+and `<RemoveEntity>` removes every runtime entity currently registered to it.
+
+<GameScene zoom={4} interactive={true}>
+  <Block id="minecraft:grass" />
+  <Entity id="minecraft:horse" x="1.5" y="1" sceneEntityId="horse" />
+  <Entity id="player" x="1.5" y="2" sceneEntityId="rider" mount="horse" name="GuideNH" />
+  <Entity id="player" x="3" y="1" sceneEntityId="rider" unmount={true} name="GuideNH" />
+  <RemoveEntity sceneEntityId="horse" />
+</GameScene>

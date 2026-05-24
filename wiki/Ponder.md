@@ -111,6 +111,7 @@ The `src` attribute accepts both relative and absolute IDs:
 | `mergeEntityNBT` | array | No | Merge an SNBT compound into a referenced entity. |
 | `modifyEntityNBT` | array | No | Set one referenced entity NBT path to an SNBT value. |
 | `removeEntityNBT` | array | No | Remove one referenced entity NBT path. |
+| `removeEntities` | array | No | Remove one or more Ponder-owned entities by `ref` using the stable scene-entity registry. |
 
 ### Camera fields
 
@@ -357,6 +358,7 @@ their own entities with `createEntities`, then target those entities by `ref` in
   "createEntities": [
     {
       "ref": "marker",
+      "sceneEntityId": "marker",
       "id": "minecraft:pig",
       "x": 1.5, "y": 1.0, "z": 2.5,
       "yaw": 180,
@@ -369,11 +371,15 @@ their own entities with `createEntities`, then target those entities by `ref` in
 | Field | Description |
 |-------|-------------|
 | `ref` | Required local reference name for later operations. |
+| `sceneEntityId` | Optional stable scene-local id used for mount relations, replay-safe replacement, import/export restore, and any later removal of this logical entity. Defaults to an internal id derived from `ref`. |
 | `id` | Entity ID, e.g. `minecraft:pig`, `Pig`, or a mod entity ID supported by the scene entity loader. |
 | `x`, `y`, `z` | Optional spawn position. Defaults to `0, 0, 0` unless `nbt` supplies `Pos`. |
 | `yaw`, `pitch` | Optional spawn rotation. Defaults to `0, 0` unless `nbt` supplies `Rotation`. |
+| `bodyYaw`, `headYaw` | Optional living-entity body/head yaw overrides. If omitted while `yaw` is present, they follow `yaw`. |
 | `nbt` | Optional SNBT compound applied when the entity is created. |
 | `name`, `uuid` | Optional preview-player profile fields when creating a preview player entity. |
+| `mount` | Optional stable `sceneEntityId` of the vehicle that this entity should ride after creation or later replay. |
+| `unmount` | Optional boolean that clears the entity's current stable mount relation before any later `mount` is applied. |
 
 After creation, use the entity NBT operations:
 
@@ -403,9 +409,48 @@ After creation, use the entity NBT operations:
 }
 ```
 
+Entity actions can also update transform, preview-player pose, and stable mount state without
+changing NBT:
+
+```json
+{
+  "time": 80,
+  "createEntities": [
+    { "ref": "cart", "sceneEntityId": "cart", "id": "minecraft:minecart", "x": 1.5, "y": 1.0, "z": 1.5 },
+    { "ref": "rider", "sceneEntityId": "rider", "id": "player", "name": "GuideNH", "x": 1.5, "y": 1.0, "z": 1.5, "mount": "cart" }
+  ],
+  "modifyEntityNBT": [
+    { "ref": "rider", "headYaw": 270.0, "leftArmRotation": "-40 0 0" }
+  ]
+}
+```
+
+To detach or remove a timeline entity, use `unmount` or `removeEntities`:
+
+```json
+{
+  "time": 120,
+  "modifyEntityNBT": [
+    { "ref": "rider", "unmount": true, "x": 2.5, "y": 1.0, "z": 1.5 }
+  ],
+  "removeEntities": [
+    { "ref": "cart" }
+  ]
+}
+```
+
 Like tile operations, entity operations are replayed from the beginning whenever the active
 keyframe changes, so seeking backwards removes Ponder-created entities and recreates the correct
 state for the target tick.
+
+Notes:
+
+- `ref` identifies which Ponder-owned entity the current action should edit or remove.
+- `sceneEntityId` and `mount` identify stable cross-entity relations. `mount` always points to a
+  stable scene id, not to another `ref`.
+- Relying on raw passenger NBT alone is not recommended for cross-entity scene relationships. The
+  stable registry is what keeps mount and removal behavior deterministic across replay, rebuild,
+  import/export, and editor preview refresh.
 
 ---
 
